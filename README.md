@@ -1,0 +1,20 @@
+# 全日交通量及車種組成－GitHub Pages 備用版
+
+## 發布方式
+
+1. 在 GitHub 建立一個新的 repository。
+2. 將發行壓縮檔解壓縮後，把 `index.html`、`assets` 資料夾及本說明檔上傳到 repository 根目錄。
+3. 進入 repository 的 **Settings → Pages**。
+4. 在 **Build and deployment** 選擇 **Deploy from a branch**。
+5. Branch 選擇 `main`，資料夾選擇 `/ (root)`，再按 **Save**。
+
+## 資料保存方式
+
+- 資料保存於目前瀏覽器的 IndexedDB，關閉或重新整理網頁不會消失。
+- A、B 電腦不會自動同步；請在 A 電腦按「匯出備份」，再到 B 電腦使用「匯入季度資料 → 從其他電腦還原完整備份」。
+- 清除瀏覽器網站資料前，請先匯出備份。
+- GitHub Pages 備用版不支援多人即時分享、帳號權限及雲端同步；這些功能請使用 GPT Site 正式版。
+
+## 未來更新
+
+每次 GPT Site 更新後，重新產生本發行包並以新版的 `index.html` 與 `assets` 完整覆蓋 GitHub repository 內的舊檔案。使用者的交通資料存在瀏覽器中，不會因網站程式更新而被覆蓋，但更新前仍建議先匯出備份。
