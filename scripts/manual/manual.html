@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8" />
-<title>全日交通量及車種組成 新手使用說明手冊 v20.26</title>
+<title>全日交通量及車種組成 新手使用說明手冊 v20.27</title>
 <style>
   :root{
     --navy:#17324d; --teal:#148c8c; --orange:#e58a2b; --ink:#203142;
@@ -104,12 +104,21 @@
     </tbody>
   </table>
 
-  <p class="stamp">系統版本：v20.26　更新日期：2026-08-25</p>
+  <p class="stamp">系統版本：v20.27　更新日期：2026-08-25</p>
 
   <div class="box new" style="text-align:left;max-width:150mm;margin:6mm auto 0;">
-    <span class="t">本版（v20.26）更新內容</span>
+    <span class="t">本版（v20.27）更新內容</span>
 
-    <p><strong>v20.26｜結論草稿的「時段」說明講清楚了。</strong>
+    <p><strong>v20.27｜結論草稿存好的「條件範本」現在會跟著備份走。</strong>
+    您在結論草稿產生器裡存的條件範本，之前<strong>只存在這一台電腦的瀏覽器裡</strong>，
+    匯出的備份檔沒有收，所以換一台電腦匯入之後範本會一個都不剩，
+    而畫面只會顯示匯入成功，不會提醒您少了什麼。本版把條件範本納入
+    「匯出資料備份」的範圍，還原時會寫回去。<strong>建議您重新匯出一份備份</strong>——
+    升版前匯出的舊備份檔裡本來就沒有範本，還原時不會憑空長出來。
+    還原時是<strong>合併</strong>不是覆蓋：同名的範本以備份檔為準，這台電腦上其他名字的
+    範本會保留；舊版備份檔（裡面沒有範本欄位）匯入時<strong>不會</strong>把您現有的範本清掉。</p>
+
+    <p style="margin-top:4mm"><strong>v20.26｜結論草稿的「時段」說明講清楚了。</strong>
     「時段」至少要留一個，這一點沒有變 —— 因為這一區<strong>每一項數字都是寫在
     某一個時段底下的</strong>，全部取消就一行都寫不出來。但常見的需求是
     「我只要全日的數字」，那不是取消全部，<strong>是只勾「全日」</strong>。

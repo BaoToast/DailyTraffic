@@ -4181,6 +4181,15 @@ export default function DashboardClient({ user }: { user: User }) {
         .filter((setting) => setting.projectId === activeProject)
         .map(({ projectId: _projectId, ...setting }) => setting),
       workflow,
+      /*
+       * 結論草稿的「條件範本」也要跟著備份走。
+       *
+       * 它存在 localStorage 的 traffic-conclusion-templates-v1（依計畫分開），
+       * 而備份原本沒有收——使用者在 A 電腦存好幾組常用條件，匯出備份帶到
+       * B 電腦還原之後，範本一個都不在，而畫面只會說「還原完成」。
+       * 那些條件是使用者自己一項一項勾出來的，重建很花時間。
+       */
+      conclusionTemplates: readConclusionTemplates(activeProject),
       records: activeRecords.map(
         ({ projectId: _projectId, ...record }) => record,
       ),
@@ -4212,6 +4221,7 @@ export default function DashboardClient({ user }: { user: User }) {
         roadAliases?: RoadAlias[];
         intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];
         workflow?: WorkflowState;
+        conclusionTemplates?: ConclusionTemplate[];
       };
       if (
         payload.format !== "traffic-analysis-backup" ||
@@ -4456,6 +4466,20 @@ export default function DashboardClient({ user }: { user: User }) {
       history: [...base.history, ...(incoming.history ?? [])].slice(0, 10),
           };
         });
+      }
+      /*
+       * 條件範本：備份裡有就併進來（同名視為同一組，以備份為準）。
+       * 用併入而不是覆蓋，因為使用者可能已經在這台電腦存過別的範本，
+       * 還原一份舊備份不該把它們清掉。
+       */
+      if (Array.isArray(payload.conclusionTemplates) && payload.conclusionTemplates.length) {
+        const existing = readConclusionTemplates(targetProjectId);
+        const byName = new Map(existing.map((item) => [item.name, item]));
+        for (const item of payload.conclusionTemplates)
+          if (item && typeof item.name === "string") byName.set(item.name, item);
+        const merged = [...byName.values()];
+        writeConclusionTemplates(targetProjectId, merged);
+        setConclusionTemplates(merged);
       }
       await refreshRoadAliases(targetProjectId);
       setQuarter(restoredQuarters.sort(compareQuarters).at(-1) ?? quarter);
@@ -6586,14 +6610,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.26.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.27.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.26.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.27.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
