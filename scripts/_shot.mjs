@@ -1,0 +1,35 @@
+import { chromium } from "playwright";
+import http from "node:http";
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { join, extname } from "node:path";
+import { launchOptions } from "./chrome-path.mjs";
+const ROOT = "/home/claude/work/traffic/github-pages/dist";
+const MIME={".html":"text/html",".js":"text/javascript",".css":"text/css",".svg":"image/svg+xml",".png":"image/png"};
+const server=http.createServer((req,res)=>{let p=decodeURIComponent(req.url.split("?")[0]);if(p==="/")p="/index.html";const f=join(ROOT,p);if(!existsSync(f)||statSync(f).isDirectory()){res.writeHead(404);res.end();return;}res.writeHead(200,{"content-type":MIME[extname(f)]??"application/octet-stream"});res.end(readFileSync(f));});
+await new Promise(r=>server.listen(8123,r));
+const b=await chromium.launch(launchOptions());
+const ctx=await b.newContext({viewport:{width:1500,height:1000},locale:"zh-TW"});
+const page=await ctx.newPage();
+page.on("dialog",d=>d.accept());
+await page.goto("http://localhost:8123/");
+await page.waitForTimeout(900);
+await page.locator('button:has-text("建立第一個"), button[aria-label="建立新計畫"]').first().click().catch(()=>{});
+await page.waitForTimeout(500);
+await page.locator(".modal-backdrop .modal input").first().fill("版面檢查");
+await page.locator('.modal-backdrop .modal button:has-text("建立")').first().click();
+await page.waitForTimeout(700);
+await page.locator('.toolbar button:has-text("匯入資料")').first().click();
+await page.waitForTimeout(400);
+await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill("115Q1");
+await page.locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]').setInputFiles({name:"115T1-02_中正路口.xlsx",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",buffer:readFileSync("/home/claude/work/traffic/.samples/115T1-02_中正路口.xlsx")});
+await page.waitForTimeout(2500);
+const c=page.locator('.modal-backdrop button:has-text("確認")');
+if(await c.count()){await c.first().click();await page.waitForTimeout(2500);}
+for(let i=0;i<5&&(await page.locator(".modal-backdrop").count());i++){const x=page.locator('.modal-backdrop button:has-text("關閉"), .modal-backdrop button:has-text("取消"), .modal-backdrop button:has-text("套用車種設定")').first();if(!(await x.count()))break;await x.click();await page.waitForTimeout(500);}
+await page.locator(".pcu-settings").scrollIntoViewIfNeeded();
+await page.locator(".pcu-settings").screenshot({path:"/tmp/pcu.png"});
+await page.locator(".panel.road-chart").scrollIntoViewIfNeeded();
+await page.waitForTimeout(400);
+await page.locator(".panel.road-chart").screenshot({path:"/tmp/block.png"});
+await b.close();server.close();
+console.log("ok");

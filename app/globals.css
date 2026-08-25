@@ -1,0 +1,509 @@
+@import "tailwindcss";
+
+:root{--navy:#17324d;--teal:#148c8c;--orange:#e58a2b;--ink:#203142;--muted:#6f7e8d;--line:#dce5ec;--wash:#f3f7f9;--white:#fff;--shadow:0 12px 35px rgba(23,50,77,.08)}
+*{box-sizing:border-box}html{background:#edf3f6}body{margin:0;color:var(--ink);font-family:"Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;background:linear-gradient(180deg,#f9fbfc 0,#eef4f6 100%);min-width:320px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}.app-shell{min-height:100vh}.topbar{height:114px;padding:22px 34px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;background:var(--navy);border-bottom:4px solid var(--teal)}.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;color:#66d1cb}.topbar h1{margin:2px 0 0;font-size:27px;letter-spacing:.03em}.topbar p{margin:4px 0 0;color:#c4d4df;font-size:12px}.user-chip{display:flex;align-items:center;gap:10px;padding:9px 13px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.05)}.user-chip .avatar{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:var(--teal);font-weight:900}.user-chip strong,.user-chip small{display:block}.user-chip strong{font-size:13px}.user-chip small{font-size:10px;color:#bdcbd6;margin-top:2px}.workspace{display:grid;grid-template-columns:245px minmax(0,1fr);max-width:1720px;margin:auto;min-height:calc(100vh - 114px)}.sidebar{padding:24px 18px;border-right:1px solid var(--line);background:#f9fbfc}.sidebar-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.sidebar-heading div{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--navy)}.sidebar-heading strong{padding:2px 7px;border-radius:10px;color:var(--teal);background:#dff2f1}.icon-button{width:31px;height:31px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-size:20px;line-height:1}.project-list{display:grid;gap:7px}.project-card{width:100%;padding:10px;border:1px solid transparent;border-radius:10px;display:grid;grid-template-columns:34px 1fr;gap:9px;text-align:left;background:transparent;color:var(--ink)}.project-card:hover{background:#fff}.project-card.active{border-color:#9bd2cf;background:#fff;box-shadow:0 5px 16px rgba(23,50,77,.07)}.project-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;color:#fff;background:var(--teal);font-weight:900}.project-card strong,.project-card small{display:block}.project-card strong{font-size:12px;line-height:1.35}.project-card small{margin-top:3px;color:var(--muted);font-size:9px}.side-section{margin-top:26px;padding-top:19px;border-top:1px solid var(--line)}.side-label{display:block;margin-bottom:9px;font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--muted)}.check-row{display:flex;gap:8px;align-items:flex-start;padding:6px 3px;font-size:11px;line-height:1.4}.check-row input{accent-color:var(--teal);margin-top:2px}.side-note{margin-top:22px;padding:14px;border-radius:10px;background:var(--navy);color:#fff}.side-note strong{font-size:11px}.side-note p{font-size:9px;line-height:1.65;color:#c3d2dc;margin:5px 0 0}.content{padding:24px 28px 50px;min-width:0}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:18px}.project-title{display:flex;align-items:center;gap:10px}.status-dot{width:8px;height:32px;border-radius:4px;background:var(--teal)}.project-title small{font-size:9px;color:var(--muted)}.project-title h2{font-size:18px;margin:1px 0 0;color:var(--navy)}.actions{display:flex;gap:7px;align-items:center}.button{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);font-size:11px;font-weight:800}.button.primary{background:var(--teal);border-color:var(--teal);color:#fff}.button.primary:hover{background:#0f7777}.button.secondary{background:#fff;color:var(--navy)}.export-menu{display:flex}.export-menu .primary{border-radius:8px 0 0 8px}.button.split{border-left:1px solid rgba(255,255,255,.3);border-radius:0 8px 8px 0;background:#0c6f70;color:#fff}.filters{display:flex;align-items:end;gap:9px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}.filters label,.modal label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.filters select,.filters input,.modal input,.modal select{height:34px;padding:0 10px;border:1px solid #cad6df;border-radius:7px;background:#fff;color:var(--ink);font-size:11px;outline:none}.filters select:focus,.filters input:focus,.modal input:focus,.modal select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(20,140,140,.1)}.filters .search{min-width:220px}.compare-count{margin-left:auto;padding:8px 11px;border-radius:7px;background:#e6f4f3;color:#0c6f70;font-size:10px;font-weight:900}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-top:14px}.kpi{min-height:118px;padding:17px 18px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow);position:relative;overflow:hidden}.kpi:before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:var(--teal)}.kpi.warning:before{background:var(--orange)}.kpi span{display:block;font-size:10px;font-weight:800;color:var(--muted)}.kpi strong{display:block;margin-top:8px;color:var(--navy);font-size:28px;letter-spacing:-.03em}.kpi strong.text-value{font-size:16px;line-height:1.5;min-height:43px}.kpi small{display:block;margin-top:4px;font-size:9px;color:#83919d}.chart-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:12px;margin-top:12px}.panel{border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}.panel-title{display:flex;justify-content:space-between;align-items:start;padding:16px 18px 12px}.panel-title span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal)}.panel-title h3{font-size:15px;color:var(--navy);margin:3px 0 0}.panel-title>small{font-size:9px;color:var(--muted);margin-top:5px}.road-chart{grid-row:span 2}.bar-list{padding:0 18px 6px}.bar-row{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(180px,2.2fr) 58px;align-items:center;gap:12px;min-height:42px;border-top:1px solid #edf1f4}.bar-label strong,.bar-label small{display:block}.bar-label strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar-label small{font-size:8px;color:#98a3ac;margin-top:2px}.bar-track{height:12px;border-radius:7px;background:#edf2f5;position:relative;overflow:visible}.bar-track span{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--teal),#40aaa5)}.bar-track i{position:absolute;top:-4px;width:2px;height:20px;background:var(--orange);border-radius:1px}.bar-row>b{text-align:right;font-size:10px;color:var(--navy)}.legend{display:flex;gap:17px;padding:9px 18px 15px;border-top:1px solid #edf1f4;font-size:8px;color:var(--muted)}.legend span{display:flex;align-items:center;gap:5px}.legend i{width:12px;height:5px;border-radius:3px;background:var(--teal)}.legend i.divider{width:2px;height:10px;background:var(--orange)}.composition{padding-bottom:15px}.donut{width:180px;height:180px;border-radius:50%;margin:2px auto 15px;display:grid;place-items:center}.donut>div{width:102px;height:102px;border-radius:50%;display:grid;place-content:center;text-align:center;background:#fff;box-shadow:0 0 0 1px #edf1f4}.donut strong{font-size:19px;color:var(--navy)}.donut small{font-size:8px;color:var(--muted)}.composition-list{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;padding:0 18px}.composition-list>div{display:grid;grid-template-columns:1fr auto;gap:2px;padding:8px;border-radius:7px;background:#f6f9fa}.composition-list span{font-size:9px;display:flex;align-items:center;gap:5px}.composition-list i{width:7px;height:7px;border-radius:2px;background:var(--teal)}.composition-list i.orange{background:var(--orange)}.composition-list i.blue{background:#5b8db8}.composition-list i.pale{background:#d8e7f1}.composition-list strong{font-size:10px;color:var(--navy)}.composition-list small{grid-column:1/-1;font-size:8px;color:var(--muted)}.hourly-canvas{width:100%;height:245px;display:block;padding:0 12px 10px}.compare-panel{min-height:288px}.compare-list{padding:0 18px}.compare-list>div{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:center;padding:11px 0;border-top:1px solid #edf1f4}.compare-index{font-size:9px;color:var(--teal);font-weight:900}.compare-list strong,.compare-list small{display:block}.compare-list strong{font-size:10px}.compare-list small{font-size:8px;color:var(--muted);margin-top:2px}.compare-list b{font-size:10px;color:var(--navy)}.text-button{margin:8px 18px 16px;padding:0;border:0;background:none;color:var(--teal);font-size:9px;font-weight:900}.table-panel{margin-top:12px}.table-wrap{overflow:auto;padding:0 18px 18px}.table-wrap table{width:100%;border-collapse:collapse;font-size:9px;white-space:nowrap}.table-wrap th{padding:9px 8px;text-align:right;color:#fff;background:var(--teal);font-weight:800}.table-wrap th:first-child{text-align:left;border-radius:7px 0 0 0}.table-wrap th:last-child{border-radius:0 7px 0 0}.table-wrap td{padding:9px 8px;text-align:right;border-bottom:1px solid #e8eef2}.table-wrap td:first-child{text-align:left;min-width:235px}.table-wrap td strong,.table-wrap td small{display:block}.table-wrap td small{font-size:7px;color:var(--muted);margin-top:2px}.table-wrap tbody tr:hover{background:#f5faf9}.toast{position:fixed;right:24px;bottom:24px;z-index:50;max-width:380px;padding:13px 17px;border-radius:9px;background:var(--navy);color:#fff;box-shadow:0 15px 40px rgba(0,0,0,.18);font-size:11px}.busy{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(23,50,77,.3);backdrop-filter:blur(2px);color:#fff;font-weight:900}.modal-backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;background:rgba(14,32,49,.58);backdrop-filter:blur(5px)}.modal{width:min(480px,100%);padding:22px;border-radius:14px;background:#fff;box-shadow:0 25px 70px rgba(0,0,0,.24);display:grid;gap:15px}.modal>div>span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal)}.modal h3{margin:3px 0 0;color:var(--navy);font-size:18px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal footer{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.help{margin:0;color:var(--muted);font-size:9px;line-height:1.6}.upload-zone{padding:20px;border:1.5px dashed #9abec7;border-radius:10px;background:#f5fafb;text-align:center;cursor:pointer}.upload-zone input{height:auto;border:0;padding:0;margin:auto}.upload-zone span{font-weight:400;margin-top:8px}.modal select{width:100%}
+.topbar{height:128px;padding:18px 34px 16px}.topbar p{margin:3px 0 5px}.version-badge{display:inline-flex;align-items:center;padding:3px 8px;border:1px solid rgba(102,209,203,.35);border-radius:999px;background:rgba(20,140,140,.18);color:#9fe4df;font-size:9px;font-weight:800;letter-spacing:.03em}.workspace{min-height:calc(100vh - 128px)}
+.road-manager-launch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;padding:10px 14px;border:1px solid #cfe2e5;border-radius:10px;background:linear-gradient(90deg,#eef8f7,#fff)}.road-manager-launch strong,.road-manager-launch small{display:block}.road-manager-launch strong{font-size:11px;color:var(--navy)}.road-manager-launch small{margin-top:2px;font-size:9px;color:var(--muted)}.road-manager-modal{width:min(680px,100%);max-height:92vh;overflow:auto}.road-impact{display:flex;justify-content:space-between;gap:12px;padding:9px 11px;border-radius:8px;background:#edf6f6;color:var(--teal);font-size:10px}.alias-list{display:grid;gap:3px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:9px}.alias-list strong{color:var(--navy)}.alias-list span{color:var(--muted);line-height:1.5}.merge-box{padding:13px;border:1px solid #f0d7bb;border-radius:10px;background:#fff8ef}.merge-box>strong{font-size:11px;color:#9a5b17}.merge-box p{margin:4px 0 9px;color:#8a6a46;font-size:9px;line-height:1.55}.merge-box>div{display:flex;gap:8px}.merge-box select{flex:1;height:36px;padding:0 9px;border:1px solid #ddc6ad;border-radius:7px;background:#fff}.button.danger{border-color:#e2b7b7;background:#fff4f4;color:#a33}.button.danger:hover{background:#fce3e3}
+.drag-zone{display:grid;gap:7px;min-height:132px;place-content:center;transition:.18s ease;border-width:2px}.drag-zone input{position:absolute;width:1px!important;height:1px!important;opacity:0;pointer-events:none}.drag-zone strong{font-size:14px;color:var(--navy)}.drag-zone.drag-active{border-color:var(--teal);background:#e5f6f4;transform:scale(1.01);box-shadow:0 0 0 4px rgba(20,140,140,.12)}.manager-launch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.intersection-launch{border-left:4px solid var(--orange)}.vehicle-launch{border-left:4px solid #5b8db8}.turn-factor-modal,.intersection-manager-modal,.vehicle-class-modal{width:min(1180px,100%);max-height:94vh;overflow:auto}.turn-factor-table,.vehicle-class-table{overflow:auto}.turn-factor-table table,.vehicle-class-table table{width:100%;border-collapse:collapse}.turn-factor-table th,.turn-factor-table td,.vehicle-class-table th,.vehicle-class-table td{padding:8px;border:1px solid #dfe8ed;text-align:center}.turn-factor-table thead th,.vehicle-class-table thead th{color:#fff;background:var(--teal)}.turn-factor-table tbody th,.vehicle-class-table tbody th{background:#f2f7f8;color:var(--navy)}.turn-factor-table input,.vehicle-class-table input,.vehicle-class-table select{width:100%;min-width:86px;text-align:center}.vehicle-class-table table{min-width:920px}.vehicle-class-table td:first-child{min-width:150px;text-align:left}.vehicle-class-table td:nth-child(2){min-width:240px}.vehicle-class-table input:disabled{background:#edf2f4;color:#7d8f98}.geometry-workspace{display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,1.15fr);gap:16px;align-items:start}.arm-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:500px;overflow:auto}.arm-settings section{display:grid;grid-template-columns:1fr;gap:8px;padding:13px;border:1px solid var(--line);border-radius:10px;background:#f7fafb}.arm-settings section>strong{color:var(--teal);font-size:13px}.arm-settings small{display:block;color:#678091;margin-top:3px}.geometry-preview{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdfd}.intersection-geometry-diagram{display:block;width:100%;max-height:460px;margin:auto}.geometry-junction{fill:#eef4f5;stroke:#17324d;stroke-width:2}.geometry-arm{stroke:#9bb0bd;stroke-width:24;stroke-linecap:round}.geometry-arm.selected{stroke:#f0b66e}.geometry-arm-code{fill:#fff;stroke:#148c8c;stroke-width:3}.geometry-code{font-size:14px;font-weight:800;fill:#17324d}.geometry-label{font-size:11px;font-weight:700;fill:#17324d}.geometry-center{font-size:14px;font-weight:800;fill:#17324d}.geometry-center-sub{font-size:9px;fill:#587080}.route-mapping{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:14px;background:#f8fbfb}.route-mapping h4{margin:0 0 4px;color:var(--navy)}.route-mapping>p{margin:0 0 10px;color:#607789;font-size:12px}.route-mapping details{border-top:1px solid #dbe6ea;padding:8px 0}.route-mapping summary{cursor:pointer;font-weight:700;color:var(--teal)}.route-mapping table{min-width:560px}.route-mapping th,.route-mapping td{padding:7px 10px}.route-mapping select{min-width:100px}.intersection-table th{background:#11777a}.intersection-table td:first-child{min-width:220px}
+@media(max-width:760px){.manager-launch-grid,.arm-settings,.geometry-workspace{grid-template-columns:1fr}.intersection-manager-modal{max-height:94vh;overflow:auto}.intersection-geometry-diagram{max-height:360px}}
+@media(max-width:1100px){.workspace{grid-template-columns:205px 1fr}.content{padding:20px 18px}.toolbar{align-items:flex-start}.actions{flex-wrap:wrap;justify-content:flex-end}.kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.road-chart{grid-row:auto}.filters{flex-wrap:wrap}.compare-count{margin-left:0}}
+@media(max-width:760px){.topbar{height:auto;padding:18px;align-items:flex-start;gap:14px}.topbar h1{font-size:21px}.topbar p{display:none}.user-chip small{display:none}.workspace{display:block}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:14px}.project-list{display:flex;overflow:auto}.project-card{min-width:220px}.side-section,.side-note{display:none}.content{padding:15px 12px 35px}.toolbar{display:block}.actions{margin-top:12px;justify-content:flex-start}.filters{display:grid;grid-template-columns:1fr 1fr}.filters .search{min-width:0;grid-column:1/-1}.compare-count{grid-column:1/-1}.kpi-grid{grid-template-columns:1fr 1fr}.kpi{min-height:105px;padding:14px}.kpi strong{font-size:22px}.chart-grid{display:block}.panel{margin-top:10px}.bar-row{grid-template-columns:minmax(110px,1fr) 1.5fr 50px;gap:7px}.composition-list{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}}
+@media(max-width:460px){.topbar{display:block}.user-chip{margin-top:12px}.kpi-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.filters .search,.compare-count{grid-column:auto}.actions .button{padding:0 9px;font-size:9px}.bar-row{grid-template-columns:110px 1fr 45px}.bar-label strong{font-size:9px}}
+.manual-menu{display:flex}.manual-download{display:inline-flex;align-items:center;text-decoration:none;border-color:#8dc9c6!important;color:#0c6f70!important}.manual-download:hover{background:#e9f7f6}.manual-download:first-child{border-radius:8px 0 0 8px}.manual-download.compact{border-left:0;border-radius:0 8px 8px 0;padding-inline:10px}
+
+.mapping-warning{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding:11px 14px;border:1px solid #efc38f;border-left:4px solid var(--orange);border-radius:10px;background:#fff8ee;color:#7d4b16}.mapping-warning strong,.mapping-warning span{display:block}.mapping-warning strong{font-size:11px}.mapping-warning span{margin-top:3px;font-size:9px;line-height:1.5}.destination-mapping{background:#fffaf4;border-color:#efd8bd}.destination-mapping .table-wrap{padding:0}.destination-mapping td:first-child{min-width:150px}.destination-mapping select{min-width:160px}.destination-mapping td small{display:block;margin-top:2px;color:var(--muted);font-size:8px}
+@media(max-width:760px){.mapping-warning{align-items:flex-start;flex-direction:column}.destination-mapping select{min-width:135px}}
+
+/* Traffic and PCU analysis */
+.kpi-grid{grid-template-columns:repeat(4,1fr)}
+.kpi.pcu:before{background:var(--orange)}
+.kpi small{line-height:1.45}
+.bar-row{grid-template-columns:minmax(150px,1.2fr) minmax(180px,2.2fr) 92px;min-height:52px}
+.bar-pair{display:grid;gap:4px}
+.bar-pair .bar-track{height:10px;overflow:hidden}
+.bar-pair .pcu-track{height:7px}
+.bar-pair .pcu-track span{background:linear-gradient(90deg,var(--orange),#f2ad62)}
+.bar-row>b strong,.bar-row>b small{display:block}
+.bar-row>b small{margin-top:3px;color:var(--muted);font-size:8px;font-weight:500}
+.legend i.pcu-legend{background:var(--orange)}
+.legend i.pcu-line{height:2px;border-radius:0;background:var(--orange)}
+.chart-legend{justify-content:flex-end;padding-top:4px}
+.direction-panel{grid-column:1/-1}
+.direction-list{padding:0 18px 16px}
+.direction-row{display:grid;grid-template-columns:minmax(190px,1fr) repeat(2,minmax(250px,2fr));gap:16px;align-items:center;padding:10px 0;border-top:1px solid #edf1f4}
+.direction-road strong,.direction-road small{display:block}
+.direction-road strong{font-size:10px}
+.direction-road small{margin-top:2px;color:var(--muted);font-size:8px}
+.direction-side{display:grid;grid-template-columns:18px minmax(80px,1fr) 62px 72px;gap:7px;align-items:center;font-size:9px}
+.direction-side>span{font-weight:900;color:var(--teal)}
+.direction-side>b{text-align:right;color:var(--navy)}
+.direction-side>small{color:var(--muted);white-space:nowrap}
+.direction-track{height:9px;overflow:hidden;border-radius:6px;background:#edf2f5}
+.direction-track i{display:block;height:100%;border-radius:6px;background:var(--teal)}
+.direction-track.b i{background:var(--orange)}
+@media(max-width:1350px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.direction-row{grid-template-columns:1fr}.direction-side{grid-template-columns:18px minmax(80px,1fr) 62px 72px}}
+@media(max-width:760px){.bar-row{grid-template-columns:minmax(110px,1fr) 1.5fr 72px}.direction-row{gap:8px}.direction-side{grid-template-columns:18px minmax(70px,1fr) 55px 68px}}
+@media(max-width:460px){.kpi-grid{grid-template-columns:1fr}.bar-row{grid-template-columns:105px 1fr 68px}.direction-side{grid-template-columns:16px 1fr 50px}.direction-side>small{grid-column:2/-1;text-align:right}}
+.peak-kpi{grid-column:span 2;min-height:156px;overflow:visible}
+.peak-directions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.peak-directions>span{padding:7px 8px;border-radius:7px;background:#f5f8fa;color:var(--navy);font-size:9px;font-weight:800;line-height:1.35}
+.peak-directions b,.peak-directions em{display:block}
+.peak-directions b{margin-bottom:2px;color:var(--teal);font-size:8px}
+.peak-directions em{margin-top:2px;color:var(--muted);font-size:7px;font-style:normal;font-weight:500}
+@media(max-width:760px){.peak-kpi{grid-column:1/-1}.peak-directions{grid-template-columns:1fr}}
+
+/* Professional comparisons and trend analysis */
+.comparison-panel,.trend-panel,.project-compare{margin-top:12px}
+.composition-heading{padding-bottom:8px}.composition-heading h3{font-size:13px}.composition-controls{display:grid;grid-template-columns:1fr 1.35fr;gap:6px;padding:0 18px 12px}.composition-controls select{height:31px;min-width:0;padding:0 7px;border:1px solid #ccd9e1;border-radius:7px;background:#fff;color:var(--ink);font-size:9px}
+.segmented{display:flex;padding:3px;border-radius:8px;background:#eef3f6}
+.segmented button{padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:9px;font-weight:800}
+.segmented button.active{background:#fff;color:var(--teal);box-shadow:0 2px 8px rgba(23,50,77,.12)}
+.comparison-list{padding:0 18px 16px}
+.comparison-row{display:grid;grid-template-columns:minmax(210px,1.1fr) minmax(430px,2.4fr) 68px;gap:18px;align-items:center;padding:13px 0;border-top:1px solid #e8eef2}
+.comparison-row>div:first-child strong,.comparison-row>div:first-child small{display:block}
+.comparison-row>div:first-child strong{font-size:11px;color:var(--navy)}
+.comparison-row>div:first-child small{margin-top:3px;color:var(--muted);font-size:8px}
+.comparison-bars{display:grid;gap:7px}
+.comparison-bars>span{display:grid;grid-template-columns:30px minmax(130px,1fr) 135px;gap:9px;align-items:center}
+.comparison-bars b{font-size:9px;color:var(--muted)}
+.comparison-bars i{height:9px;overflow:hidden;border-radius:8px;background:#edf2f5}
+.comparison-bars em{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--teal),#48aaa7)}
+.comparison-bars em.holiday{background:linear-gradient(90deg,var(--orange),#f0ad64)}
+.comparison-bars strong{font-size:9px;text-align:right;color:var(--navy)}
+.delta{padding:6px 5px;border-radius:6px;text-align:center;font-size:9px;font-weight:900}
+.delta.up{color:#a9550d;background:#fff2e4}.delta.down{color:#087879;background:#e5f4f3}
+.trend-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.trend-controls select{height:31px;max-width:230px;padding:0 9px;border:1px solid #ccd9e1;border-radius:7px;background:#fff;color:var(--ink);font-size:9px}
+.trend-canvas{display:block;width:100%;height:300px;padding:0 16px}
+.project-bars{padding:0 18px 17px}
+.project-bars>div{display:grid;grid-template-columns:28px minmax(180px,.8fr) minmax(240px,1.8fr) 180px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid #e8eef2}
+.project-bars strong,.project-bars small{display:block}.project-bars strong{font-size:10px}.project-bars small{margin-top:3px;font-size:8px;color:var(--muted)}
+.project-track{height:12px;border-radius:8px;background:#edf2f5;overflow:hidden}.project-track i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--teal),#48aaa7)}
+.project-bars b{text-align:right;color:var(--navy);font-size:10px}.project-bars b small{font-weight:500}
+.panel-title h3{line-height:1.4}.table-wrap th{line-height:1.35}.hourly{min-width:0}
+@media(max-width:1000px){.comparison-row{grid-template-columns:1fr}.delta{justify-self:end}.project-bars>div{grid-template-columns:28px 1fr}.project-track{grid-column:2/-1}.project-bars b{grid-column:2/-1;text-align:left}.trend-controls{justify-content:flex-start}}
+@media(max-width:620px){.comparison-bars>span{grid-template-columns:28px 1fr}.comparison-bars strong{grid-column:2;text-align:left}.trend-controls{display:grid;grid-template-columns:1fr}.trend-controls select{max-width:none}.panel-title{display:block}.segmented{margin-top:10px;width:max-content}.composition-controls{grid-template-columns:1fr}}
+
+.pcu-settings{display:grid;grid-template-columns:minmax(220px,1fr) minmax(430px,1.7fr) auto;align-items:end;gap:16px;margin-top:12px;padding:14px 16px;border:1px solid #cbdde2;border-left:4px solid var(--orange);border-radius:11px;background:#fff;box-shadow:var(--shadow)}
+.pcu-settings>div:first-child span,.pcu-settings>div:first-child strong{display:block}.pcu-settings>div:first-child span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--orange)}.pcu-settings>div:first-child strong{margin-top:4px;font-size:12px;color:var(--navy)}
+.factor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.factor-grid label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.factor-grid input{width:100%;height:34px;padding:0 9px;border:1px solid #cad6df;border-radius:7px;color:var(--navy);font-weight:800}.factor-grid input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(229,138,43,.12)}
+.factor-actions{display:flex;gap:7px}.excel-compat-note{margin:8px 2px 0;color:#6b7c88;font-size:9px;line-height:1.5}.panel-actions{display:grid;justify-items:end;gap:5px}.panel-actions small{font-size:9px;color:var(--muted)}.panel-export{height:27px;padding:0 9px;border:1px solid #9bc9c7;border-radius:6px;background:#f2fbfa;color:#0c7070;font-size:8px;font-weight:900}.panel-export:hover{background:#dff3f1}
+/* PCU 設定區三欄的最小寬度合計約 887px，加上左側 245px 的側欄，整頁要
+   1160px 才塞得下。單欄化的斷點原本設在 1100px，於是 1101～1155px 之間
+   整頁會出現水平捲軸（實測 1101px 時溢出 59px）。把斷點提高到 1250px。 */
+@media(max-width:1250px){.pcu-settings{grid-template-columns:1fr}.factor-actions{justify-content:flex-start}}
+@media(max-width:620px){.factor-grid{grid-template-columns:1fr 1fr}.pcu-settings{padding:13px}.panel-actions{justify-items:start;margin-top:8px}}
+
+.button.danger{margin-right:auto;border-color:#e7b3ae;background:#fff5f4;color:#a83b32}.button.danger:hover{background:#ffe6e3}.backup-zone{border-color:#b8c5d2;background:#f7f9fb}.actions{flex-wrap:wrap;justify-content:flex-end}
+.quality-strip{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:10px;align-items:center;margin:12px 0;padding:12px 14px;border:1px solid #cfe2e5;border-radius:11px;background:#fff;box-shadow:var(--shadow)}.quality-strip div{display:grid;gap:3px}.quality-strip span{font-size:9px;color:var(--muted)}.quality-strip strong{font-size:11px;color:var(--navy)}.workflow-modal{width:min(980px,100%);max-height:94vh;overflow:auto}.validation-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.validation-grid>div{padding:10px;border-radius:8px;background:#f2f7f8}.validation-grid small,.validation-grid strong{display:block}.validation-grid small{color:var(--muted);font-size:9px}.validation-grid strong{margin-top:3px;color:var(--navy);font-size:13px}.workflow-list,.workflow-warning,.workflow-ok,.report-template-box{padding:12px;border:1px solid var(--line);border-radius:9px}.workflow-list strong,.workflow-warning strong,.report-template-box>strong{color:var(--navy);font-size:11px}.workflow-list p,.workflow-warning p,.workflow-ok p,.report-template-box p{margin:5px 0;font-size:9px;line-height:1.6}.workflow-warning{border-color:#efc68f;background:#fff8ed;color:#8b5a1d}.workflow-warning small{display:block;margin:2px 0}.workflow-ok{border-color:#acd7cd;background:#eff9f6;color:#176b5d}.threshold-grid,.export-checks{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.history-list{display:grid;gap:8px;max-height:310px;overflow:auto}.history-list article{display:flex;justify-content:space-between;gap:12px;padding:11px;border:1px solid var(--line);border-radius:9px}.history-list article>div{display:grid;gap:3px}.history-list article>div:last-child{display:flex;align-items:center}.history-list small,.history-list span{font-size:9px;color:var(--muted)}.source-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #e5ecef}.source-row>span{font-size:10px}.source-row small{display:block;color:var(--muted)}.trace-preview{max-height:220px;overflow:auto}.trace-preview>div{display:grid;gap:2px;padding:6px 0;border-top:1px solid #edf1f3}.trace-preview span{font-size:9px}.trace-preview small{font-size:8px;color:var(--muted)}.template-create{display:flex;gap:8px}.template-create input{flex:1}.report-template-box{display:grid;gap:7px;background:#f8fbfc}.status-定稿{background:#2f9d6a}.status-已確認{background:#3e87bb}.status-待確認{background:#e58a2b}.status-草稿{background:#9aa8b2}
+@media(max-width:900px){.quality-strip{grid-template-columns:1fr 1fr}.validation-grid{grid-template-columns:repeat(2,1fr)}.threshold-grid,.export-checks{grid-template-columns:1fr 1fr}}
+.empty-project-list{margin:8px 2px;padding:12px;border:1px dashed #b9cbd7;border-radius:9px;color:var(--muted);font-size:10px;line-height:1.5}.empty-state{margin-bottom:14px;padding:24px;border:1px dashed #94c8c5;border-radius:12px;background:#f3fbfa;text-align:center}.empty-state strong{display:block;color:var(--navy);font-size:18px}.empty-state p{max-width:650px;margin:8px auto 16px;color:var(--muted);font-size:11px;line-height:1.7}
+.offline-note{margin:0 0 12px;padding:11px 14px;border:1px solid #f0cf9f;border-radius:9px;background:#fff8ed;color:#76501d;font-size:10px;line-height:1.6}.offline-note strong{color:#a55a08}
+
+/* 時段車種分析（獨立區塊） */
+.period-panel{margin-top:18px;border-color:#bcdedd}.period-panel .panel-title span{color:#0c6f70}.period-help{padding:0 18px;margin:0 0 12px}.period-help strong{color:var(--navy)}
+.period-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:0 18px 14px}.period-controls label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.period-controls select{height:32px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:11px;color:var(--ink)}
+.period-scope-picker{display:grid;gap:4px;flex:1;min-width:220px}.period-scope-picker>span{font-size:9px;font-weight:800;color:var(--muted)}.period-scope-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip-toggle{height:28px;padding:0 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--navy);font-size:10px;font-weight:700;cursor:pointer}.chip-toggle:hover{border-color:var(--teal)}.chip-toggle.selected{border-color:var(--teal);background:var(--teal);color:#fff}
+.period-table th small{display:block;font-weight:600;opacity:.85}.period-table td small{display:block;color:var(--muted);font-size:8px}.period-table tbody tr.period-total-row{background:#f4fafa}.period-table tbody tr.period-total-row td:first-child strong{color:#0c6f70}
+.period-empty{padding:0 18px 18px}
+.export-period-box{display:grid;gap:9px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#f8fbfc}.export-period-box>strong{font-size:10px;color:var(--navy)}.export-period-group{display:grid;gap:5px}.export-period-group>span{font-size:9px;font-weight:800;color:var(--muted)}.export-period-chips{display:flex;flex-wrap:wrap;gap:6px}
+@media(max-width:760px){.period-controls{padding:0 12px 12px}.period-help{padding:0 12px}}
+/* 匯出中心的勾選列：.modal label 的 display:grid 會蓋掉 .check-row 的 flex，
+   讓核取方塊變成一個 34px 高的大方塊、獨占一整列、文字被擠到下面。
+   這裡把勾選列改回「方框在左、文字在右」的正常樣子。 */
+.modal label.check-row{display:flex;align-items:flex-start;gap:8px;font-size:11px;font-weight:600;color:var(--ink)}
+.modal label.check-row input[type=checkbox]{width:16px;height:16px;min-width:16px;flex:none;height:16px;padding:0;margin-top:1px}
+
+/* 部分時段（上下午各 N 小時）調查的提醒，放在明細表格上方。
+   注意：本專案沒有通用的 .warning 樣式，必須自己畫框，
+   否則文字會貼齊面板邊緣並溢出框線。 */
+.partial-day-note {
+  margin: 0 18px 14px;
+  padding: 12px 14px;
+  border: 1px solid #f0d7bb;
+  border-left: 4px solid var(--orange);
+  border-radius: 10px;
+  background: #fff8ef;
+  overflow-wrap: anywhere;
+}
+.partial-day-note b {
+  display: block;
+  color: #9a5b17;
+  font-size: 11px;
+}
+.partial-day-note p {
+  margin: 5px 0 0;
+  color: #7c5f3f;
+  font-size: 10px;
+  line-height: 1.75;
+}
+.partial-day-note small {
+  display: block;
+  margin-top: 7px;
+  color: #8a7154;
+  font-size: 9px;
+  line-height: 1.75;
+}
+
+/* 路口流量視角的說明文字：兩種視角最容易搞混，一定要在選單旁邊講清楚 */
+.flow-mode-hint {
+  display: block;
+  max-width: 340px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+/* ── 各分析區塊自己的篩選列 ──────────────────────────────
+   刻意沿用全站既有的尺度（9px 標籤 + 31px 控制項 + 0 18px 內距），
+   與 .filters／.period-controls／.composition-controls 一致，
+   才不會在每個面板插進一塊風格突兀、又把面板高度撐開的區域。
+   用 auto-fit 網格：寬面板排成一列，窄面板（右欄）自動折成兩列。 */
+.block-filters{
+  display:grid;
+  /* 上限 200px：寬面板不會把四個下拉拉成又長又空的樣子 */
+  grid-template-columns:repeat(auto-fit,minmax(104px,200px));
+  gap:7px 8px;
+  padding:0 18px 12px;
+}
+.block-filters label{
+  display:grid;
+  gap:4px;
+  min-width:0;
+  font-size:9px;
+  font-weight:800;
+  color:var(--muted);
+}
+.block-filters select{
+  width:100%;
+  min-width:0;
+  height:31px;
+  padding:0 7px;
+  border:1px solid #ccd9e1;
+  border-radius:7px;
+  background:#fff;
+  color:var(--ink);
+  font-size:10px;
+  outline:none;
+}
+.block-filters select:focus{
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(20,140,140,.1);
+}
+/* 時段車種分析：區塊內的篩選列與下方控制項之間留一條細線 */
+.period-scope-filters{
+  border-bottom:1px solid #edf1f4;
+  margin-bottom:12px;
+}
+.period-filter-hint{
+  grid-column:1/-1;
+  align-self:end;
+  font-size:9px;
+  font-weight:400;
+  color:var(--muted);
+  line-height:1.6;
+}
+.export-period-hint{
+  display:block;
+  margin-top:6px;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.6;
+}
+
+/* 儀表板三個面板的排法。
+   舊排法是「路段排名」佔左欄跨兩列，右欄疊「車種組成」與「24小時型態」。
+   問題是右欄兩個面板加起來遠比左欄高（實測 1162px vs 341px），左欄下方
+   就留下一大片空白；而 24小時型態是折線圖，擠在 396px 寬的右欄裡也很難看。
+   改成：左欄放「路段排名」與「24小時型態」（折線圖因此有 791px 可用），
+   右欄由「車種組成」獨佔兩列。剩下的空隙落在窄的右欄，同時整體高度從
+   1162px 降到 824px。全部都是版面設定，不影響任何數值或篩選。 */
+.road-chart{grid-column:1;grid-row:1;align-self:start}
+.composition{grid-column:2;grid-row:1 / span 2;align-self:start}
+.hourly{grid-column:1;grid-row:2}
+
+/* 單欄時（1100px 以下）不指定行列，讓面板照 HTML 順序往下排。 */
+@media(max-width:1100px){
+  .road-chart,.composition,.hourly{grid-column:auto;grid-row:auto}
+}
+
+/* 匯出中心：本次匯出的資料範圍 */
+.export-scope{
+  padding:12px 0 4px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8fbfc;
+}
+.export-scope-head{padding:0 18px 8px}
+.export-scope-head strong{display:block;font-size:11px;color:var(--navy)}
+.export-scope-head small{display:block;margin-top:3px;font-size:9px;color:var(--muted);line-height:1.6}
+.export-scope .block-filters{padding-bottom:8px}
+.export-scope-summary{margin:0;padding:0 18px 6px;font-size:10px;color:var(--ink);line-height:1.7}
+.export-scope-summary b{color:var(--teal)}
+.export-scope-note{margin:0;padding:0 18px 12px;font-size:9px;color:var(--muted);line-height:1.7}
+.export-scope-note b{color:var(--navy)}
+
+/* 報告文字草稿 */
+.report-draft-box{
+  margin-top:14px;padding:14px 16px;border:1px solid var(--line);
+  border-left:4px solid var(--teal);border-radius:11px;background:#f8fbfc;
+}
+.report-draft-head{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.report-draft-head strong{display:block;font-size:12px;color:var(--navy)}
+.report-draft-head .help{margin:4px 0 0;max-width:640px}
+.report-draft-actions{display:flex;gap:6px;flex-wrap:wrap}
+.draft-section-picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.chip-check{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 9px;
+  border:1px solid var(--line);border-radius:999px;background:#fff;
+  font-size:9px;color:var(--ink);cursor:pointer;white-space:nowrap;
+}
+.chip-check input{margin:0}
+.report-draft-text{
+  width:100%;padding:11px 12px;border:1px solid #cbdde2;border-radius:9px;
+  background:#fff;font:inherit;font-size:11px;line-height:1.9;resize:vertical;
+}
+
+/* 歷季異常提醒的篩選與清單 */
+.anomaly-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0 8px}
+.anomaly-filters label{display:block;font-size:9px;font-weight:800;color:var(--navy)}
+.anomaly-filters select{width:100%;margin-top:4px;height:31px;padding:0 8px;border:1px solid #cbdde2;border-radius:7px;background:#fff;font:inherit;font-size:10px}
+.anomaly-type-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.anomaly-type-chips .chip-toggle:disabled{opacity:.4;cursor:not-allowed}
+.anomaly-hint{display:block;margin:4px 0 8px;font-size:9px;color:var(--muted);line-height:1.7}
+.anomaly-table{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}
+.anomaly-table table{width:100%;border-collapse:collapse;font-size:10px}
+.anomaly-table th{position:sticky;top:0;background:#eef4f6;color:#52666d;text-align:left;padding:8px 10px;white-space:nowrap;z-index:1}
+.anomaly-table td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
+
+.status-effect{display:block;margin-top:5px;font-size:9px;color:var(--muted);line-height:1.7}
+
+/* 匯出範圍警告：搜尋關鍵字會讓匯出少掉工作表，而搜尋框不在這個視窗裡。 */
+.export-scope-warning{display:block;margin-top:8px;padding:9px 11px;border-radius:8px;background:#fff4e6;border-left:3px solid #c9761f;color:#8a5312;font-size:12px;line-height:1.7;font-weight:700}
+
+/* ══════════ 版面修正（全面稽核） ══════════════════════════════════
+   稽核在多個寬度實測到三類問題：按鈕被壓成「一行一個字」甚至畫到面板外、
+   特定寬度區間整頁左右捲動、以及 media query 的斷點比內容真正撐不下的
+   寬度晚了 100～200px（中間那段沒人管）。 */
+
+/* 1. 按鈕永遠不要被壓縮成直條。
+      實測 1280px（常見筆電寬度）「套用係數」只剩 51px 寬、63px 高的文字，
+      其中兩個字畫在面板外面，白字白底看不見。 */
+.factor-actions,
+.head-buttons,
+.panel-actions,
+.report-items-actions,
+.draft-section-picker,
+.export-actions{flex-wrap:wrap}
+.factor-actions>button,
+.manager-launch-grid .road-manager-launch>button,
+.panel-actions>button,
+.report-items-actions>button{flex:none;white-space:nowrap}
+.button,button{white-space:nowrap}
+
+/* 2. 上方篩選列沒有 flex-wrap，1101～1375px 之間搜尋框與「已選 N 個計畫」
+      會被推出視窗外，整頁跟著左右捲動（實測 1160px 溢出 216px）。 */
+.filters{flex-wrap:wrap}
+.filters .search{flex:1 1 220px}
+.filters .compare-count{margin-left:auto;white-space:nowrap;flex:none}
+/* 篩選列裡有一個 label 底下多帶一行說明，align-items:end 會讓它單獨往上跑
+   36～51px。改成頂端對齊，整排就齊了。 */
+.filters{align-items:flex-start}
+
+/* 3. 三張管理卡片的按鈕在 761～949px 之間同樣被壓成直條。 */
+@media(max-width:960px){
+  .manager-launch-grid{grid-template-columns:1fr}
+  .road-manager-launch{flex-wrap:wrap}
+}
+
+/* 4. PCU 係數區塊的救援斷點比內容真正撐不下的寬度晚 37px。 */
+@media(max-width:1290px){.pcu-settings{grid-template-columns:minmax(0,1fr)}}
+
+/* 5. KPI 區塊在 1101～1350px 用三欄，但內容是 1+1+2 的排法，
+      三欄剛好塞不下，右邊固定空掉整整一欄（實測 319×420px）。改用兩欄。 */
+@media(max-width:1350px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* 6. 各面板的下拉選單被 200px 上限截斷，長路口名稱看不到結尾。
+      放寬上限並讓短選單不要佔用多餘空間。 */
+.block-filters{grid-template-columns:repeat(auto-fit,minmax(104px,320px))}
+
+/* 7. modal 沒有高度上限，844×390 這種矮視窗下頁尾按鈕會落在畫面外且捲不到。 */
+.modal-backdrop{overflow:auto;align-items:start}
+.modal{max-height:92vh;overflow:auto}
+
+/* 8. 沒有任何 @media print，列印時右側會被裁掉、寬表格整段消失。
+      列印時隱藏純操作用的元件，並讓表格完整展開。 */
+@media print{
+  .filters,.block-filters,.panel-actions,.export-menu,.manual-menu,
+  .actions,.manager-launch-grid,.modal-backdrop,.toast,
+  .sidebar,.offline-note{display:none!important}
+  .app-shell,.workspace,.content{display:block!important;margin:0!important;padding:0!important}
+  .table-wrap{overflow:visible!important;max-height:none!important}
+  .panel,.kpi,article{break-inside:avoid;box-shadow:none!important}
+  body{background:#fff!important}
+}
+
+/* 9. 字級與對比：帶資料的文字不要小於 11px，灰字加深到 4.5:1 以上。
+      7～8px 的路段代碼、單位、尖峰時段都是使用者要讀的內容，不是裝飾。 */
+.bar-label small,
+.kpi small,
+.peak-directions em,
+.table-wrap td small,
+.excel-compat-note{font-size:11px}
+.bar-label small{color:#5c6a75}
+.kpi small{color:#5c6a75}
+.peak-directions em{color:#5c6a75}
+.excel-compat-note{color:#4f5f6b}
+.pcu-settings>div:first-child span{color:#a9600f;font-size:11px}
+
+/* ── 結論草稿產生器（v20.17 新增） ─────────────────────────── */
+.conclusion-panel{margin-top:12px}
+.conclusion-panel>.help{padding:0 18px 4px}
+.conclusion-body{padding:4px 18px 18px}
+.conclusion-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.conclusion-count{padding:6px 12px;border-radius:999px;background:#e6f4f3;color:#0c6f70;font-size:10px;font-weight:900;white-space:nowrap}
+.conclusion-count.zero{background:#fdeeea;color:#a4472f}
+.conclusion-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.conclusion-field{min-width:0;margin:0;padding:11px 13px 13px;border:1px solid var(--line);border-radius:10px;background:#fbfdfd}
+.conclusion-field-wide{grid-column:1/-1}
+.conclusion-field legend{padding:0 6px;font-size:10px;font-weight:900;color:var(--teal)}
+.conclusion-radios,.conclusion-checks{display:flex;flex-wrap:wrap;gap:7px 15px;margin-bottom:7px}
+.conclusion-radios label,.conclusion-checks label,.conclusion-list label{display:flex;align-items:center;gap:6px;min-width:0;font-size:11px;font-weight:500;color:var(--ink);cursor:pointer}
+.conclusion-radios input,.conclusion-checks input,.conclusion-list input,.conclusion-metrics input{accent-color:var(--teal)}
+.conclusion-list{display:grid;gap:5px;max-height:180px;overflow:auto;padding:2px 2px 2px 0}
+.conclusion-list label{word-break:break-word}
+.conclusion-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;font-weight:500;color:var(--ink)}
+.conclusion-inline select{height:32px;min-width:92px;padding:0 8px;border:1px solid #cad6df;border-radius:7px;background:#fff;font-size:11px}
+.conclusion-hint{margin:5px 0 0;font-size:9px;line-height:1.65;color:var(--muted)}
+.conclusion-metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:7px}
+.conclusion-metrics label{display:flex;align-items:flex-start;gap:8px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:11px;line-height:1.5;cursor:pointer}
+.conclusion-metrics label.selected{border-color:var(--teal);background:#eef8f7}
+.conclusion-metrics input{margin-top:2px;flex:none}
+.conclusion-templates{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.conclusion-templates>strong{display:block;margin-bottom:7px;font-size:11px;color:var(--navy)}
+.conclusion-actions-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.conclusion-actions-row input{flex:1 1 180px;min-width:160px;height:34px;padding:0 10px;border:1px solid #cad6df;border-radius:7px;background:#fff;font-size:11px}
+.conclusion-template-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.conclusion-template{display:inline-flex;align-items:center;overflow:hidden;border:1px solid #cfdcdf;border-radius:999px;background:#fff}
+.conclusion-template button{padding:6px 11px;border:0;background:transparent;color:var(--navy);font-size:10px;font-weight:700}
+.conclusion-template button.danger{padding:6px 9px;border-left:1px solid #e6eef0;color:#a4472f}
+.conclusion-output{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.conclusion-output>.conclusion-head>strong{font-size:11px;color:var(--navy)}
+.conclusion-output textarea{width:100%;min-height:360px;margin-top:4px;padding:13px 14px;border:1px solid #cad6df;border-radius:10px;background:#fbfdfd;color:var(--ink);font-family:inherit;font-size:12px;line-height:1.9;resize:vertical}
+@media(max-width:760px){.conclusion-grid,.conclusion-metrics{grid-template-columns:minmax(0,1fr)}}
+
+/*
+ * 勾選卡片的文字要能換行（同 turning／speed 的修正）。
+ * display:flex 時文字是匿名 flex 項目，min-width 預設 auto，長標籤不換行
+ * 而是把卡片撐寬。改成兩欄 grid，第二欄 minmax(0,1fr) 才允許縮小換行。
+ */
+.conclusion-metrics label{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;column-gap:8px;overflow-wrap:anywhere}
+.conclusion-grid>*,.conclusion-metrics>*{min-width:0;max-width:100%}
+.conclusion-checks label,.conclusion-radios label,.conclusion-list label{min-width:0;overflow-wrap:anywhere}
+.conclusion-field select,.conclusion-field input{max-width:100%}
+@media(max-width:760px){.conclusion-actions-row input{min-width:0;flex:1 1 120px}}
+
+/*
+ * 條件卡片的版面（與交通服務水準同步的修正）。
+ * 1. 清單原本寫死 max-height，卡片被其他欄位撐高後下方留一大片空白 →
+ *    改成撐滿卡片剩餘高度，上限 420px。
+ * 2. 選項標籤原本是 flex-wrap，只拿到內容寬度，短標籤被擠成一行一兩個字 →
+ *    改成等寬格線，每格至少 104px。
+ * 3. 字級 12px → 13px。
+ */
+.conclusion-field{display:flex;flex-direction:column}
+.conclusion-radios,.conclusion-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px 12px;margin-bottom:9px}
+.conclusion-radios label,.conclusion-checks label{display:flex;align-items:center;gap:7px;font-size:13px;line-height:1.5;overflow-wrap:break-word}
+.conclusion-list{display:grid;align-content:start;gap:7px;flex:1 1 auto;min-height:150px;max-height:420px;overflow:auto;padding:2px 4px 2px 0}
+.conclusion-list label{font-size:13px;line-height:1.55;align-items:flex-start;overflow-wrap:anywhere}
+.conclusion-list input{margin-top:2px;flex:none}
+.conclusion-field>.conclusion-hint{margin-top:auto;padding-top:6px}
+
+/*
+ * 視窗裡的勾選框被通用輸入框樣式吃掉（v20.19）。
+ * `.modal input{height:34px;padding:0 10px;border:...}` 是給文字輸入框用的，
+ * 但它同時套到 checkbox／radio 上，勾選框因此變成 34px 高、有邊框有內距，
+ * 在「報表批次輸出中心」看起來就是一排非常大的方框。這裡把它們還原。
+ */
+.modal input[type="checkbox"],
+.modal input[type="radio"],
+.filters input[type="checkbox"],
+.filters input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  flex: none;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  accent-color: var(--teal);
+}
+/* 段落勾選做成緊湊的膠囊，和上方的「全選／全部不勾」同一個視覺層級 */
+.chip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip-check:hover {
+  border-color: var(--teal);
+}
+.chip-check:has(input:checked) {
+  border-color: var(--teal);
+  background: #eef8f7;
+  font-weight: 700;
+}
+
+/*
+ * 9. 上方篩選列的下拉選單會被「最長的那個選項」撐爆，整列衝出畫面。
+ *
+ * 使用者實際遇到的情形：把每個調查點的車流方向都改成有意義的名稱之後
+ * （例如「西行(往水管路) / 東行(往正修路) / 北上(往圓山路) / …」），
+ * 「車流方向」那個 <select> 就橫向撐滿整個畫面，右邊的搜尋框與
+ * 「已選 N 個計畫比較」被推出視窗外。
+ *
+ * 兩個原因疊在一起：
+ *  (1) <select> 的自然寬度是由**最長的 option** 決定的，沒有上限；
+ *  (2) flex 子項目的 min-width 預設是 auto，所以它「不肯」縮到比內容窄，
+ *      flex-wrap 也救不了——那一項本身就比整列還寬。
+ *
+ * 修法是兩者都處理：讓 label 可以縮（min-width:0），並給選單一個
+ * 合理的寬度上限，超長的選項用省略號收尾（滑鼠移上去仍看得到全名，
+ * 展開清單時也是完整的）。
+ */
+.filters > label {
+  min-width: 0;
+  max-width: 100%;
+}
+.filters select {
+  max-width: min(320px, 100%);
+  text-overflow: ellipsis;
+}
+/* 搜尋框與計畫數維持原本的伸縮行為，不要被上面的規則影響。 */
+.filters .search {
+  max-width: 100%;
+}
+
+/* 沒有計畫時，匯入視窗要先把「還原備份」這條路指出來。 */
+.backup-first-hint {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff5e6;
+  border: 1px solid #f0d0a0;
+  color: var(--ink);
+  line-height: 1.7;
+}

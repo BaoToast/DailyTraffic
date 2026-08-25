@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786330093831,
+      "tag": "0000_watery_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786356000000,
+      "tag": "0001_road_aliases",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786634396308,
+      "tag": "0002_flashy_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787235742387,
+      "tag": "0003_lying_iceman",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787242383722,
+      "tag": "0004_rare_unicorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787242383723,
+      "tag": "0005_destination_counts",
+      "breakpoints": true
+    }
+  ]
+}
