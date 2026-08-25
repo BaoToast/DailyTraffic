@@ -6586,14 +6586,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.25.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.26.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.25.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.26.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -10165,7 +10165,14 @@ function ConclusionStudio(props: {
             ))}
           </div>
           <p className="conclusion-hint">
-            日別一個都不勾＝平日與假日都寫。時段至少要留一個。
+            日別一個都不勾＝平日與假日都寫。
+            {/*
+              時段為什麼不能全部取消：這一區每一項數字（車輛數、當量、車種組成…）
+              都是寫在「某一個時段」底下的，全部取消就一行都寫不出來。
+              使用者常見的需求是「我只要全日的數字」——那不是取消全部，
+              而是只勾「全日」，所以直接把作法寫出來。
+            */}
+            時段至少要留一個；<b>只想要全日的數字就只勾「全日」</b>。
           </p>
         </fieldset>
 

@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8" />
-<title>全日交通量及車種組成 新手使用說明手冊 v20.25</title>
+<title>全日交通量及車種組成 新手使用說明手冊 v20.26</title>
 <style>
   :root{
     --navy:#17324d; --teal:#148c8c; --orange:#e58a2b; --ink:#203142;
@@ -104,7 +104,60 @@
     </tbody>
   </table>
 
-  <p class="stamp">系統版本：v20.25　更新日期：2026-08-25</p>
+  <p class="stamp">系統版本：v20.26　更新日期：2026-08-25</p>
+
+  <div class="box new" style="text-align:left;max-width:150mm;margin:6mm auto 0;">
+    <span class="t">本版（v20.26）更新內容</span>
+
+    <p><strong>v20.26｜結論草稿的「時段」說明講清楚了。</strong>
+    「時段」至少要留一個，這一點沒有變 —— 因為這一區<strong>每一項數字都是寫在
+    某一個時段底下的</strong>，全部取消就一行都寫不出來。但常見的需求是
+    「我只要全日的數字」，那不是取消全部，<strong>是只勾「全日」</strong>。
+    畫面上的說明原本只寫「時段至少要留一個」，沒告訴您該怎麼做，本版補上。
+    只改說明文字，沒有動任何計算或勾選邏輯。</p>
+
+    <p style="margin-top:3mm"><strong>三套系統的「不勾」意思不一樣，一次講清楚：</strong></p>
+    <table style="width:100%;border-collapse:collapse;margin-top:2mm;font-size:9.5pt">
+      <tr>
+        <th style="text-align:left;padding:1mm 2mm;border-bottom:1px solid #ccc;width:32mm">系統</th>
+        <th style="text-align:left;padding:1mm 2mm;border-bottom:1px solid #ccc">「時段／尖峰」一個都不勾</th>
+      </tr>
+      <tr>
+        <td style="padding:1.5mm 2mm;vertical-align:top"><b>本系統</b><br>（全日交通量）</td>
+        <td style="padding:1.5mm 2mm"><b>不允許，至少要留一個。</b>每一項數字都寫在某個時段底下，
+        全部取消就沒有內容可寫。要只寫全日，就<b>只勾「全日」</b>。</td>
+      </tr>
+      <tr>
+        <td style="padding:1.5mm 2mm;vertical-align:top">路口轉向</td>
+        <td style="padding:1.5mm 2mm"><b>＝不敘述尖峰時段</b>，只寫全調查時段的數值
+        （例如只要各路口的「車種組成」那一行）。</td>
+      </tr>
+      <tr>
+        <td style="padding:1.5mm 2mm;vertical-align:top">交通服務水準</td>
+        <td style="padding:1.5mm 2mm"><b>＝全部都寫</b>（那一排是篩選器，不勾就是不篩選）。</td>
+      </tr>
+    </table>
+    <p style="margin-top:2mm">差異來自三套的資料結構不同，不是設計不一致：本系統每一個數字都
+    依附在時段上；路口轉向另有「全調查時段」的累計量可以單獨寫；交通服務水準那一排本來就是篩選條件。</p>
+
+    <p style="margin-top:4mm"><strong>v20.25｜全日車輛總數不正確、駛入與駛出總數不一致。</strong>
+    早期版本匯入時把四大類車輛數<strong>四捨五入成整數</strong>存起來，而逐時段的轉向明細
+    保留了原始小數（轉向明細是 0.36＋11＋1＝12.36，車種欄位卻寫 12）。一天 24 小時、
+    一個路口 4 條支線，零頭累積起來就是好幾輛的誤差；「駛入」視角又把兩者的差額補進
+    「未指定駛入路口」，而且<strong>只補多出來的、不扣少掉的</strong>，於是駛入的合計比
+    駛出多。本版改為讀取時<strong>優先採用轉向明細</strong>，只有差距超過 1 輛時才沿用
+    車種欄位。<strong>不需要重新匯入</strong>，既有資料會自動用回正確的數字。</p>
+
+    <p style="margin-top:3mm"><strong>v20.24｜切到「駛入路口」時調查點欄位仍寫著（駛出）。</strong>
+    「時段車種分析」有自己的路口流量視角下拉，可以獨立於上方工具列。舊版每一列只在
+    「並列」模式下才記住自己的視角，單獨選一種視角時會退回去用工具列的視角來標示，
+    於是數字換成駛入的了、名稱還寫著（駛出）。已改為每一列都帶著自己的視角，不影響任何數字。</p>
+
+    <p style="margin-top:3mm"><strong>v20.23｜「車流方向」選單被撐出畫面、空白電腦無法匯入備份。</strong>
+    選「全部調查點」且各調查點都改過方向名稱時，選單會把所有名稱串起來而撐滿畫面；
+    現在選單有寬度上限，超過兩個名稱只顯示「前兩個 等 N 種」。另外，全新的電腦在還沒有
+    任何計畫時「匯入資料」是停用的，反而無法還原備份；現在備份檔帶著計畫名稱時會自動建立計畫。</p>
+  </div>
 </section>
 
 <!-- ══════════ 1 ══════════ -->
