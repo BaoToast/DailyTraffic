@@ -122,6 +122,48 @@ test("lock 檔和 package.json 宣告的依賴一致", async () => {
   assert.deepEqual(missing, [], "package-lock.json 沒有這些套件，npm ci 會失敗");
 });
 
+test("Node.js 最低版本足以直接載入測試使用的 TypeScript", async () => {
+  const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  const declared = String(pkg.engines?.node ?? "");
+  const match = declared.match(/>=\s*(\d+)\.(\d+)\.(\d+)/);
+  assert.ok(match, "engines.node 必須用 >=主版.次版.修訂版 明確宣告最低版本");
+  const actual = match.slice(1).map(Number);
+  const required = [22, 18, 0];
+  const enough = actual.some(
+    (value, index) =>
+      value > required[index] &&
+      actual.slice(0, index).every((earlier, i) => earlier === required[i]),
+  ) || actual.every((value, index) => value === required[index]);
+  assert.ok(
+    enough,
+    `測試會直接 import .ts；engines.node ${declared} 太舊，至少要 >=22.18.0`,
+  );
+});
+
+test("正式 e2e 引用的每份活頁簿都能由匿名樣本產生器建立", async () => {
+  const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  const makeSamples = await readFile(
+    new URL("scripts/make-samples.mjs", root),
+    "utf8",
+  );
+  const scriptFiles = [
+    ...String(pkg.scripts?.e2e ?? "").matchAll(/scripts\/(e2e-[\w-]+\.mjs)/g),
+  ].map((match) => `scripts/${match[1]}`);
+  const missing = [];
+  for (const file of [...new Set(scriptFiles)]) {
+    const source = await readFile(new URL(file, root), "utf8");
+    for (const match of source.matchAll(/importFile\(["']([^"']+\.xlsx)["']/g)) {
+      const filename = match[1];
+      if (!makeSamples.includes(filename)) missing.push(`${file} → ${filename}`);
+    }
+  }
+  assert.deepEqual(
+    missing,
+    [],
+    "正式 e2e 引用了 make-samples.mjs 不會產生的活頁簿，乾淨電腦會找不到檔案",
+  );
+});
+
 /*
  * 測試讀得到的檔案，必須真的在交付包裡。
  *

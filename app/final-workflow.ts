@@ -135,6 +135,20 @@ export function recordVehicles(record: TraceableTrafficRecord) {
   );
 }
 
+/*
+ * 這一筆紀錄實際出現過的車種「名稱」（不是分類代號）。
+ *
+ * 要比對的是調查表上寫的字：「大型車」與「大貨車」會對應到同一個分類代號，
+ * 但它們是不同的名稱，正是要提醒使用者的那種不一致。所以看 vehicleLabels，
+ * 不看 recordVehicles 的鍵。舊版匯入的紀錄沒有 vehicleLabels，回傳空陣列，
+ * 呼叫端會直接略過（沒有名稱可比，就不要亂報警告）。
+ */
+export function recordVehicleLabels(record: TraceableTrafficRecord) {
+  return Object.values(record.vehicleLabels ?? {})
+    .map((label) => String(label ?? "").trim())
+    .filter(Boolean);
+}
+
 export function validateImport(
   records: TraceableTrafficRecord[],
   existing: TraceableTrafficRecord[],
@@ -186,6 +200,64 @@ export function validateImport(
       const text = Number.isInteger(covered) ? String(covered) : covered.toFixed(1);
       return `${group.replaceAll("|", "／")}：${text} 小時`;
     });
+  /*
+   * 同一個調查點裡，各支線的車種名稱應該一致。
+   *
+   * 使用者回報過一份四個路口的調查表：路口A、B 寫「大型車／特種車」，
+   * 路口C、D 卻寫「大貨車／大客車」（調查表的筆誤）。那份檔案匯入之後，
+   * 解析器切不出路口、把四個路口的車全部加在一起記成一筆
+   *（v20.29 已修正切法），但**名稱不一致這件事本身仍然值得先問過使用者**：
+   * 它通常是打錯字，偶爾才是真的用了不同的分類。
+   *
+   * 這裡只提醒、不阻擋也不自動改名——自動歸類會把「這個支線沒有調查某車種」
+   * 寫成「該車種＝0」，那是憑空斷言。使用者確認無誤後照原名稱匯入，
+   * 匯入流程本來就會請他確認新車種要對應到哪一類。
+   */
+  const armLabels = new Map<
+    string,
+    { roadId: string; roadName: string; armName: string; labels: Set<string> }
+  >();
+  for (const record of records) {
+    const key = [record.roadId, record.dayType, record.directionCode].join("|");
+    const entry = armLabels.get(key) ?? {
+      roadId: record.roadId,
+      roadName: record.roadName || record.roadId,
+      armName: [
+        record.directionName || `方向${record.directionCode}`,
+        record.dayType,
+      ]
+        .filter(Boolean)
+        .join("・"),
+      labels: new Set<string>(),
+    };
+    for (const label of recordVehicleLabels(record)) entry.labels.add(label);
+    armLabels.set(key, entry);
+  }
+  const shapesByRoad = new Map<
+    string,
+    { roadName: string; byShape: Map<string, string[]> }
+  >();
+  for (const arm of armLabels.values()) {
+    const shape = [...arm.labels].sort().join("、");
+    if (!shape) continue;
+    const road = shapesByRoad.get(arm.roadId) ?? {
+      roadName: arm.roadName,
+      byShape: new Map<string, string[]>(),
+    };
+    road.byShape.set(shape, [...(road.byShape.get(shape) ?? []), arm.armName]);
+    shapesByRoad.set(arm.roadId, road);
+  }
+  for (const { roadName, byShape } of shapesByRoad.values()) {
+    if (byShape.size < 2) continue;
+    const detail = [...byShape.entries()]
+      .map(([shape, arms]) => `${[...new Set(arms)].sort().join("、")}＝${shape}`)
+      .join("；");
+    warnings.push(
+      `「${roadName}」各方向／支線的車種名稱不一致：${detail}。` +
+        `這通常是原始調查表打錯字。確認無誤才按下面的確認鈕；` +
+        `系統會照原名稱匯入，不會自動把它們併成同一類。`,
+    );
+  }
   if (duplicateKeys.size)
     warnings.push(`匯入檔內有 ${duplicateKeys.size} 組重複鍵值`);
   if (incompleteGroups.length)

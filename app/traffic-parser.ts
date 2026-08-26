@@ -114,6 +114,40 @@ export function vehicleLabelForKey(
   );
 }
 
+/**
+ * 從表頭區找出每一個「路口編號：路口X」所在的欄位。
+ *
+ * 為什麼需要這個：原始調查表常把好幾個路口**並排在同一張工作表**
+ * （路口A 在 B 欄、路口B 在 Q 欄、路口C 在 AF 欄…）。
+ * 舊寫法是靠「車種標題重複的週期」去猜每個路口佔幾欄——各路口的車種
+ * 標題一模一樣時猜得對，但只要有一個路口用了不同的車種名稱
+ * （實際遇到：路口A、B 寫「大型車／特種車」，路口C、D 卻寫「大貨車／大客車」），
+ * 週期就不成立，`repeatedVehicleCount` 退回「整列都是同一組」，於是
+ * **四個路口的欄位被當成一個路口**：只產生一筆紀錄，而且那一筆的車輛數是
+ * 四個路口相加（實測 57＋4＋90＋4＝155 全部記在路口A 底下）。
+ * 數字看起來合理，匯入照樣報成功，畫面上完全看不出來。
+ *
+ * 而「路口編號：路口X」本來就寫在檔案裡，是權威的分界線。
+ * 有它就照它切，不要用猜的。
+ */
+function armMarkerColumns(
+  values: unknown[][],
+  headerIndex: number,
+): { code: string; index: number }[] {
+  const found: { code: string; index: number }[] = [];
+  for (const row of values.slice(0, Math.max(headerIndex, 1))) {
+    row.forEach((cell, index) => {
+      const text = String(cell ?? "")
+        .normalize("NFKC")
+        .replace(/[\s\u3000]/g, "");
+      const match = text.match(/^路口編號[:：](?:路口)?([A-Za-z])$/);
+      if (match) found.push({ code: match[1].toUpperCase(), index });
+    });
+    if (found.length) break;
+  }
+  return found.sort((a, b) => a.index - b.index);
+}
+
 function repeatedVehicleCount(labels: string[]) {
   for (let size = 1; size <= Math.floor(labels.length / 2); size += 1) {
     if (labels.length % size) continue;
@@ -212,16 +246,37 @@ export function parseTrafficSheetValues(
       });
   }
 
-  const vehicleCount = repeatedVehicleCount(
-    columns.map((column) => column.label),
-  );
-  const directionCount = Math.floor(columns.length / vehicleCount);
-  if (
-    !vehicleCount ||
-    !directionCount ||
-    vehicleCount * directionCount !== columns.length
-  )
-    return [];
+  /*
+   * 先照檔案自己寫的「路口編號」切；沒有那個標記時才退回舊的週期推測。
+   * 兩條路徑對「各路口車種一致」的檔案結果相同（已用回歸測試釘住）。
+   */
+  const markers = armMarkerColumns(values, headerIndex);
+  let groups: { label: string; index: number }[][] = [];
+  if (markers.length >= 2) {
+    groups = markers.map((marker, order) => {
+      const end = markers[order + 1]?.index ?? Number.POSITIVE_INFINITY;
+      return columns.filter(
+        (column) => column.index >= marker.index && column.index < end,
+      );
+    });
+    /* 有標記卻切不出欄位的話不要硬幹，退回舊路徑比較安全。 */
+    if (groups.some((group) => !group.length)) groups = [];
+  }
+  if (!groups.length) {
+    const vehicleCount = repeatedVehicleCount(
+      columns.map((column) => column.label),
+    );
+    const directionCount = Math.floor(columns.length / vehicleCount);
+    if (
+      !vehicleCount ||
+      !directionCount ||
+      vehicleCount * directionCount !== columns.length
+    )
+      return [];
+    groups = Array.from({ length: directionCount }, (_unused, order) =>
+      columns.slice(order * vehicleCount, order * vehicleCount + vehicleCount),
+    );
+  }
   const parsed: ParsedTrafficRow[] = [];
 
   for (
@@ -253,13 +308,10 @@ export function parseTrafficSheetValues(
     if (!hour) continue;
     for (
       let directionIndex = 0;
-      directionIndex < directionCount;
+      directionIndex < groups.length;
       directionIndex += 1
     ) {
-      const group = columns.slice(
-        directionIndex * vehicleCount,
-        directionIndex * vehicleCount + vehicleCount,
-      );
+      const group = groups[directionIndex];
       const turnData = emptyTurns();
       const vehicleLabels: VehicleLabels = {};
       const vehicleCounts: VehicleCounts = {};
@@ -286,7 +338,7 @@ export function parseTrafficSheetValues(
         vehicleLabels[key] = run.label;
         const nextColumn =
           runs[runIndex + 1]?.indexes[0] ??
-          columns[(directionIndex + 1) * vehicleCount]?.index ??
+          groups[directionIndex + 1]?.[0]?.index ??
           row.length;
         const firstIndex = run.indexes[0];
         let count = Number(row[firstIndex]) || 0;

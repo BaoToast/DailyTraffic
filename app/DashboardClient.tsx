@@ -2913,11 +2913,40 @@ export default function DashboardClient({ user }: { user: User }) {
       settings: vehicleClassSettings,
     };
     const out: ConclusionRow[] = [];
-    const quarterList = [...new Set(activeRecords.map((r) => r.quarter))];
-    const dayList = [...new Set(activeRecords.map((r) => r.dayType || ""))];
+    /*
+     * 結論草稿要能同時選「駛出路口」與「駛入路口」，不必先到上方工具列切視角。
+     *
+     * 這一段以前只算一次，用的是 activeRecords（永遠是駛出的分組），
+     * 卻拿上方工具列的 intersectionFlowMode 去**命名**——所以切到駛入視角時，
+     * 清單會寫「駛入路口A」，底下的數字卻還是駛出路口A 的。
+     * 名稱與數字對不上，和 v20.24 那個 bug 同一類，而畫面上看不出來。
+     *
+     * 現在兩種視角各算各的：駛入是由 deriveDestinationIntersectionRecords
+     * 依終點**重新分組**得到的，不是改名。兩邊的合計必然相等（同一批車），
+     * 所以駛入那一輪不再重複產生「合計」列，只保留各支線。
+     * 駛入的 scopeCode 加上 IN: 前綴，才不會和駛出的 A／B／C 撞在一起；
+     * 駛出維持原本的代碼，既有的條件範本（存的是 A、B…）照樣適用。
+     */
+    const hasIntersection = activeRecords.some(
+      (record) => record.surveyType === "intersection" || record.turnData,
+    );
+    const passes: { mode: IntersectionFlowMode; records: typeof activeRecords }[] =
+      [{ mode: "origin", records: activeRecords }];
+    if (hasIntersection)
+      passes.push({
+        mode: "destination",
+        records: deriveDestinationIntersectionRecords(
+          activeRecords,
+          activeProject,
+          intersectionSettings,
+        ),
+      });
+    for (const pass of passes) {
+    const quarterList = [...new Set(pass.records.map((r) => r.quarter))];
+    const dayList = [...new Set(pass.records.map((r) => r.dayType || ""))];
     for (const q of quarterList)
       for (const day of dayList) {
-        const subset = activeRecords.filter(
+        const subset = pass.records.filter(
           (r) => r.quarter === q && (r.dayType || "") === day,
         );
         if (!subset.length) continue;
@@ -2927,7 +2956,7 @@ export default function DashboardClient({ user }: { user: User }) {
           scopeNameFor: (record) =>
             displayDirectionNameFor(
               record as unknown as TrafficRecord,
-              intersectionFlowMode,
+              pass.mode,
             ),
           peakScope: periodPeakScope,
         });
@@ -2963,27 +2992,43 @@ export default function DashboardClient({ user }: { user: User }) {
               })),
             };
           }
+          /*
+           * 駛入那一輪只保留「路口的支線」：
+           *  ・合計列兩邊總量相同，不重複列。
+           *  ・路段只有方向A／方向B，沒有駛出／駛入之分，重複列出來
+           *    會讓清單出現兩個一模一樣的「方向A」，使用者根本分不出差別。
+           */
+          if (
+            pass.mode === "destination" &&
+            (row.scopeCode === "ALL" || row.surveyType !== "intersection")
+          )
+            continue;
           out.push({
             quarter: q,
             dayType: day || "未標示",
             roadId: row.roadId,
             roadName: row.roadName,
             surveyType: row.surveyType,
-            scopeCode: row.scopeCode,
+            scopeCode:
+              pass.mode === "destination"
+                ? `IN:${row.scopeCode}`
+                : row.scopeCode,
             scopeName: row.scopeName,
             flowLabel: row.flowLabel,
             periods,
           });
         }
       }
+    }
     return out;
   }, [
     conclusionOpen,
     activeRecords,
+    activeProject,
+    intersectionSettings,
     pcuFactors,
     turnPcuFactors,
     vehicleClassSettings,
-    intersectionFlowMode,
     periodPeakScope,
   ]);
 
@@ -6610,14 +6655,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.28.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.30.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.28.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.30.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -9982,19 +10027,28 @@ function ConclusionStudio(props: {
   );
   /* 方向／支線清單跟著所選路段變動，否則清單會長到不能看。 */
   const scopeList = useMemo(() => {
-    const map = new Map<string, string>();
+    /*
+     * 一個代碼可能對應多個名稱。
+     *
+     * 路段的方向代碼是 A／B，路口支線的代碼也是 A～G；同一個計畫裡兩種格式
+     * 並存時代碼會重疊。舊寫法只留「先遇到的那一個名稱」，於是勾「A」時
+     * 畫面只寫「方向A」，使用者不會知道那一勾同時涵蓋了「駛出路口A」。
+     * 這裡把該代碼實際對應到的名稱全部列出來（和上方時段分析的
+     * periodScopeOptions 用同一套作法）。
+     */
+    const map = new Map<string, Set<string>>();
     for (const row of rows) {
       if (condition.roadIds.length && !condition.roadIds.includes(row.roadId))
         continue;
-      if (!map.has(row.scopeCode))
-        map.set(
-          row.scopeCode,
-          row.scopeCode === "ALL" ? "合計（雙向／全部支線）" : row.scopeName,
-        );
+      const name =
+        row.scopeCode === "ALL" ? "合計（雙向／全部支線）" : row.scopeName;
+      map.set(row.scopeCode, new Set([...(map.get(row.scopeCode) ?? []), name]));
     }
-    return [...map.entries()].sort((a, b) =>
-      a[0] === "ALL" ? -1 : b[0] === "ALL" ? 1 : a[0].localeCompare(b[0], "en"),
-    );
+    return [...map.entries()]
+      .sort((a, b) =>
+        a[0] === "ALL" ? -1 : b[0] === "ALL" ? 1 : a[0].localeCompare(b[0], "en"),
+      )
+      .map(([code, names]) => [code, [...names].join("／")] as [string, string]);
   }, [rows, condition.roadIds]);
 
   const matched = useMemo(
@@ -10251,6 +10305,7 @@ function ConclusionStudio(props: {
           </div>
           <p className="conclusion-hint">
             一個都不勾＝全部都寫。要真的逐方向敘述，還要在下面勾「各方向／支線分列」。
+            <b>駛出與駛入都列在這裡</b>，不必到上方工具列切換視角。
           </p>
         </fieldset>
 

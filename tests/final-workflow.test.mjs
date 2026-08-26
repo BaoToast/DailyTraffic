@@ -241,3 +241,98 @@ test("「24 小時完整」以實際涵蓋時數判斷，不是資料列數", ()
     "不可以出現「96 小時」這種訊息",
   );
 });
+
+/*
+ * 各支線車種名稱不一致要出警告（使用者要求，2026-08-26）。
+ *
+ * 那份四路口的調查表把路口C、D 的「大型車／特種車」寫成「大貨車／大客車」。
+ * v20.29 修好切法之後，四個路口都會正確切出來、數字也對，但名稱不一致
+ * 這件事仍然多半是打錯字——只是現在它完全不會被發現，因為匯入一切正常。
+ * 所以在匯入預覽的「需注意」裡先講出來，由使用者按確認鈕決定要不要照樣匯入。
+ *
+ * 這裡釘住三件事：一致時不可以誤報、不一致時一定要報、而且警告只提醒不改名。
+ */
+test("各支線車種名稱不一致時要在匯入前提醒", () => {
+  const odd = {
+    motorcycle: "機車",
+    small: "小型車",
+    large: "大貨車",
+    special: "大客車",
+  };
+  const mixed = [
+    row({ directionCode: "A", directionName: "駛出路口A" }),
+    row({ directionCode: "B", directionName: "駛出路口B" }),
+    row({ directionCode: "C", directionName: "駛出路口C", vehicleLabels: odd }),
+    row({ directionCode: "D", directionName: "駛出路口D", vehicleLabels: odd }),
+  ];
+  const report = validateImport(mixed, []);
+  const warning = report.warnings.find((text) => text.includes("車種名稱不一致"));
+  assert.ok(
+    warning,
+    `名稱不一致必須提醒，實際 warnings=${JSON.stringify(report.warnings)}`,
+  );
+  assert.ok(warning.includes("測試路段"), "警告要指出是哪一個調查點");
+  assert.ok(
+    warning.includes("駛出路口C") && warning.includes("大貨車"),
+    "警告要指出是哪些支線、名稱差在哪裡",
+  );
+  assert.ok(
+    warning.includes("不會自動把它們併成同一類"),
+    "要講明系統保留原名稱，不自動歸類",
+  );
+  assert.equal(report.valid, true, "只提醒，不可以擋住匯入");
+});
+
+test("各支線車種名稱一致時不可以誤報", () => {
+  const same = ["A", "B", "C", "D"].map((code) =>
+    row({ directionCode: code, directionName: `駛出路口${code}` }),
+  );
+  assert.deepEqual(
+    validateImport(same, []).warnings.filter((text) =>
+      text.includes("車種名稱不一致"),
+    ),
+    [],
+  );
+  /* 沒有 vehicleLabels 的舊資料沒有名稱可比，也不可以報警告 */
+  const legacy = ["A", "B"].map((code) =>
+    row({ directionCode: code, vehicleLabels: undefined }),
+  );
+  assert.deepEqual(
+    validateImport(legacy, []).warnings.filter((text) =>
+      text.includes("車種名稱不一致"),
+    ),
+    [],
+  );
+});
+
+test("不同調查點各自比較，不會互相誤報", () => {
+  const other = {
+    motorcycle: "機車",
+    small: "小型車",
+    large: "大貨車",
+    special: "大客車",
+  };
+  const records = [
+    row({ roadId: "R1", roadName: "路段甲", directionCode: "A" }),
+    row({ roadId: "R1", roadName: "路段甲", directionCode: "B" }),
+    row({
+      roadId: "R2",
+      roadName: "路段乙",
+      directionCode: "A",
+      vehicleLabels: other,
+    }),
+    row({
+      roadId: "R2",
+      roadName: "路段乙",
+      directionCode: "B",
+      vehicleLabels: other,
+    }),
+  ];
+  assert.deepEqual(
+    validateImport(records, []).warnings.filter((text) =>
+      text.includes("車種名稱不一致"),
+    ),
+    [],
+    "兩個調查點各自內部一致，就算彼此不同也不該報警告",
+  );
+});

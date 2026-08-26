@@ -263,6 +263,47 @@ await page.waitForTimeout(800);
 const text5 = await draft.inputValue();
 ok("挑不到資料時給的是說明而不是空白", text5.length > 60, text5.slice(0, 90));
 
+/*
+ * ── 第四區同時提供駛出與駛入（v20.29）─────────────────────────
+ *
+ * 舊版這一區只列出「上方工具列目前選的那個視角」的支線，使用者在結論草稿
+ * 裡看不到駛入，得先跑到別處切換。更糟的是：切到駛入視角時清單會寫
+ * 「駛入路口A」，底下的數字卻還是駛出路口A 的——名稱與數字對不上。
+ */
+/*
+ * 這一支原本只匯入路段檔（方向A／方向B），驗不到路口的駛出／駛入。
+ * 使用 make-samples.mjs 產生的匿名路口樣本，不依賴使用者的真實調查檔。
+ */
+await importFile("115T1-02_中正路口.xlsx", "115Q1");
+await page.locator('button:has-text("結論草稿產生器")').first().click().catch(() => {});
+await page.waitForTimeout(900);
+const scopeBox = page.locator(
+  '#conclusionStudio fieldset:has(legend:has-text("要寫哪些方向"))',
+);
+const scopeLabels = await scopeBox.locator("> .conclusion-list label").allTextContents();
+ok(
+  "第四區同時列出駛出路口與駛入路口",
+  scopeLabels.some((t) => t.includes("駛出路口")) &&
+    scopeLabels.some((t) => t.includes("駛入路口")),
+  scopeLabels.join("｜").slice(0, 140),
+);
+ok(
+  "路段的方向只出現一次（駛入只適用於路口支線）",
+  scopeLabels.filter((t) => t.includes("方向A")).length === 1,
+  scopeLabels.filter((t) => t.includes("方向A")).join("｜"),
+);
+ok(
+  "代碼重疊時把兩個名稱都列出來，不會只寫其中一個",
+  scopeLabels.some((t) => t.includes("方向A") && t.includes("駛出路口A")),
+  scopeLabels.find((t) => t.includes("方向A")) ?? "(找不到)",
+);
+ok(
+  "駛出與駛入的支線數量相同（同一批車只是換分組）",
+  scopeLabels.filter((t) => t.includes("駛出路口")).length ===
+    scopeLabels.filter((t) => t.includes("駛入路口")).length,
+  `駛出 ${scopeLabels.filter((t) => t.includes("駛出路口")).length}／駛入 ${scopeLabels.filter((t) => t.includes("駛入路口")).length}`,
+);
+
 console.log("\n══ 主控台錯誤 ══");
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 4).join(" / "));
 

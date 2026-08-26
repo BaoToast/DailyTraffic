@@ -1,9 +1,9 @@
 {
   "name": "traffic-volume-vehicle-composition",
-  "version": "20.28.0",
+  "version": "20.30.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "node scripts/run-vinext.mjs dev",

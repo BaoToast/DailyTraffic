@@ -30,7 +30,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, "manual.html");
-const out = join(here, "..", "..", "public", "manuals", "Traffic_Analysis_Beginner_Guide_v20.28.docx");
+const out = join(here, "..", "..", "public", "manuals", "Traffic_Analysis_Beginner_Guide_v20.30.docx");
 
 const NAVY = "17324D";
 const TEAL = "148C8C";
@@ -111,9 +111,15 @@ const blocks = await page.evaluate(() => {
   for (const el of cover.children) {
     if (el.classList.contains("box")) pushBox(el);
     if (el.tagName === "TABLE") pushTable(el);
+    /*
+     * 版本戳記在 HTML 裡本來就位於更新說明之前，Word 也照同一順序放。
+     * 舊寫法把它延後到整段更新說明之後；更新內容跨兩頁時，戳記會獨占
+     * 一張幾乎全白的頁面，再把第 1 章推到下一頁。
+     */
+    if (el.classList.contains("stamp"))
+      result.push({ type: "stamp", text: el.textContent.trim() });
   }
-  result.push({ type: "stamp", text: cover.querySelector(".stamp").textContent.trim() });
-  result.push({ type: "pageBreak" });
+  /* 更新紀錄可能自然跨頁；接續第 1 章即可，避免只剩幾行時再強制換頁。 */
 
   for (const el of document.body.children) {
     if (el.classList?.contains("cover")) continue;
@@ -426,7 +432,7 @@ for (const block of blocks) {
 
 const doc = new Document({
   creator: "全日交通量及車種組成",
-  title: "全日交通量及車種組成 新手使用說明手冊 v20.28",
+  title: "全日交通量及車種組成 新手使用說明手冊 v20.30",
   description: "適合完全沒有交通背景的新手，從匯入、檢查、分析到報表輸出與備份。",
   styles: {
     default: {
@@ -480,7 +486,7 @@ const doc = new Document({
               spacing: { before: 0 },
               children: [
                 new TextRun({
-                  text: "v20.28 ｜ 2026-08-26 ｜ 使用前請先匯出備份　　第 ",
+                  text: "v20.30 ｜ 2026-08-26 ｜ 使用前請先匯出備份　　第 ",
                   font: FONT,
                   size: 15,
                   color: MUTED,
