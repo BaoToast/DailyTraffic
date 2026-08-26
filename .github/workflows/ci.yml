@@ -1,0 +1,32 @@
+# 每次上傳到 main 都自動跑一次建置與測試。
+#
+# 這支流程**不負責發布**。發布交給 GitHub 內建的 pages-build-deployment
+# （設定在 Settings → Pages → Deploy from a branch），它直接把 repository
+# 根目錄當成網站。
+#
+# 為什麼要分開：如果這支也去部署，就會和內建那條同時發布同一個網站，
+# 誰後跑完誰決定線上內容——實際發生過。分開之後路徑只有一條，
+# 而這支專心當「把關」：測試沒過就在 Actions 顯示紅色叉叉，
+# 上傳的人一眼就看得到自己弄壞了什麼。
+name: 建置與測試
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

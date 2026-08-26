@@ -30,7 +30,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, "manual.html");
-const out = join(here, "..", "..", "public", "manuals", "Traffic_Analysis_Beginner_Guide_v20.27.docx");
+const out = join(here, "..", "..", "public", "manuals", "Traffic_Analysis_Beginner_Guide_v20.28.docx");
 
 const NAVY = "17324D";
 const TEAL = "148C8C";
@@ -426,7 +426,7 @@ for (const block of blocks) {
 
 const doc = new Document({
   creator: "全日交通量及車種組成",
-  title: "全日交通量及車種組成 新手使用說明手冊 v20.27",
+  title: "全日交通量及車種組成 新手使用說明手冊 v20.28",
   description: "適合完全沒有交通背景的新手，從匯入、檢查、分析到報表輸出與備份。",
   styles: {
     default: {
@@ -480,7 +480,7 @@ const doc = new Document({
               spacing: { before: 0 },
               children: [
                 new TextRun({
-                  text: "v20.27 ｜ 2026-08-25 ｜ 使用前請先匯出備份　　第 ",
+                  text: "v20.28 ｜ 2026-08-26 ｜ 使用前請先匯出備份　　第 ",
                   font: FONT,
                   size: 15,
                   color: MUTED,

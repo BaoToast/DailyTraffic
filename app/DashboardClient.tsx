@@ -6610,14 +6610,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.27.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.28.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.27.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.28.docx"
                   download
                   title="可編輯的 Word 版本"
                 >

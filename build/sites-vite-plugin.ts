@@ -13,7 +13,6 @@ async function exists(path: string): Promise<boolean> {
     throw error;
   }
 }
-
 // Packages Sites metadata and migrations after Vite finishes compiling.
 export function sites(): Plugin {
   let root = process.cwd();

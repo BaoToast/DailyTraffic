@@ -1,5 +1,30 @@
-全日交通量及車種組成 — 完整專案 v20.27
+全日交通量及車種組成 — 完整專案 v20.28
 =================================================
+
+■ v20.28：補齊「在別台電腦也重建得出來」的發布工程
+
+  由外部複核（GPT）指出並修好的一個實質缺口：v20.27 以前的交付包
+  **排除了 github-pages 這個資料夾**，而那正是重建 GitHub Pages 網站
+  所需要的 vite 設定（index.html／vite.config.ts／src/main.tsx）。
+  後果是交付包在別台電腦解開之後，npm run build:pages 與 npm run e2e
+  直接失敗——網站根本重建不出來，而當時沒有任何檢查會發現。
+
+  本版補回建置來源與 build/sites-vite-plugin.ts；新增 scripts/run-vinext.mjs
+  讓 Windows 也能直接執行；npm run e2e 改成先產生測試樣本、再建置、
+  最後才跑三組瀏覽器測試，不必人工附帶測資。
+
+  並擴充 tests/dependency-manifest.test.mjs，現在會攔截：建置入口遺失、
+  建置外掛遺失、.github/workflows/ci.yml 與 .gitignore、.nojekyll 遺失、
+  以及 e2e 沒有依「產生樣本 → 建置 → 瀏覽器測試」的順序執行。
+  **這一支測試如果早點存在，上面那個缺口不會活到 v20.27。**
+
+  **沒有變更任何計算規則**：交通量、PCU、尖峰、車種組成、駛入／駛出
+  全部未動。已逐檔比對確認 app/DashboardClient.tsx 的差異只有兩行
+  手冊連結的版號。
+
+  同步調整根目錄 index.html 的 meta description，移除「GitHub Pages 備用版」
+  字樣，使搜尋與分享摘要符合目前正式維護定位；只影響網頁描述，不影響
+  畫面功能、資料或任何計算。
 
 ■ v20.27：結論草稿存好的「條件範本」現在會跟著備份走
 
@@ -53,11 +78,11 @@
 把本壓縮檔內的所有檔案，覆蓋到 GitHub repository
 （https://github.com/baotoast/DailyTraffic）的根目錄，然後 commit + push。
 
-**請先手動刪除舊版手冊**：manuals 資料夾裡所有不是 v20.27 的
+**請先手動刪除舊版手冊**：manuals 資料夾裡所有不是 v20.28 的
 Traffic_Analysis_Beginner_Guide_*.pdf 與 .docx。
 
 本版起 repository 同時存放原始碼與建置後的網站，並附自動測試
 （.github/workflows/ci.yml，只測試不發布）。
 
-部署完成後請確認：畫面右下角顯示「v20.27」，
+部署完成後請確認：畫面右下角顯示「v20.28」，
 同一個路口切換「駛入」與「駛出」視角時合計相同。

@@ -12,7 +12,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, readdir } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 
@@ -72,7 +72,7 @@ test("測試與腳本 import 的每一個套件都列在 package.json 裡", asyn
   );
 });
 
-test("會讀 dist/ 的測試，測試指令必須先建置", async () => {
+test("建置、端對端測試與 GitHub 發布來源都完整", async () => {
   const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
   let needsBuild = false;
   for (const file of await sourceFiles()) {
@@ -88,6 +88,27 @@ test("會讀 dist/ 的測試，測試指令必須先建置", async () => {
     /(^|&&\s*)npm run build\b/,
     "有測試會讀 dist/，但 npm test 沒有先建置——乾淨環境下會直接失敗",
   );
+
+  assert.match(
+    pkg.scripts.e2e,
+    /make-samples\.mjs[\s\S]*github-pages\/vite\.config\.ts[\s\S]*e2e-period\.mjs/,
+    "端對端測試必須先產生測試樣本、再建置 GitHub Pages，最後才執行瀏覽器測試",
+  );
+
+  for (const required of [
+    "github-pages/index.html",
+    "github-pages/vite.config.ts",
+    "github-pages/src/main.tsx",
+    "build/sites-vite-plugin.ts",
+    ".github/workflows/ci.yml",
+    ".gitignore",
+    ".nojekyll",
+  ]) {
+    await assert.doesNotReject(
+      access(new URL(required, root)),
+      `GitHub 發布或自動測試必要檔案遺失：${required}`,
+    );
+  }
 });
 
 test("lock 檔和 package.json 宣告的依賴一致", async () => {
