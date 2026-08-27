@@ -135,22 +135,43 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit) {
       return json({ saved: true });
     }
     const rows = await all<Record<string, unknown>>("records"), aliases = await all<Record<string, unknown>>("aliases"), tx = db.transaction(["records", "aliases"], "readwrite"), store = tx.objectStore("records"), aliasStore = tx.objectStore("aliases");
+    /*
+     * 這條離線路徑的每一個欄位都要跟線上版（app/api/roads/route.ts）走同一套清理，
+     * 否則同一個輸入在兩邊會存成不同的字串，備份搬來搬去就對不起來。
+     */
+    const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
     const saveOfflineAlias = (aliasName: string, roadId: string) => { const aliasKey = roadNameMatchKey(aliasName); if (aliasKey) aliasStore.put({ _id: `${projectId}|${aliasKey}`, projectId, aliasKey, aliasName, roadId }); };
+    /*
+     * 方向名稱只適用「路段」。路口的 A～G 是支線，各有自己的名字，
+     * 改路口名稱或合併路口時不能拿方向A／方向B去蓋——線上版
+     * （app/api/roads/route.ts）與畫面上的即時更新都是這樣做的，
+     * 只有這條離線路徑會蓋掉支線A、支線B的名稱，重新整理之後才會發現。
+     */
+    const isIntersection = body.surveyType === "intersection";
+    const renamedDirection = (row: Record<string, unknown>, directionA: string, directionB: string) => {
+      if (isIntersection) return row.directionName;
+      if (row.directionCode === "A") return directionA;
+      if (row.directionCode === "B") return directionB;
+      return row.directionName;
+    };
     if (body.action === "rename") {
-      const roadId = String(body.roadId ?? ""), roadName = String(body.roadName ?? "").normalize("NFKC").trim(), directionA = String(body.directionA ?? "方向A").trim(), directionB = String(body.directionB ?? "方向B").trim();
+      // 原本是 `String(body.directionA ?? "方向A").trim()`：`??` 擋不住空字串
+      // （欄位被清空就寫入空白），也沒有做 NFKC。線上版一直都是 `clean(...) || 預設值`。
+      const roadId = String(body.roadId ?? ""), roadName = clean(body.roadName), directionA = clean(body.directionA) || "方向A", directionB = clean(body.directionB) || "方向B";
       if (!roadId || !roadName) return json({ error: "路段名稱不可空白" }, 400);
       const oldName = String(rows.find(r => r.projectId === projectId && r.roadId === roadId)?.roadName ?? "");
-      rows.filter(r => r.projectId === projectId && r.roadId === roadId).forEach(r => store.put({ ...r, roadName, directionName: r.directionCode === "A" ? directionA : r.directionCode === "B" ? directionB : r.directionName }));
+      rows.filter(r => r.projectId === projectId && r.roadId === roadId).forEach(r => store.put({ ...r, roadName, directionName: renamedDirection(r, directionA, directionB) }));
       if (oldName && oldName !== roadName) saveOfflineAlias(oldName, roadId);
       if (String(body.aliasName ?? "").trim()) saveOfflineAlias(String(body.aliasName).trim(), roadId);
       await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
       return json({ roadId, roadName, directionA, directionB });
     }
     if (body.action === "merge") {
-      const sourceRoadId = String(body.sourceRoadId ?? ""), targetRoadId = String(body.targetRoadId ?? ""), targetRoadName = String(body.targetRoadName ?? "").trim(), directionA = String(body.directionA ?? "方向A").trim(), directionB = String(body.directionB ?? "方向B").trim();
+      // targetRoadName 也補上 NFKC：線上版 route.ts 對它做了，這裡原本沒有。
+      const sourceRoadId = String(body.sourceRoadId ?? ""), targetRoadId = String(body.targetRoadId ?? ""), targetRoadName = clean(body.targetRoadName), directionA = clean(body.directionA) || "方向A", directionB = clean(body.directionB) || "方向B";
       if (!sourceRoadId || !targetRoadId || sourceRoadId === targetRoadId || !targetRoadName) return json({ error: "請選擇不同的來源與目標路段" }, 400);
       const oldName = String(rows.find(r => r.projectId === projectId && r.roadId === sourceRoadId)?.roadName ?? "");
-      rows.filter(r => r.projectId === projectId && (r.roadId === sourceRoadId || r.roadId === targetRoadId)).forEach(r => store.put({ ...r, roadId: targetRoadId, roadName: targetRoadName, directionName: r.directionCode === "A" ? directionA : r.directionCode === "B" ? directionB : r.directionName }));
+      rows.filter(r => r.projectId === projectId && (r.roadId === sourceRoadId || r.roadId === targetRoadId)).forEach(r => store.put({ ...r, roadId: targetRoadId, roadName: targetRoadName, directionName: renamedDirection(r, directionA, directionB) }));
       aliases.filter(a => a.projectId === projectId && a.roadId === sourceRoadId).forEach(a => aliasStore.put({ ...a, roadId: targetRoadId }));
       if (oldName) saveOfflineAlias(oldName, targetRoadId);
       await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });

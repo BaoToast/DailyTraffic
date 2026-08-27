@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import initialData from "./traffic-data.json";
 import {
   isFallbackRoadName,
+  isRealDirectionName,
   normalizeRoadId,
+  pickDirectionName,
   roadNameFromFileName,
   roadNameMatchKey,
   surveyRoadIdFromFileName,
@@ -571,10 +573,25 @@ function normalizeProjectTrafficRecords(records: TrafficRecord[]) {
       surveyType === "intersection"
         ? `駛出路口${r.directionCode}`
         : `方向${r.directionCode}`;
-    const directionName =
-      r.directionName && !/^方向[AB]$/.test(r.directionName)
-        ? r.directionName
-        : (fallbackDirection ?? defaultDirection);
+    /*
+     * 判斷「這是不是佔位值」全系統只能有一套標準，否則會互相拆台：
+     * 這裡原本用 /^方向[AB]$/（不分 A、B，也不去頭尾空白），
+     * 而路段管理與合併用的是 isRealDirectionName()。兩邊對同一個字串
+     * 給相反的答案時，畫面上改好的名字會在下次重新整理被這裡改回去。
+     * 另外 `fallbackDirection ?? defaultDirection` 的 `??` 擋不住空字串——
+     * 設定檔裡的方向名稱是空的時，整條路段的方向名稱會被寫成空白。
+     */
+    const placeholderCode =
+      r.directionCode === "A" || r.directionCode === "B"
+        ? r.directionCode
+        : null;
+    const hasOwnName = placeholderCode
+      ? isRealDirectionName(r.directionName, placeholderCode)
+      : !!String(r.directionName ?? "").trim();
+    const metaDirection = String(fallbackDirection ?? "").trim();
+    const directionName = hasOwnName
+      ? r.directionName
+      : metaDirection || defaultDirection;
     return { ...r, roadId, roadName, directionName, surveyType };
   });
   const preferredNames = new Map<string, string>();
@@ -2270,10 +2287,16 @@ export default function DashboardClient({ user }: { user: User }) {
           roadName,
           rows: rows.length,
           quarters: [...new Set(rows.map((r) => r.quarter))].sort(compareQuarters),
-          directionA:
-            rows.find((r) => r.directionCode === "A")?.directionName ?? "方向A",
-          directionB:
-            rows.find((r) => r.directionCode === "B")?.directionName ?? "方向B",
+          // 空字串也要退回佔位值：舊資料裡有人把方向名稱清空過，
+          // `?? "方向A"` 擋不住空字串，管理畫面就會出現一格空白的方向名稱。
+          directionA: pickDirectionName(
+            "A",
+            rows.find((r) => r.directionCode === "A")?.directionName,
+          ),
+          directionB: pickDirectionName(
+            "B",
+            rows.find((r) => r.directionCode === "B")?.directionName,
+          ),
           directions,
           surveyType,
         };
@@ -4017,8 +4040,10 @@ export default function DashboardClient({ user }: { user: User }) {
     return {
       roadId,
       roadName,
-      a: existingA ?? selectedMeta?.a ?? "方向A",
-      b: existingB ?? selectedMeta?.b ?? "方向B",
+      // 已匯入資料上的名稱優先，但那筆如果只是「方向A」這個預設值，
+      // 就讓路段設定檔裡真的取過的名字勝出（原本 `??` 會讓預設值贏）。
+      a: pickDirectionName("A", existingA, selectedMeta?.a),
+      b: pickDirectionName("B", existingB, selectedMeta?.b),
     };
   }
   async function parseFiles(files: File[]) {
@@ -4703,12 +4728,39 @@ export default function DashboardClient({ user }: { user: User }) {
       target = roadManagerRows.find((r) => r.roadId === roadDraft.mergeTarget);
     if (!source || !target || source.roadId === target.roadId)
       return setToast("請選擇另一個既有路段作為合併目標");
-    const affected = `影響季度：${source.quarters.join("、") || "—"}\n影響資料：${formatter.format(source.rows)} 筆\n\n「${source.roadName}」將合併到「${target.roadName}」，原路段名稱會保留為辨識別名。`;
+    if (source.surveyType !== target.surveyType)
+      return setToast("路段格式與路口格式不可互相合併");
+    /*
+     * 合併會把方向名稱**統一**成一組，套用到來源與目標的每一筆資料。
+     * 原本直接拿 target.directionA／directionB，而那兩個在目標路段還沒取過
+     * 名字時只是「方向A／方向B」這個預設值——結果就是使用者在來源路段打好的
+     * 「南下／北上」，在按下合併的瞬間被預設值蓋掉，而且沒有任何提示。
+     *
+     * ⚠️ A 與 B 一定要**取自同一條路段**，不可以各挑各的。
+     * 分開挑的話，「目標只有 B 有名字＝往南、來源 A＝往南 B＝往北」這種組合
+     * 會挑出 A＝往南（來源）、B＝往南（目標）——兩個方向同名，
+     * 篩選與 Excel 的 A／B 欄從此分不出來。
+     * 所以是「哪一條路段有取過名字」二選一，整組沿用。
+     */
+    const targetNamed =
+      isRealDirectionName(target.directionA, "A") ||
+      isRealDirectionName(target.directionB, "B");
+    const sourceNamed =
+      isRealDirectionName(source.directionA, "A") ||
+      isRealDirectionName(source.directionB, "B");
+    const namingRoad = targetNamed || !sourceNamed ? target : source;
+    const mergedDirectionA = pickDirectionName("A", namingRoad.directionA);
+    const mergedDirectionB = pickDirectionName("B", namingRoad.directionB);
+    const directionNotice =
+      target.surveyType === "road"
+        ? `\n方向名稱將統一為：A＝${mergedDirectionA}、B＝${mergedDirectionB}`
+        : "";
+    const affected = `影響季度：${source.quarters.join("、") || "—"}\n影響資料：${formatter.format(source.rows)} 筆\n\n「${source.roadName}」將合併到「${target.roadName}」，原路段名稱會保留為辨識別名。${directionNotice}`;
     if (!window.confirm(`${affected}\n\n確定執行合併？`)) return;
     setBusy(true);
     try {
-      if (source.surveyType !== target.surveyType)
-        return setToast("路段格式與路口格式不可互相合併");
+      // 型態不合的檢查已經移到 window.confirm 之前：本來擋在確認之後，
+      // 使用者會先看到「方向名稱將統一為…」再被退回，白按一次。
       const response = await appFetch("/api/roads", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -4718,8 +4770,8 @@ export default function DashboardClient({ user }: { user: User }) {
           sourceRoadId: source.roadId,
           targetRoadId: target.roadId,
           targetRoadName: target.roadName,
-          directionA: target.directionA,
-          directionB: target.directionB,
+          directionA: mergedDirectionA,
+          directionB: mergedDirectionB,
           surveyType: target.surveyType,
         }),
       });
@@ -4736,9 +4788,9 @@ export default function DashboardClient({ user }: { user: User }) {
                 directionName:
                   target.surveyType === "road"
                     ? r.directionCode === "A"
-                      ? target.directionA
+                      ? mergedDirectionA
                       : r.directionCode === "B"
-                        ? target.directionB
+                        ? mergedDirectionB
                         : r.directionName
                     : r.directionName,
               }
@@ -6699,14 +6751,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.31.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.32.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.31.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.32.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
