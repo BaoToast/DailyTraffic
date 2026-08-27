@@ -29,6 +29,7 @@ import {
 import {
   CORE_VEHICLE_KEYS,
   effectiveVehicleCounts,
+  effectiveVehicleLabel,
   missingVehicleFactors,
   rawVehicleCounts,
   rawVehicleLabels,
@@ -99,7 +100,6 @@ import {
   type ReportDraftContext,
 } from "./report-draft.ts";
 import {
-  ANOMALY_TYPES,
   anomalyTypeCounts,
   compareQuarters,
   completenessSummary,
@@ -860,7 +860,8 @@ function IntersectionGeometryDiagram({
         textAnchor="middle"
         className="geometry-center-sub"
       >
-        綠：直行　橘：左轉　藍：右轉
+        {/* 全形空白是刻意的排版字元，包成字串才不會被 no-irregular-whitespace 誤判 */}
+        {"綠：直行　橘：左轉　藍：右轉"}
       </text>
     </svg>
   );
@@ -958,8 +959,6 @@ function HourlyCanvas({
       })),
     [dayTypes, records, factors, turnFactors, vehicleSettings],
   );
-  /** 只用來決定座標軸最大值與 x 軸刻度；實際線條走 seriesByDay。 */
-  const series = seriesByDay[0]?.points ?? [];
   // 重畫的觸發條件除了資料以外，還要包含「畫布尺寸改變」。畫布是照實際
   // 尺寸以實體像素重畫的，只綁資料的話，改變視窗大小或切換版面之後畫面
   // 會維持舊解析度被拉伸，線條變糊、座標軸文字也跟著歪掉。
@@ -1214,10 +1213,21 @@ async function addNativeCharts(
   return zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" });
 }
 export default function DashboardClient({ user }: { user: User }) {
+  /*
+   * 沒有登入時就是離線模式，這個旗標由 app-fetch.ts 的 offlineMode() 讀取。
+   *
+   * 規則的顧慮是對的——在 render 期間寫入元件外的變數不是好習慣。這裡刻意
+   * 保留原樣並就地豁免，理由是：改成 effect 會晚一個 commit 才設好旗標，
+   * 而這個旗標的用途正是「在任何 appFetch 發生之前就決定要不要打 API」。
+   * 要改的話應該連同 offlineMode() 一起改成由 props/context 傳遞，
+   * 那是獨立的重構，不該夾在其他修正裡順手做。
+   */
+  /* eslint-disable react-hooks/immutability -- 理由見上面那段註解 */
   if (typeof window !== "undefined" && !user)
     (
       window as unknown as { __TRAFFIC_OFFLINE__?: boolean }
     ).__TRAFFIC_OFFLINE__ = true;
+  /* eslint-enable react-hooks/immutability */
   const [projects, setProjects] = useState<Project[]>([]);
   const [offline, setOffline] = useState(!user);
   const [activeProject, setActiveProject] = useState("");
@@ -1500,7 +1510,9 @@ export default function DashboardClient({ user }: { user: User }) {
       );
       if (Array.isArray(vehicleSettings))
         setVehicleClassSettings(vehicleSettings);
-    } catch {}
+    } catch {
+      /* 舊版或損壞的設定就跳過，維持預設值 */
+    }
   }, []);
   /*
    * PCU 係數是「每個計畫一組」。
@@ -3202,8 +3214,27 @@ export default function DashboardClient({ user }: { user: User }) {
   }>({ fromQuarter: "", toQuarter: "", types: [], roadId: "ALL", dayType: "ALL" });
   const anomalyAlerts = useMemo(
     () =>
-      detectAnomalies(activeRecords, workflow.thresholds, (record) =>
-        sumPcu(record, pcuFactors, turnPcuFactors, vehicleClassSettings),
+      detectAnomalies(
+        activeRecords,
+        workflow.thresholds,
+        (record) =>
+          sumPcu(record, pcuFactors, turnPcuFactors, vehicleClassSettings),
+        /*
+         * 提醒的文字會直接進報告文字草稿與 Excel 的品質檢核工作表，
+         * 所以調查點、支線、車種都要換成使用者看得懂的名稱。
+         * 分組與篩選用的鍵值不受影響。
+         */
+        {
+          road: (roadId) =>
+            roadOptions.find(([value]) => value === roadId)?.[1] || roadId,
+          direction: (record) => displayDirectionName(record as TrafficRecord),
+          vehicle: (vehicleKey, record) =>
+            effectiveVehicleLabel(
+              record as TrafficRecord,
+              vehicleKey,
+              vehicleClassSettings,
+            ),
+        },
       ),
     [
       activeRecords,
@@ -3211,6 +3242,13 @@ export default function DashboardClient({ user }: { user: User }) {
       pcuFactors,
       turnPcuFactors,
       vehicleClassSettings,
+      roadOptions,
+      /*
+       * displayDirectionName 每次 render 都是新的函式，列進來會讓這個 memo
+       * 永遠重算。它讀的是 intersectionSettings，而 activeRecords 也是由
+       * intersectionSettings 推出來的，所以支線改名時這個 memo 一樣會重算。
+       * 本檔其他 memo（1739、1936、2116）也是同一個取捨。
+       */
     ],
   );
   const filteredAnomalies = useMemo(
@@ -3398,10 +3436,6 @@ export default function DashboardClient({ user }: { user: User }) {
     dayType,
   ]);
   const reportDraftContext = useMemo<ReportDraftContext>(() => {
-    const vehicleTotal = Object.values(totals.vehicles).reduce(
-      (sum, value) => sum + value,
-      0,
-    );
     const sortedRoads = [...roadRows].sort((a, b) => b.total - a.total);
     // 直接沿用畫面「各路段平日與假日比較」面板的結果，定義才會一致。
     // 自己另外過濾一次的話會漏掉調查點與搜尋條件，出現「本段寫 42,090 輛、
@@ -5421,11 +5455,21 @@ export default function DashboardClient({ user }: { user: User }) {
         ? `調查時段實際交通量（${sheetActualUnit}）`
         : `全日實際交通量（${sheetActualUnit}）`;
       const ExcelJS = (await import("exceljs")).default;
+      /*
+       * exceljs 是動態載入的，型別要在這裡就地宣告；只寫這裡真的會用到的
+       * 那幾個樣式欄位，比 any 精確，也不必為了型別把整包 exceljs 靜態載進來。
+       */
+      type ExcelJsCell = {
+        fill: unknown;
+        font: unknown;
+        alignment: unknown;
+      };
+      type ExcelJsRow = { eachCell: (visit: (cell: ExcelJsCell) => void) => void };
       const wb = new ExcelJS.Workbook();
       wb.creator = "全日交通量及車種組成";
       wb.calcProperties.fullCalcOnLoad = true;
-      const header = (row: any) =>
-        row.eachCell((cell: any) => {
+      const header = (row: ExcelJsRow) =>
+        row.eachCell((cell: ExcelJsCell) => {
           cell.fill = {
             type: "pattern",
             pattern: "solid",
@@ -6655,14 +6699,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.30.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.31.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.30.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.31.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -8393,16 +8437,14 @@ export default function DashboardClient({ user }: { user: User }) {
                                 ? item.toQuarter
                                 : `${item.fromQuarter}→${item.toQuarter}`}
                             </td>
-                            <td>
-                              {roadOptions.find(
-                                ([value]) => value === item.roadId,
-                              )?.[1] ?? item.roadId}
-                            </td>
+                            <td>{item.roadLabel}</td>
                             <td>{item.dayType}</td>
-                            <td>{item.direction}</td>
+                            <td>{item.directionLabel}</td>
                             <td>
                               {item.type}
-                              {item.vehicle ? `（${item.vehicle}）` : ""}
+                              {item.vehicleLabel
+                                ? `（${item.vehicleLabel}）`
+                                : ""}
                             </td>
                             <td>
                               {item.value.toFixed(
@@ -9942,6 +9984,11 @@ export default function DashboardClient({ user }: { user: User }) {
             <label>
               季度名稱
               <input
+                /*
+                 * 這是「新增季度」對話框開啟後的第一個輸入框，使用者按下按鈕
+                 * 就是為了打字。自動聚焦在這裡是預期行為，不是干擾。
+                 */
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 value={quarterDraft}
                 onChange={(e) => setQuarterDraft(e.target.value.toUpperCase())}

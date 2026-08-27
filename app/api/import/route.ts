@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "../../../db";
-import { surveys, trafficRecords } from "../../../db/schema";
+import { surveys } from "../../../db/schema";
 import { apiError, canAccessProject, requireApiUser } from "../_lib";
 
 type ImportRow = { roadId: string; roadName: string; dayType: "平日" | "假日"; directionCode: string; directionName: string; hour: string; motorcycle: number; small: number; large: number; special: number; surveyType?: "road" | "intersection"; turnData?: unknown; destinationCounts?: unknown; vehicleCounts?: unknown; vehicleLabels?: unknown; sourceFileName?: string; sourceSheetName?: string; sourceRow?: number; sourceRange?: string };

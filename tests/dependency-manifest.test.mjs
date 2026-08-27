@@ -202,3 +202,82 @@ test("測試引用的固定檔案都在交付包裡（不是 .gitignore 掉的�
   }
   assert.deepEqual([...new Set(offenders)], [], "測試讀的檔案不會進交付包");
 });
+
+/*
+ * 交付包裡不可以有任何試算表檔案。
+ *
+ * 起因（2026-08-27 複查發現）：`tests/fixtures/` 底下放著使用者客戶的**真實
+ * 調查表**（.xlsx 與 .xls 各一份），因此被提交進公開的 GitHub repository，
+ * 而且可以直接從 GitHub Pages 下載。它是被兩支測試當成參考檔用的。
+ *
+ * 測試需要的是「這種檔案長什麼樣」，不是「這一份實際調查到多少車」，
+ * 所以現在一律由 tests/helpers/intersection-sample.mjs 當場產生匿名樣本。
+ * 這一支確保不會有人為了方便又把某一份實際檔案塞回來——**那種事一旦發生，
+ * 所有測試仍然是綠的，沒有任何跡象**。
+ */
+test("交付包裡沒有任何試算表檔案（避免真實調查資料被提交）", async () => {
+  const offenders = [];
+  const walk = async (dir) => {
+    for (const entry of await readdir(new URL(dir, root), { withFileTypes: true })) {
+      /*
+       * `.samples/` 是 `npm run samples` 當場產生的匿名測試樣本，
+       * 在 .gitignore 裡、也不會進交付包，所以不算數。
+       * 其餘一律要檢查。
+       */
+      if (
+        ["node_modules", "dist", ".next", ".git", ".wrangler", ".samples"].includes(
+          entry.name,
+        )
+      )
+        continue;
+      const next = `${dir}${entry.name}${entry.isDirectory() ? "/" : ""}`;
+      if (entry.isDirectory()) await walk(next);
+      else if (/\.(xlsx|xlsm|xls|csv)$/i.test(entry.name)) offenders.push(next);
+    }
+  };
+  await walk("./");
+  assert.deepEqual(
+    offenders,
+    [],
+    "包裡出現試算表檔案。測試樣本請用 tests/helpers/intersection-sample.mjs 或 " +
+      "scripts/make-samples.mjs 當場產生，不要提交任何實際調查檔",
+  );
+});
+
+/*
+ * 原始碼裡不可以出現實際的站號或調查點名稱。
+ *
+ * 光是刪掉檔案不夠：若測試或註解仍寫著實際站號與調查點名稱，
+ * 一樣會把委託案的調查點公開出去。示範資料一律用「示範」開頭的名稱
+ * 與 A00T00-01 這種假站號。
+ */
+test("原始碼裡沒有實際的站號或調查點名稱", async () => {
+  /* 真實站號的形狀：5 碼計畫編號 ＋ T ＋ 兩碼 ＋ 兩碼。示範站號以 A00 開頭。 */
+  const stationPattern = /(?<![A-Za-z0-9])(?!A00)\d{5}T\d{2}-?\d{2}(?![0-9])/;
+  const offenders = [];
+  for (const file of await sourceFiles()) {
+    const source = await readFile(new URL(file, root), "utf8");
+    const match = source.match(stationPattern);
+    if (match) offenders.push(`${file} → ${match[0]}`);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    "原始碼裡出現實際站號；示範資料請改用 A00T00-01 這類假站號",
+  );
+});
+
+/*
+ * `.gitattributes` 必須關掉換行轉換——理由寫在那個檔案裡。
+ */
+test("有 .gitattributes 且關閉了換行轉換", async () => {
+  const text = await readFile(new URL(".gitattributes", root), "utf8").catch(
+    () => "",
+  );
+  assert.match(
+    text,
+    /^\*\s+-text\s*$/m,
+    ".gitattributes 缺少 `* -text`：在 Windows 上取出時 Git 會把建置產物轉成 CRLF，" +
+      "備份包就無法與線上內容逐位元核對（2026-08-27 實際發生過）",
+  );
+});

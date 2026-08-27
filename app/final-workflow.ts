@@ -328,10 +328,30 @@ export type AnomalyAlert = {
   /** 變動幅度或數量，供排序與篩選用。 */
   value: number;
   unit: string;
-  /** 車種占比變動才有值。 */
+  /** 車種占比變動才有值（內部鍵值，例如 custom:大貨車）。 */
   vehicle?: string;
-  /** 與舊版完全相同的一行敘述，匯出與既有畫面沿用。 */
+  /*
+   * 顯示用的名稱。上面的 roadId／direction／vehicle 是鍵值，用來分組與篩選，
+   * 不能拿去給人看——使用者替調查點、支線、車種改過名之後，畫面其他地方
+   * 都顯示新名稱，只有異常提醒還印鍵值（13545-01、駛出路口A、custom:大貨車）。
+   * 沒有傳 labels 進來時這三個欄位就等於鍵值，行為與舊版完全相同。
+   */
+  roadLabel: string;
+  directionLabel: string;
+  vehicleLabel?: string;
+  /** 一行敘述，畫面、Excel 品質檢核與報告文字草稿共用。 */
   text: string;
+};
+
+/**
+ * 把鍵值換成使用者看得懂的名稱。三個都是選填，沒給就用鍵值本身。
+ * 這一層刻意由呼叫端提供：解析名稱要用到 intersectionSettings、
+ * vehicleClassSettings 與調查點清單，那些都是畫面層的狀態。
+ */
+export type AnomalyLabels = {
+  road?: (roadId: string) => string;
+  direction?: (record: TraceableTrafficRecord) => string;
+  vehicle?: (vehicleKey: string, record: TraceableTrafficRecord) => string;
 };
 
 /**
@@ -378,6 +398,7 @@ export function detectAnomalies(
   records: TraceableTrafficRecord[],
   thresholds: AnomalyThresholds,
   pcuValue: (record: TraceableTrafficRecord) => number,
+  labels: AnomalyLabels = {},
 ): AnomalyAlert[] {
   const alerts: AnomalyAlert[] = [];
   const quarters = [...new Set(records.map((record) => record.quarter))].sort(
@@ -395,10 +416,21 @@ export function detectAnomalies(
   groups.forEach((rows, key) => {
     // 方向名稱理論上可能含有「|」，用 split 還原會被截斷，所以直接留著原值。
     const [groupRoadId, groupDayType, ...groupDirection] = key.split("|");
+    /*
+     * 分組鍵值一個字都沒有改，只是多帶一份顯示名稱。
+     * 方向名稱要用整筆紀錄才解析得出來（路口的支線名稱存在路口幾何設定裡），
+     * 所以拿這一組的第一筆當代表——同一組本來就是同一個調查點的同一個方向。
+     */
+    const sample = rows[0];
     const group = {
       roadId: groupRoadId,
       dayType: groupDayType,
       direction: groupDirection.join("|"),
+      roadLabel: labels.road?.(groupRoadId) || groupRoadId,
+      directionLabel:
+        (sample && labels.direction?.(sample)) || groupDirection.join("|"),
+      vehicleLabel: (vehicleKey: string) =>
+        (sample && labels.vehicle?.(vehicleKey, sample)) || vehicleKey,
     };
     const byQuarter = quarters
       .map((quarter) => {
@@ -520,7 +552,14 @@ export function detectAnomalies(
  * 現在一律 replaceAll，數值與判定條件完全沒有改變。
  */
 function alert(
-  group: { roadId: string; dayType: string; direction: string },
+  group: {
+    roadId: string;
+    dayType: string;
+    direction: string;
+    roadLabel: string;
+    directionLabel: string;
+    vehicleLabel: (vehicleKey: string) => string;
+  },
   type: AnomalyType,
   fromQuarter: string,
   toQuarter: string,
@@ -528,26 +567,36 @@ function alert(
   unit: string,
   vehicle?: string,
 ): AnomalyAlert {
-  const { roadId, dayType, direction } = group;
-  const label = [roadId, dayType, direction].join("／");
+  const { roadId, dayType, direction, roadLabel, directionLabel } = group;
+  /*
+   * 這一行字會出現在三個地方：畫面的異常提醒表、Excel 的「品質檢核」工作表、
+   * 以及報告文字草稿。所以它必須寫使用者看得懂的名稱，不能寫鍵值——
+   * 報告草稿裡冒出 `13545-01／平日／駛出路口A custom:大貨車占比變動`
+   * 是直接會被寫進交付文件的。
+   */
+  const label = [roadLabel, dayType, directionLabel].join("／");
+  const vehicleLabel = vehicle ? group.vehicleLabel(vehicle) : undefined;
   const text =
     type === "尖峰時段位移"
       ? `${label} 尖峰時段位移 ${value} 小時`
       : type === "零流量時段"
         ? `${label} ${toQuarter} 有 ${value} 個零流量時段`
         : type === "車種占比變動"
-          ? `${label} ${vehicle}占比變動 ${value.toFixed(1)} 個百分點`
+          ? `${label} ${vehicleLabel}占比變動 ${value.toFixed(1)} 個百分點`
           : `${label} ${fromQuarter}→${toQuarter} ${type} ${value.toFixed(1)}%`;
   return {
     roadId,
     dayType,
     direction,
+    roadLabel,
+    directionLabel,
     type,
     fromQuarter,
     toQuarter,
     value,
     unit,
     vehicle,
+    vehicleLabel,
     text,
   };
 }

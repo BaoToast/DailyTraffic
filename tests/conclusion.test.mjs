@@ -238,7 +238,7 @@ test("平日假日對比只比同一路段同一季，且單位不同時不比",
 test("最大最小只比合計列，混單位時不比", () => {
   const rows = [
     row({ roadId: "R-01", roadName: "中山路", periods: { all: cell({ total: 10000 }) } }),
-    row({ roadId: "R-02", roadName: "岡山路", periods: { all: cell({ total: 4000 }) } }),
+    row({ roadId: "R-02", roadName: "示範南路", periods: { all: cell({ total: 4000 }) } }),
     row({ roadId: "R-01", scopeCode: "A", scopeName: "方向A", periods: { all: cell({ total: 99999 }) } }),
   ];
   const text = buildConclusion(
@@ -247,7 +247,7 @@ test("最大最小只比合計列，混單位時不比", () => {
     META,
   );
   assert.match(text, /最高為 中山路/);
-  assert.match(text, /最低為 岡山路/);
+  assert.match(text, /最低為 示範南路/);
   assert.doesNotMatch(text, /99,999/, "方向列不可以拿來跟整條路段比");
 });
 
@@ -299,7 +299,7 @@ test("每一個可勾選指標都真的會改變輸出（沒有死選項）", ()
     row({ quarter: "114Q1", dayType: "平日" }),
     row({ quarter: "114Q2", dayType: "平日" }),
     row({ quarter: "114Q2", dayType: "假日" }),
-    row({ quarter: "114Q2", roadId: "R-02", roadName: "岡山路" }),
+    row({ quarter: "114Q2", roadId: "R-02", roadName: "示範南路" }),
     row({ quarter: "114Q2", scopeCode: "A", scopeName: "方向A" }),
   ];
   const base = cond({ periods: ["all", "am"], metrics: [], grouping: "byRoad" });

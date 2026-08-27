@@ -1,7 +1,6 @@
 import { chromium } from "playwright";
 import http from "node:http";
-import { readFileSync, existsSync, statSync, mkdtempSync, readdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
@@ -34,7 +33,6 @@ const ok = (label, condition, detail = "") => {
 
 await new Promise((r) => server.listen(8147, r));
 const browser = await chromium.launch(launchOptions());
-const downloads = mkdtempSync(join(tmpdir(), "traffic-dl-"));
 const ctx = await browser.newContext({
   viewport: { width: 1500, height: 1000 },
   locale: "zh-TW",

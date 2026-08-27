@@ -293,7 +293,6 @@ function describeCell(
 function describeGrowth(
   rows: ConclusionRow[],
   periods: PeriodKey[],
-  digits: number,
 ) {
   const lines: string[] = [];
   const groups = new Map<string, ConclusionRow[]>();
@@ -499,7 +498,7 @@ export function buildConclusion(
         out.push(`　〔${row.quarter}・${row.dayType}・${rowLabel(row)}〕`);
         for (const period of periods) out.push(...describeCell(row, period, condition));
       }
-      if (wants("growth")) out.push(...describeGrowth(group, periods, digits));
+      if (wants("growth")) out.push(...describeGrowth(group, periods));
       if (wants("dayCompare")) out.push(...describeDayCompare(group, periods));
     }
   } else if (condition.grouping === "byQuarter") {
@@ -540,7 +539,7 @@ export function buildConclusion(
   }
   if (wants("growth") && condition.grouping !== "byRoad") {
     heading("季度之間的變動");
-    const lines = describeGrowth(body, periods, digits);
+    const lines = describeGrowth(body, periods);
     out.push(
       ...(lines.length
         ? lines

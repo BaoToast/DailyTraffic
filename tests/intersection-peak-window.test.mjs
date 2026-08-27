@@ -1,6 +1,14 @@
+/*
+ * 路口尖峰時段的認定：整個路口一個尖峰，或各支線各自認定。
+ *
+ * ⚠️ 2026-08-27 起改用當場產生的匿名樣本（見 tests/helpers/intersection-sample.mjs）。
+ * 這一支原本讀 tests/fixtures/ 底下使用者客戶的真實調查表；那份檔案因此被
+ * 提交進公開的 repository。改用樣本之後，期望的尖峰時段與 PCU 都由樣本的
+ * 每一格真值**自己算一次滾動視窗**得到，不經過被測試的 period-analysis——
+ * 期望值如果是用被測程式算出來的，這個測試就等於什麼都沒驗。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
 import XLSXns from "xlsx";
 import {
   armCodeOf,
@@ -9,12 +17,19 @@ import {
 } from "../app/traffic-parser.ts";
 import { deriveDestinationIntersectionRecords } from "../app/intersection-flow.ts";
 import { buildPeriodRows } from "../app/period-analysis.ts";
+import {
+  AM_RANGE,
+  ARM_CODES,
+  PERIODS,
+  PM_RANGE,
+  ROUTES,
+  SAMPLE_IDENTITY,
+  buildIntersectionWorkbook,
+  inboundPcuBySlot,
+  rollingPeak,
+} from "./helpers/intersection-sample.mjs";
 
 const XLSX = XLSXns.default ?? XLSXns;
-const SAMPLE = new URL(
-  "./fixtures/11017T1501中山北路岡山路口七叉路口.xls",
-  import.meta.url,
-);
 
 const core = { motorcycle: 0.5, small: 1, large: 1.5, special: 2.5 };
 const coreTurns = {
@@ -23,20 +38,11 @@ const coreTurns = {
   large: { left: 2.3, through: 1.5, right: 2 },
   special: { left: 2.5, through: 2, right: 2.3 },
 };
-const ROUTES = {
-  A: { B: "left", C: "left", D: "left", E: "through", F: "right", G: "right" },
-  B: { C: "left", E: "left", F: "through", A: "right", G: "right" },
-  C: { D: "left", E: "left", F: "left", G: "through", A: "right", B: "right" },
-  D: { F: "left", G: "left", A: "right", B: "right", C: "right" },
-  E: { F: "left", G: "left", A: "through", B: "right", C: "right" },
-  F: { A: "left", G: "left", B: "through", C: "right", D: "right", E: "right" },
-  G: { A: "left", B: "left", C: "through", D: "right", E: "right", F: "right" },
-};
 const PROJECT = "P1";
-const ROAD = "11017T15-01";
+const ROAD = SAMPLE_IDENTITY.station;
 
 function inboundRecords() {
-  const book = XLSX.read(readFileSync(SAMPLE), { type: "buffer" });
+  const book = XLSX.read(buildIntersectionWorkbook("biff8"), { type: "buffer" });
   const rows = [];
   for (const name of book.SheetNames) {
     const values = XLSX.utils.sheet_to_json(book.Sheets[name], {
@@ -47,7 +53,7 @@ function inboundRecords() {
     rows.push(
       ...parseTrafficSheetValues(values, dayTypeOf(values) || "平日", "115Q2", {
         roadId: ROAD,
-        roadName: "中山北路/岡山路口(七叉路口)",
+        roadName: SAMPLE_IDENTITY.name,
         a: "方向A",
         b: "方向B",
       }, { sheetName: name }),
@@ -79,34 +85,62 @@ function inboundRecords() {
 }
 
 const factors = { core, coreTurns, settings: [] };
-// 使用者參考檔「進入該路口交通量」：上午尖峰 07:15~08:15、下午尖峰 17:00~18:00
-const EXPECT_AM = { A: 422.4, B: 414.3, C: 628.5, D: 56.2, E: 184.5, F: 1703.2, G: 567.5 };
-const EXPECT_PM = { A: 548.5, B: 941.2, C: 1136.6, D: 129.8, E: 355.1, F: 765.1, G: 231.8 };
 
-test("時段車種分析：路口各支線一律用「整個路口的尖峰時段」，與參考檔完全相符", () => {
+/* 由樣本真值獨立算出來的答案。 */
+const slots = inboundPcuBySlot(coreTurns);
+const allSlots = PERIODS.map((_unused, index) =>
+  ARM_CODES.reduce((sum, code) => sum + slots[code][index], 0),
+);
+const OVERALL_AM = rollingPeak(allSlots, ...AM_RANGE);
+const OVERALL_PM = rollingPeak(allSlots, ...PM_RANGE);
+/** 用「整個路口的尖峰時段」去切每一條支線的量。 */
+function armPcuInWindow(code, hour) {
+  const start = PERIODS.findIndex((label) => label.startsWith(hour.split("～")[0]));
+  return Number(
+    slots[code].slice(start, start + 4).reduce((a, b) => a + b, 0).toFixed(1),
+  );
+}
+
+test("樣本要有「各支線尖峰時段不同」的形狀，否則兩種模式驗不出差別", () => {
+  const own = ARM_CODES.map((code) => rollingPeak(slots[code], ...AM_RANGE).hour);
+  assert.ok(
+    new Set(own).size > 1,
+    `樣本裡每一條支線的上午尖峰都一樣（${own.join("、")}），驗不到「各方向各自認定」`,
+  );
+  assert.ok(
+    own.some((hour) => hour !== OVERALL_AM.hour),
+    "至少要有一條支線的尖峰和整個路口不同",
+  );
+});
+
+test("時段車種分析：路口各支線一律用「整個路口的尖峰時段」", () => {
   const rows = buildPeriodRows(inboundRecords(), { factors });
   const at = (code) => rows.find((row) => row.scopeCode === code);
 
-  // 整個路口的尖峰時段
-  assert.equal(at("ALL").periods.am.hour, "07:15～08:15");
-  assert.equal(at("ALL").periods.pm.hour, "17:00～18:00");
-  assert.equal(Number(at("ALL").periods.am.pcu.toFixed(1)), 3976.6);
-  assert.equal(Number(at("ALL").periods.pm.pcu.toFixed(1)), 4108.1);
+  assert.equal(at("ALL").periods.am.hour, OVERALL_AM.hour);
+  assert.equal(at("ALL").periods.pm.hour, OVERALL_PM.hour);
+  assert.equal(Number(at("ALL").periods.am.pcu.toFixed(1)), OVERALL_AM.pcu);
+  assert.equal(Number(at("ALL").periods.pm.pcu.toFixed(1)), OVERALL_PM.pcu);
 
-  for (const [code, value] of Object.entries(EXPECT_AM)) {
+  for (const code of ARM_CODES) {
     const row = at(code);
-    assert.equal(row.periods.am.hour, "07:15～08:15", `駛入路口${code} 的上午時段`);
-    assert.equal(Number(row.periods.am.pcu.toFixed(1)), value, `駛入路口${code} 上午`);
-  }
-  for (const [code, value] of Object.entries(EXPECT_PM)) {
-    const row = at(code);
-    assert.equal(row.periods.pm.hour, "17:00～18:00", `駛入路口${code} 的下午時段`);
-    assert.equal(Number(row.periods.pm.pcu.toFixed(1)), value, `駛入路口${code} 下午`);
+    assert.equal(row.periods.am.hour, OVERALL_AM.hour, `駛入路口${code} 的上午時段`);
+    assert.equal(
+      Number(row.periods.am.pcu.toFixed(1)),
+      armPcuInWindow(code, OVERALL_AM.hour),
+      `駛入路口${code} 上午`,
+    );
+    assert.equal(row.periods.pm.hour, OVERALL_PM.hour, `駛入路口${code} 的下午時段`);
+    assert.equal(
+      Number(row.periods.pm.pcu.toFixed(1)),
+      armPcuInWindow(code, OVERALL_PM.hour),
+      `駛入路口${code} 下午`,
+    );
   }
 
   // 各支線相加必須等於合計，否則那一欄不能拿來對報表
   for (const period of ["am", "pm"]) {
-    const sum = Object.keys(EXPECT_AM).reduce(
+    const sum = ARM_CODES.reduce(
       (total, code) => total + at(code).periods[period].pcu,
       0,
     );
@@ -124,14 +158,18 @@ test("切成「各方向各自認定」時，會回到各支線自己的尖峰�
     peakScope: "direction",
   });
   const at = (code) => rows.find((row) => row.scopeCode === code);
-  // 這正是使用者回報畫面上看到的那兩個值（432.2 與 447.9）
-  assert.equal(at("A").periods.am.hour, "07:00～08:00");
-  assert.equal(Number(at("A").periods.am.pcu.toFixed(1)), 432.2);
-  assert.equal(at("B").periods.am.hour, "07:30～08:30");
-  assert.equal(Number(at("B").periods.am.pcu.toFixed(1)), 447.9);
-  // 下午七條支線的尖峰剛好都在同一小時，所以兩種模式的下午結果相同
-  for (const [code, value] of Object.entries(EXPECT_PM)) {
-    assert.equal(at(code).periods.pm.hour, "17:00～18:00");
-    assert.equal(Number(at(code).periods.pm.pcu.toFixed(1)), value);
+  let differed = 0;
+  for (const code of ARM_CODES) {
+    const own = rollingPeak(slots[code], ...AM_RANGE);
+    assert.equal(at(code).periods.am.hour, own.hour, `路口${code} 自己的上午尖峰`);
+    assert.equal(Number(at(code).periods.am.pcu.toFixed(1)), own.pcu, `路口${code} 上午`);
+    if (own.hour !== OVERALL_AM.hour) differed += 1;
+    const ownPm = rollingPeak(slots[code], ...PM_RANGE);
+    assert.equal(at(code).periods.pm.hour, ownPm.hour, `路口${code} 自己的下午尖峰`);
+    assert.equal(Number(at(code).periods.pm.pcu.toFixed(1)), ownPm.pcu, `路口${code} 下午`);
   }
+  assert.ok(
+    differed > 0,
+    "兩種模式算出來完全一樣，代表這個測試沒有驗到差別",
+  );
 });

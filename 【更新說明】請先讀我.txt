@@ -1,5 +1,99 @@
-全日交通量及車種組成 — 完整專案 v20.30
+全日交通量及車種組成 — 完整專案 v20.31
 =================================================
+
+■ v20.31-0：異常提醒改寫使用者取的名稱（複查後補的一項）
+
+  「品質與定稿」的異常提醒原本用系統內部的鍵值組字：
+    13545-01／平日／駛出路口A custom:大貨車占比變動 10.0 個百分點
+  但同一頁上方的表格、車種組成分析、結論草稿、Excel 的其他工作表，
+  全部都顯示使用者改過的名稱。同一件事在同一頁上有兩種寫法。
+
+  而這一行字會出現在三個地方：畫面的異常提醒表、Excel 的「品質檢核」
+  工作表、以及**報告文字草稿**——最後那個會被直接抄進交付文件。
+
+  本版 detectAnomalies() 新增一個選填的 labels 參數（調查點、支線、車種
+  三個解析函式），由畫面層傳入；沒有傳就退回原本的鍵值，行為完全相同。
+  AnomalyAlert 另外多出 roadLabel／directionLabel／vehicleLabel 三個顯示欄位，
+  原本的 roadId／direction／vehicle 鍵值一個字都沒有改——分組與篩選靠的是它們。
+
+  ⚠️ 判定門檻與數值完全沒有變動，只是把名字寫對。
+
+  新增單元測試 4 項，其中 3 項已實測會在未修正的舊寫法下紅字。
+
+■ v20.31-1：把使用者的真實調查檔從程式包裡拿掉（重要）
+
+  複查發現：tests/fixtures/ 底下放著一份實際的七叉路口調查表
+  （.xlsx 與 .xls 各一份），被兩支自動測試當成參考檔使用。
+  它因此進了公開的 GitHub repository，而且可以直接從 GitHub Pages 下載。
+
+  測試需要的是「這種檔案長什麼樣」，不是「這一份實際調查到多少車」。
+  本版新增 tests/helpers/intersection-sample.mjs：測試執行時當場產生一份
+  結構與真實檔完全相同（一支線一張工作表、車種×目的支線、16 個 15 分鐘時段、
+  連合併儲存格造成的重複車種標題都照抄）、數字用固定種子自己編的活頁簿。
+
+  期望值反而更嚴格了：以前是拿使用者參考檔的彙總數字來比，
+  現在是拿樣本的每一格真值自己加總出來比，而且那個加總完全不經過被測試的程式。
+
+  已移除：tests/fixtures/（兩個實際檔案）、scripts/e2e-partial.mjs
+  （它只讀那兩個實際檔案，不在 npm run e2e 流程裡，交付出去也跑不起來）。
+  測試與手冊裡的實際站號、調查點名稱與該次調查的數值也一併換成示範資料。
+
+  ⚠️ 刪掉檔案不等於刪掉歷史。Git 會保留舊的 commit，
+     這一版只保證「之後不會再有」，已經公開過的內容要另外處理。
+
+■ v20.31-2：三道新的自動檢查
+
+  1. 交付包裡不得出現任何試算表檔案（.xlsx／.xls／.xlsm／.csv）。
+  2. 原始碼裡不得出現實際站號（5 碼計畫編號＋T＋兩碼＋兩碼）。
+  3. 必須有 .gitattributes 且關閉換行轉換。
+
+  三項都已實測會在對應的錯誤狀態下失敗：把實際檔放回 tests/fixtures、
+  把站號寫回測試、刪掉 .gitattributes——各自紅字，還原後全部通過。
+
+■ v20.31-3：換行字元不再被自動改寫
+
+  上一版的備份 ZIP 裡每一個文字檔都被轉成 CRLF，連 vite 的建置產物也一樣，
+  結果 assets/index-<雜湊>.js 的內容不再雜湊成它自己的檔名，
+  備份包與線上內容無法逐位元核對——而網站照樣跑得動，完全看不出來。
+  成因是在 Windows 上取出（core.autocrlf）。
+  本版新增 .gitattributes（`* -text`），並把包內所有文字檔正規化為 LF。
+
+  ★ 打包時請用 git archive 從 commit 直接產生，不要用會改寫換行的工具。
+
+■ v20.31-4：`npm run lint` 修好了，而且以後 `npm test` 會跑它
+
+  複查發現 lint 一直是紅的——v20.30 上實測 5687 個錯誤。
+  原因是 eslint 沒有排除 assets/ 與 github-pages/dist/，
+  在檢查 vite 壓縮後的 bundle；真正的原始碼問題被那幾千筆雜訊蓋住。
+  而 npm test 當時沒有跑 lint，所以沒有任何人發現。
+
+  本版：
+    1. eslint 設定排除建置產物、手冊成品與測試樣本。
+    2. 修掉原始碼真正的問題：9 個未使用的變數與 import、
+       5 個多餘的正規表示式跳脫、2 個 any、1 個空的 catch、
+       圖例文字的全形空白改成字串（那是刻意的排版字元）。
+       正規表示式的改動已用 10 組樣本實測，新舊行為完全相同。
+    3. 底線開頭的名稱（_projectId 這種刻意不用的佔位）不再被當成錯誤。
+    4. 兩條 React Compiler 的建議規則關閉並寫明理由——本專案沒有啟用
+       React Compiler，照它改要動十幾個 effect 的結構，那是與問題無關的重構。
+       姊妹專案「路口轉向」早就做過同樣的取捨。
+    5. package.json 的 test 改成 `npm run lint && npm run build && …`，
+       CI 從此會把關。
+
+  結果：0 錯誤（原 5687）。**還有 6 個 warning**，全部是 useMemo 的相依項
+  提示，改了會動到記憶化行為，屬於要單獨評估的事，本版刻意不碰。
+  warning 不會讓 lint 失敗。
+
+  ⚠️ 有一處用區塊豁免而不是修掉：DashboardClient 在 render 期間寫入
+     window.__TRAFFIC_OFFLINE__。規則的顧慮是對的，但改成 effect 會晚一個
+     commit 才設好旗標，而那個旗標的用途正是「在任何 appFetch 之前就決定
+     要不要打 API」。原因已寫在程式碼註解裡。
+
+■ 沒有變更任何計算規則
+
+  交通量、PCU、尖峰、車種組成、駛入／駛出全部未動。
+  應用程式原始碼只改了兩處：app/system-release.ts 的版號與日期、
+  app/DashboardClient.tsx 兩行手冊連結的版號。
 
 ■ v20.30：交付包可在乾淨電腦完整重跑自動測試
 
@@ -115,12 +209,26 @@
 把本壓縮檔內的所有檔案，覆蓋到 GitHub repository
 （https://github.com/baotoast/DailyTraffic）的根目錄，然後 commit + push。
 
-**請先手動刪除舊版手冊**：manuals 資料夾裡所有不是 v20.30 的
-Traffic_Analysis_Beginner_Guide_*.pdf 與 .docx。
+**上傳只覆蓋同名檔案、不會刪除，所以一定要手動刪掉：**
+  1. manuals 資料夾裡所有不是 v20.31 的
+     Traffic_Analysis_Beginner_Guide_*.pdf 與 .docx
+  2. assets 資料夾裡 v20.30 的三個檔案：
+       index-Cb_ln7kw.js、jszip.min-mm7Kvdf0.js、exceljs.min-CZZmTaW9.js
+     （index-DiExFJT1.css 與 xlsx-Bme4aJTu.js 雜湊沒變，會被直接覆蓋，不用刪）
+
+     ※ 本包的 assets 是重新建置過的，檔名與先前那一份 v20.31 交付包不同
+       （現在是 index-BxyWGdJV.js、jszip.min-BUDfhWnk.js、
+        exceljs.min-CqG8HT_R.js）。如果先前那一份已經上傳過，
+        那三個舊檔名也要一併刪掉。
+  3. **tests/fixtures/ 整個資料夾**（裡面是實際調查表，見上面第 1 點）
+  4. scripts/e2e-partial.mjs
 
 本版起 repository 同時存放原始碼與建置後的網站，並附自動測試
 （.github/workflows/ci.yml，只測試不發布）。
 
-部署完成後請確認：畫面右下角顯示「v20.30」，
-匯入多路口並排的調查表時每個路口都會分開出現（不是只有路口A），
-結論草稿產生器第四區同時列得出「駛出路口A」與「駛入路口A」。
+部署完成後請確認：
+  ・畫面右下角顯示「v20.31」
+  ・https://baotoast.github.io/DailyTraffic/tests/fixtures/ 底下的兩個
+    調查表檔案已經是 404（這是本版最重要的驗收項目）
+  ・manuals/Traffic_Analysis_Beginner_Guide_v20.31.pdf 下載得到
+  ・匯入多路口並排的調查表時每個路口都會分開出現（不是只有路口A）

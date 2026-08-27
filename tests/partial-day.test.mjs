@@ -70,7 +70,7 @@ test("每小時一列的資料沿用原本做法：取最大的那一列", () =>
   assert.equal(peak.rolling, false);
 });
 
-test("15 分鐘資料改用連續 4 格的滾動視窗（重現使用者提供的 T1501 上午尖峰）", () => {
+test("15 分鐘資料改用連續 4 格的滾動視窗（重現使用者回報的七叉路口上午尖峰）", () => {
   // 使用者檔案「總彙整」上半部的每 15 分鐘 PCU 合計
   const values = [791.5, 939.8, 1263.8, 952.8, 820.2, 636.8, 678.6, 546.8];
   const entries = quarterHours(7, 8).map((hour, i) => ({ hour, value: values[i] }));
@@ -81,7 +81,7 @@ test("15 分鐘資料改用連續 4 格的滾動視窗（重現使用者提供�
   assert.equal(Number(peak.value.toFixed(1)), 3976.6);
 });
 
-test("下午尖峰同樣以滾動視窗求得（T1501 下午）", () => {
+test("下午尖峰同樣以滾動視窗求得（同一份調查的下午）", () => {
   const values = [1119.8, 1013.1, 1106.9, 868.3, 880.7, 692, 729.3, 591.9];
   const entries = quarterHours(17, 8).map((hour, i) => ({ hour, value: values[i] }));
   const peak = rollingPeak(entries);

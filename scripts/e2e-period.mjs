@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import http from "node:http";
-import { readFileSync, existsSync, statSync, mkdtempSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, statSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -233,8 +233,8 @@ ok("預設模式下，同一調查點的各方向尖峰時段完全相同", same
   [...byPoint].map(([p, l]) => `${p.slice(0, 8)}:${[...new Set(l.map((r) => r[3]))].join("/")}`).join(" ｜ "));
 ok("預設模式下，各方向的 PCU 相加等於合計那一列", addsUp, addUpDetail.join(" ｜ "));
 
-// 切成 direction 仍要正常渲染。（本檔的樣本各方向尖峰剛好同一小時，
-// 分辨得出兩種模式差異的是七叉路口實測檔，由 e2e-partial.mjs 負責驗證。）
+// 切成 direction 仍要正常渲染。本檔的樣本各方向尖峰剛好同一小時；
+// 各方向尖峰時段不同的情境另由當場產生的匿名七叉路口樣本測試驗證。
 await page.locator("#periodPeakScopeSelect").selectOption("direction");
 await page.waitForTimeout(500);
 const dirRows = await readTable();
@@ -331,7 +331,6 @@ ok("匯出列數＝所有調查點×方向（含合計）", sheet.length - 1 ===
 // 套用範本還原勾選
 await page.locator('button:has-text("報表批次輸出中心")').first().click();
 await page.waitForTimeout(400);
-const pcuChipState = await page.locator(".export-period-box .chip-toggle", { hasText: "交通流量" }).first().getAttribute("class");
 await page.locator(".export-period-box .chip-toggle", { hasText: "交通流量" }).first().click();
 await page.waitForTimeout(200);
 await page.locator('.report-template-box .source-row:has-text("A計畫") button:has-text("套用")').click();

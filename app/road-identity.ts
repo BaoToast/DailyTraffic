@@ -17,9 +17,9 @@ export function roadNameFromFileName(fileName: string) {
   while (name && name !== previous) {
     previous = name;
     name = name
-      .replace(/\s*[\(\[]\s*\d{1,3}\s*[\)\]]\s*$/i, "")
+      .replace(/\s*[([]\s*\d{1,3}\s*[)\]]\s*$/i, "")
       .replace(/[\s_-]+\d{5,8}\s*$/i, "")
-      .replace(/[\s_-]+(?:民國)?\d{2,4}[年.\/_-]\d{1,2}(?:[月.\/_-]\d{1,2}日?)?\s*$/i, "")
+      .replace(/[\s_-]+(?:民國)?\d{2,4}[年./_-]\d{1,2}(?:[月./_-]\d{1,2}日?)?\s*$/i, "")
       .replace(/[\s_-]*(?:修正|更新|新版|最終|FINAL|報告|送審|測試用|定稿)(?:版|稿)?\s*$/i, "")
       .replace(/[\s_-]+$/g, "")
       .trim();

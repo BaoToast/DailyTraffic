@@ -1,6 +1,6 @@
 {
   "name": "traffic-volume-vehicle-composition",
-  "version": "20.30.0",
+  "version": "20.31.0",
   "private": true,
   "engines": {
     "node": ">=22.18.0"
@@ -9,7 +9,7 @@
     "dev": "node scripts/run-vinext.mjs dev",
     "build": "node scripts/run-vinext.mjs build",
     "start": "node scripts/run-vinext.mjs start",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "npm run lint && npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test:unit": "node --test tests/period-analysis.test.mjs tests/vehicle-analysis.test.mjs tests/traffic-parser.test.mjs tests/final-workflow.test.mjs tests/conclusion.test.mjs",
