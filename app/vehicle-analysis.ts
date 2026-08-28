@@ -188,16 +188,51 @@ export function missingVehicleFactors(records: VehicleRecordLike[], settings: Ve
   return [...missing].map(([key, label]) => ({ key, label }));
 }
 
-export function sumVehiclePcu(record: VehicleRecordLike, core: CorePcuFactors, coreTurns: CoreTurnPcuFactors, settings: VehicleClassSetting[]) {
+/**
+ * 一筆紀錄的 PCU，**依歸類後的車種分開列出**——全系統只有這一支。
+ *
+ * 規則（兩種原始檔格式各一條路徑）：
+ * ・路口轉向格式（有 turnData）走**轉向係數**，左／直／右各自乘上自己的當量。
+ * ・其餘（路段格式）走**一般係數**。
+ * 歸類回四大類的車種，讀的是**外部的 PCU 係數**（core / coreTurns），
+ * 不是建立設定當下的快照——否則使用者之後調整了係數，那幾列會停在舊值。
+ * 自訂車種讀使用者自己給的設定；完全沒有設定時算成 0，
+ * 並由 missingVehicleFactors() 在畫面上提醒「尚未設定」。
+ *
+ * ⚠️ 這支函式原本有**兩份實作**：這裡的 sumVehiclePcu()，以及
+ * period-analysis.ts 的 vehiclePcuBreakdown()。兩份規則相同、各自維護。
+ * 它們沒有出過錯，但一份改了另一份沒改，畫面上就會出現「總量那一格」與
+ * 「時段分析那一格」對不起來——**而且只有自訂車種會不一樣**，
+ * 是最不容易被發現的那種。v20.33 合併成這一支，
+ * period-analysis 的 vehiclePcuBreakdown() 改為直接轉呼叫它。
+ */
+export function vehiclePcuByTarget(
+  record: VehicleRecordLike,
+  core: CorePcuFactors,
+  coreTurns: CoreTurnPcuFactors,
+  settings: VehicleClassSetting[],
+): Record<string, number> {
   const counts = rawVehicleCounts(record);
-  if (record.surveyType === "intersection" && record.turnData) {
-    return Object.keys(counts).reduce((total, sourceKey) => total + (["left", "through", "right"] as TurnKey[]).reduce((subtotal, turn) => {
-      const factor = turnFactorFor(record, sourceKey, turn, settings, coreTurns);
-      return subtotal + safeCount(record.turnData?.[sourceKey]?.[turn]) * (Number.isFinite(factor) ? Number(factor) : 0);
-    }, 0), 0);
+  const byTurn = record.surveyType === "intersection" && Boolean(record.turnData);
+  const result: Record<string, number> = {};
+  for (const sourceKey of Object.keys(counts)) {
+    const setting = settingFor(record, sourceKey, settings);
+    const targetKey = setting?.targetKey || sourceKey;
+    let value = 0;
+    if (byTurn) {
+      for (const turn of ["left", "through", "right"] as TurnKey[]) {
+        const factor = turnFactorFor(record, sourceKey, turn, settings, coreTurns);
+        value += safeCount(record.turnData?.[sourceKey]?.[turn]) * (Number.isFinite(factor) ? Number(factor) : 0);
+      }
+    } else {
+      const factor = factorFor(record, sourceKey, settings, core);
+      value = safeCount(counts[sourceKey]) * (Number.isFinite(factor) ? Number(factor) : 0);
+    }
+    result[targetKey] = (result[targetKey] ?? 0) + value;
   }
-  return Object.entries(counts).reduce((total, [sourceKey, count]) => {
-    const factor = factorFor(record, sourceKey, settings, core);
-    return total + safeCount(count) * (Number.isFinite(factor) ? Number(factor) : 0);
-  }, 0);
+  return result;
+}
+
+export function sumVehiclePcu(record: VehicleRecordLike, core: CorePcuFactors, coreTurns: CoreTurnPcuFactors, settings: VehicleClassSetting[]) {
+  return Object.values(vehiclePcuByTarget(record, core, coreTurns, settings)).reduce((sum, value) => sum + value, 0);
 }

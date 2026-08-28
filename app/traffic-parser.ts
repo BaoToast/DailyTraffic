@@ -60,6 +60,30 @@ function emptyTurns(): TurnCounts {
   };
 }
 
+/**
+ * 從原始儲存格讀出一格車輛數——**全系統只有這一支**。
+ *
+ * 為什麼要四捨五入成整數（v20.33）：
+ * 使用者的部分調查檔，儲存格裡存的是小數（0.36、5.5506、13.3431…），
+ * 而 Excel 的儲存格格式把它顯示成整數。於是**報告上看到 0 與 6，
+ * 程式拿去算的卻是 0.36 與 5.5506**——全日車輛數會算出「27,988.79 輛」
+ * 這種不存在的車，PCU 也跟著帶小數。使用者決定以「畫面上看到的整數」為準。
+ *
+ * 放在這裡的理由：這是整個匯入流程唯一把儲存格變成數字的地方，
+ * 之後的加總、尖峰滾動、PCU 換算、全日累計全部自動吃到整數，
+ * 不必在下游各補一次（補在下游就會變成同一件事在 N 個地方各做各的）。
+ *
+ * 「--」「－」這類代表「該轉向不存在」的字串，Number() 會得到 NaN，一律當成 0
+ * ——這是舊有行為，沒有改變。
+ *
+ * ⚠️ 姊妹系統「路口轉向」v2.1.30 已採同一條規則，兩套系統對同一份調查檔
+ *    才會算出同一組數字（實測 15 項全部一致）。
+ */
+export function cellCount(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+}
+
 export function normalizeVehicleLabel(value: unknown): string {
   const label = String(value ?? "")
     .normalize("NFKC")
@@ -341,7 +365,7 @@ export function parseTrafficSheetValues(
           groups[directionIndex + 1]?.[0]?.index ??
           row.length;
         const firstIndex = run.indexes[0];
-        let count = Number(row[firstIndex]) || 0;
+        let count = cellCount(row[firstIndex]);
         if (isIntersection) {
           // 同一車種佔了三欄＝那三欄就是左／直／右；只佔一欄的舊格式才
           // 沿用「從這一欄往後切三格」的推測。
@@ -349,10 +373,10 @@ export function parseTrafficSheetValues(
             run.indexes.length >= 3
               ? run.indexes
                   .slice(0, 3)
-                  .map((cellIndex) => Number(row[cellIndex]) || 0)
+                  .map((cellIndex) => cellCount(row[cellIndex]))
               : row
                   .slice(firstIndex, Math.min(firstIndex + 3, nextColumn))
-                  .map((cell) => Number(cell) || 0);
+                  .map((cell) => cellCount(cell));
           turnData[key] = {
             left: turnValues[0] || 0,
             through: turnValues[1] || 0,
@@ -362,7 +386,7 @@ export function parseTrafficSheetValues(
         } else if (run.indexes.length > 1) {
           // 路段格式若也出現重複標題，三欄要相加而不是只取最後一欄。
           count = run.indexes.reduce(
-            (sum, cellIndex) => sum + (Number(row[cellIndex]) || 0),
+            (sum, cellIndex) => sum + cellCount(row[cellIndex]),
             0,
           );
         }
@@ -509,9 +533,8 @@ function parseDestinationSheet(
       const perDestination: Record<string, number> = {};
       let total = 0;
       for (const destination of group.destinations) {
-        // 「--」「－」等代表該轉向不存在，Number() 會得到 NaN，一律當成 0。
-        const value = Number(row[destination.index]);
-        const count = Number.isFinite(value) ? value : 0;
+        // 「--」「－」等代表該轉向不存在，cellCount 會把 NaN 當成 0。
+        const count = cellCount(row[destination.index]);
         perDestination[destination.code] =
           (perDestination[destination.code] ?? 0) + count;
         total += count;

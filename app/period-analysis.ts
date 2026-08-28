@@ -1,13 +1,12 @@
 import {
-  CORE_VEHICLE_KEYS,
   effectiveVehicleCounts,
   effectiveVehicleLabel,
+  vehiclePcuByTarget,
   type CorePcuFactors,
   type CoreTurnPcuFactors,
   type VehicleClassSetting,
   type VehicleRecordLike,
 } from "./vehicle-analysis.ts";
-import type { CoreVehicleKey, TurnKey } from "./traffic-parser.ts";
 
 /*
  * 時段車種分析（依 2022 年臺灣公路容量手冊之尖峰小時概念實作）
@@ -218,48 +217,17 @@ function emptyCell(hour: string): PeriodCell {
   return { vehicles: {}, vehiclePcu: {}, total: 0, pcu: 0, hour, hasData: false };
 }
 
-/** 單筆紀錄依車種歸類設定拆出「各車種 PCU」。路口格式會走轉向係數。 */
+/**
+ * 單筆紀錄依車種歸類設定拆出「各車種 PCU」。
+ *
+ * ⚠️ 這裡**不再自己實作**。v20.33 以前這一支和 vehicle-analysis 的
+ * sumVehiclePcu() 是兩份各自維護、規則相同的程式碼。它們沒有出過錯，
+ * 但一份改了另一份沒改，畫面上就會出現「總量那一格」與「時段分析那一格」
+ * 對不起來——而且**只有自訂車種會不一樣**，最不容易被發現。
+ * 現在統一由 vehiclePcuByTarget() 計算，兩邊在結構上不可能分岔。
+ */
 export function vehiclePcuBreakdown(record: PeriodRecord, factors: PeriodFactors) {
-  const { core, coreTurns, settings } = factors;
-  const result: Record<string, number> = {};
-  const projectId = String(record.projectId ?? "");
-  const counts =
-    record.vehicleCounts && Object.keys(record.vehicleCounts).length
-      ? record.vehicleCounts
-      : {
-          motorcycle: record.motorcycle || 0,
-          small: record.small || 0,
-          large: record.large || 0,
-          special: record.special || 0,
-        };
-  for (const sourceKey of Object.keys(counts)) {
-    const setting = settings.find(
-      (item) => item.projectId === projectId && item.sourceKey === sourceKey,
-    );
-    const targetKey = setting?.targetKey || sourceKey;
-    const isCore = CORE_VEHICLE_KEYS.includes(targetKey as CoreVehicleKey);
-    let value = 0;
-    if (record.surveyType === "intersection" && record.turnData) {
-      for (const turn of ["left", "through", "right"] as TurnKey[]) {
-        const factor = isCore
-          ? coreTurns[targetKey as CoreVehicleKey][turn]
-          : setting?.turnPcu?.[turn];
-        value +=
-          (record.turnData?.[sourceKey]?.[turn] ?? 0) *
-          (Number.isFinite(factor) ? Number(factor) : 0);
-      }
-    } else {
-      const factor = isCore ? core[targetKey as CoreVehicleKey] : setting?.roadPcu;
-      // 手動塞進來的資料可能是字串（例如 "n/a"），Number() 會得到 NaN；
-      // 讓它變成 0，避免整欄 PCU 變成 NaN 而寫出無效的 Excel 儲存格。
-      const count = Number(counts[sourceKey]);
-      value +=
-        (Number.isFinite(count) ? count : 0) *
-        (Number.isFinite(factor) ? Number(factor) : 0);
-    }
-    result[targetKey] = (result[targetKey] ?? 0) + value;
-  }
-  return result;
+  return vehiclePcuByTarget(record, factors.core, factors.coreTurns, factors.settings);
 }
 
 type HourBucket = {

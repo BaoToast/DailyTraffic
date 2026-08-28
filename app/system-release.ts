@@ -5,5 +5,5 @@
  * 每次升版都要記得同步改兩個地方，忘了改測試就會出現「測試失敗但程式是對的」
  * 這種最容易被草率處理掉的失敗。抽出來之後，畫面與測試讀的是同一份。
  */
-export const SYSTEM_VERSION = "v20.32";
+export const SYSTEM_VERSION = "v20.33";
 export const SYSTEM_UPDATED_AT = "2026-08-28";

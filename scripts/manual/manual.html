@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8" />
-<title>全日交通量及車種組成 新手使用說明手冊 v20.32</title>
+<title>全日交通量及車種組成 新手使用說明手冊 v20.33</title>
 <style>
   :root{
     --navy:#17324d; --teal:#148c8c; --orange:#e58a2b; --ink:#203142;
@@ -104,10 +104,29 @@
     </tbody>
   </table>
 
-  <p class="stamp">系統版本：v20.32　更新日期：2026-08-28</p>
+  <p class="stamp">系統版本：v20.33　更新日期：2026-08-28</p>
 
   <div class="box new" style="text-align:left;max-width:150mm;margin:6mm auto 0;page-break-inside:auto;break-inside:auto;">
-    <span class="t">本版（v20.32）更新內容</span>
+    <span class="t">本版（v20.33）更新內容</span>
+
+    <p><strong>v20.33｜每一格的車輛數，會先四捨五入成整數再拿去計算。</strong>
+    有些調查檔的儲存格裡存的其實是<strong>小數</strong>（例如 0.36、5.5506），
+    只是 Excel 的儲存格格式把它顯示成整數。於是<strong>報告上看到 0 與 6，
+    程式拿去算的卻是 0.36 與 5.5506</strong>——全日車輛數會算出「27,988.79 輛」
+    這種不存在的車，PCU 也跟著帶小數。</p>
+
+    <p>本版一律以<strong>畫面上看到的整數</strong>為準：每一格先四捨五入，
+    再進入後面所有計算（PCU、總車輛數、尖峰小時搜尋、全日累計）。
+    四捨五入做在整個匯入流程<strong>唯一讀取儲存格的那一個地方</strong>，
+    所以每一條路徑都會吃到同一份整數。</p>
+
+    <p><strong>原本就是整數的調查檔完全不受影響</strong>，數字一個都不會變。
+    只有儲存格本來就帶小數的檔案會有差異——那個差異正是把錯的修正過來。</p>
+
+    <p>姊妹系統「路口轉向」v2.1.30 已採用同一條規則，兩套系統對同一份調查檔
+    現在會算出<strong>同一組數字</strong>。</p>
+
+    <p style="margin-top:3mm"><strong>上一版（v20.32）更新內容</strong></p>
 
     <p><strong>v20.32｜合併路段不會再洗掉您取好的方向名稱。</strong>
     「路段名稱管理」的合併功能，原本一律把<strong>目標路段</strong>的方向名稱套用到
