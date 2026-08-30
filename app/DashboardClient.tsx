@@ -15,6 +15,7 @@ import { appFetch, offlineMode } from "./app-fetch";
 import { SYSTEM_VERSION, SYSTEM_UPDATED_AT } from "./system-release";
 import {
   armCodeOf,
+  headerDateCells,
   assertNoPrototypePollution,
   coreVehicleLabels,
   dayTypeOf,
@@ -102,6 +103,16 @@ import {
   type ReportDraftContext,
 } from "./report-draft.ts";
 import {
+  checkPeriodAgainstDate,
+  findSurveyDate,
+  periodDisplayLabel,
+  periodMismatchPrompt,
+  periodUnknownNotice,
+  PERIOD_DISPLAY_LABELS,
+  type PeriodDateCheck,
+  type PeriodDisplayMode,
+} from "./period-date.ts";
+import {
   anomalyTypeCounts,
   compareQuarters,
   completenessSummary,
@@ -160,6 +171,8 @@ type TrafficRecord = {
   sourceSheetName?: string;
   sourceRow?: number;
   sourceRange?: string;
+  /** 表頭讀到的調查日期；只用於期別提示與畫面顯示。 */
+  surveyDate?: string;
 };
 type Project = {
   id: string;
@@ -628,9 +641,16 @@ function colName(n: number) {
 function ProfessionalLineChart({
   rows,
   unit,
+  quarterLabels,
 }: {
   rows: TrendRow[];
   unit: string;
+  /**
+   * X 軸每一季要印的字。由上層統一算好傳進來（季別或實際調查月份），
+   * 圖表不自己再寫一套——同一個季別在下拉選單與 X 軸上必須是同一個字。
+   * 查不到就原樣印季別。
+   */
+  quarterLabels?: Record<string, string>;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   // 重畫的觸發條件除了資料以外，還要包含「畫布尺寸改變」。畫布是照實際
@@ -738,12 +758,12 @@ function ProfessionalLineChart({
     c.fillStyle = "#526170";
     rows.forEach((r, i) =>
       c.fillText(
-        r.quarter,
+        quarterLabels?.[r.quarter] || r.quarter,
         left + (rows.length === 1 ? w / 2 : (w * i) / (rows.length - 1)),
         height - 17,
       ),
     );
-  }, [rows, unit, canvasSize]);
+  }, [rows, unit, canvasSize, quarterLabels]);
   return (
     <canvas
       ref={ref}
@@ -1251,6 +1271,14 @@ export default function DashboardClient({ user }: { user: User }) {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [records, setRecords] = useState<TrafficRecord[]>([]);
   const [quarter, setQuarter] = useState("");
+  /*
+   * 期別要顯示成「季別」還是「實際調查月份」。
+   * **只影響畫面上的文字**——分組、排序、鍵值、計算與匯出的數值一律仍以
+   * 季別為準。一季分兩個月做完時，這個切換讓使用者一眼看出
+   * 115Q1 實際是「115年2、3月」。
+   */
+  const [periodDisplay, setPeriodDisplay] =
+    useState<PeriodDisplayMode>("quarter");
   const [dayType, setDayType] = useState<DayMode>("平日");
   const [direction, setDirection] = useState<Direction>("ALL");
   const [intersectionFlowMode, setIntersectionFlowMode] =
@@ -1340,6 +1368,8 @@ export default function DashboardClient({ user }: { user: User }) {
     files: File[];
     records: TrafficRecord[];
     report: ReturnType<typeof validateImport>;
+    /** 調查日期 × 期別的比對結果；只作提示，不影響寫入的任何數值。 */
+    periodChecks: PeriodDateCheck[];
   } | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowState>(emptyWorkflowState());
   const [workflowReady, setWorkflowReady] = useState(false);
@@ -1638,11 +1668,14 @@ export default function DashboardClient({ user }: { user: User }) {
           季度
           <select value={quarter} onChange={(e) => setQuarter(e.target.value)}>
             {quarters.map((q) => (
-              <option key={q}>{q}</option>
+              <option key={q} value={q}>
+                {quarterLabel(q)}
+              </option>
             ))}
           </select>
         </label>
       )}
+      {show.quarter && periodDisplayToggle}
       {show.day && (
         <label>
           日別
@@ -1913,6 +1946,49 @@ export default function DashboardClient({ user }: { user: User }) {
     }
     if (!quarters.includes(quarter)) setQuarter(quarters.at(-1) ?? "");
   }, [quarters, quarter, activeProject]);
+  /*
+   * 每一個季別在畫面上要顯示成什麼。切到「調查月份」時，取那一季底下所有
+   * 紀錄的調查日期，列出實際做調查的月份（例：「115年2、3月」）。
+   * 那一季完全沒有日期（本版之前匯入的舊資料）就原樣顯示季別——不編、
+   * 也不留空白，畫面上另有一行寫明重新匯入才會有月份。
+   */
+  const quarterLabels = useMemo(() => {
+    const dates: Record<string, string[]> = {};
+    for (const record of activeRecords)
+      if (record.surveyDate)
+        dates[record.quarter] = [
+          ...(dates[record.quarter] ?? []),
+          record.surveyDate,
+        ];
+    const labels: Record<string, string> = {};
+    for (const key of quarters)
+      labels[key] = periodDisplayLabel(key, dates[key] ?? [], periodDisplay);
+    return { labels, anyDate: Object.keys(dates).length > 0 };
+  }, [activeRecords, quarters, periodDisplay]);
+  const quarterLabel = (value: string) => quarterLabels.labels[value] || value;
+  /* 期別顯示切換鈕。三支程式的外觀與文字一致。 */
+  const periodDisplayToggle = (
+    <button
+      type="button"
+      className={
+        periodDisplay === "month"
+          ? "period-display-toggle is-on"
+          : "period-display-toggle"
+      }
+      data-testid="period-display-toggle"
+      disabled={!quarterLabels.anyDate}
+      title={
+        quarterLabels.anyDate
+          ? "切換期別顯示方式：季別（115Q1）／實際調查月份（115年2、3月）。只換顯示文字，不影響分組與計算。"
+          : "目前的資料沒有調查日期可用，無法顯示調查月份。重新匯入原始檔之後就會有。"
+      }
+      onClick={() =>
+        setPeriodDisplay(periodDisplay === "month" ? "quarter" : "month")
+      }
+    >
+      期別顯示：{PERIOD_DISPLAY_LABELS[periodDisplay]}
+    </button>
+  );
   const directionOptions = useMemo(() => {
     const names = new Map<string, Set<string>>();
     analysisRecords
@@ -4049,6 +4125,12 @@ export default function DashboardClient({ user }: { user: User }) {
   async function parseFiles(files: File[]) {
     const XLSX = await import("xlsx");
     const parsed: TrafficRecord[] = [];
+    /* 每張工作表讀到的調查日期，寫入前拿去和使用者選的季度比對。 */
+    const dateChecks: Array<{
+      file: string;
+      sheet: string;
+      found: ReturnType<typeof findSurveyDate>;
+    }> = [];
     for (const file of files) {
       /*
        * xlsx 0.18.5 有一則上游原型污染警示，npm 沒有可以升的修正版。
@@ -4068,14 +4150,39 @@ export default function DashboardClient({ user }: { user: User }) {
       const dayNamedSheets = (["平日", "假日"] as DayType[])
         .map((dt) => ({ dt, name: book.SheetNames.find((n) => n.includes(dt)) }))
         .filter((item): item is { dt: DayType; name: string } => Boolean(item.name));
+      /*
+       * 表頭讀到的調查日期，附在每一列上。**只作顯示與期別檢查用**——
+       * trafficIdentity 不含它，覆蓋判斷、加總、車種分類與任何計算都不受影響。
+       * 一張工作表一個日期：同一個檔案的平日、假日各自比對自己那一天。
+       */
+      const dateOf = (values: unknown[][], sheetName: string) =>
+        findSurveyDate(headerDateCells(values, sheetName));
+      const stamp = (rows: TrafficRecord[], iso: string) =>
+        iso ? rows.map((row) => ({ ...row, surveyDate: iso })) : rows;
+      /* 這個檔案有沒有讀到任何一格日期——沒有就記一筆「讀不到」，但不阻擋。 */
+      const before = dateChecks.length;
       if (dayNamedSheets.length) {
-        for (const { dt, name } of dayNamedSheets)
+        for (const { dt, name } of dayNamedSheets) {
+          const values = readSheet(name);
+          const found = dateOf(values, name);
+          /*
+           * 每一張真正會匯入的工作表都要留一筆檢查結果。
+           * 不能只留「有讀到日期」的那幾張：同一檔案若平日讀得到、
+           * 假日讀不到，假日仍必須明確提醒使用者自行確認。
+           */
+          dateChecks.push({ file: file.name, sheet: name, found });
           parsed.push(
-            ...parseTrafficSheetValues(readSheet(name), dt, importQuarter, identity, {
-              fileName: file.name,
-              sheetName: name,
-            }),
+            ...stamp(
+              parseTrafficSheetValues(values, dt, importQuarter, identity, {
+                fileName: file.name,
+                sheetName: name,
+              }),
+              found?.iso ?? "",
+            ),
           );
+        }
+        if (dateChecks.length === before)
+          dateChecks.push({ file: file.name, sheet: "", found: null });
         continue;
       }
       // 七叉路口這類檔案沒有「平日」「假日」工作表，而是一條支線一張工作表
@@ -4087,15 +4194,25 @@ export default function DashboardClient({ user }: { user: User }) {
         const dt =
           (dayTypeOf(values) as DayType) ||
           (file.name.includes("假日") ? "假日" : "平日");
+        const found = dateOf(values, name);
+        dateChecks.push({ file: file.name, sheet: name, found });
         parsed.push(
-          ...parseTrafficSheetValues(values, dt, importQuarter, identity, {
-            fileName: file.name,
-            sheetName: name,
-          }),
+          ...stamp(
+            parseTrafficSheetValues(values, dt, importQuarter, identity, {
+              fileName: file.name,
+              sheetName: name,
+            }),
+            found?.iso ?? "",
+          ),
         );
       }
+      if (dateChecks.length === before)
+        dateChecks.push({ file: file.name, sheet: "", found: null });
     }
-    return resolveDestinationTurns(parsed, activeProject, intersectionSettings);
+    return {
+      records: resolveDestinationTurns(parsed, activeProject, intersectionSettings),
+      dateChecks,
+    };
   }
 
   async function importSelectedFiles(files: File[]) {
@@ -4108,7 +4225,7 @@ export default function DashboardClient({ user }: { user: User }) {
     }
     setBusy(true);
     try {
-      const parsedSource = await parseFiles(files);
+      const { records: parsedSource, dateChecks } = await parseFiles(files);
       if (!parsedSource.length) throw new Error("找不到平日／假日交通量資料");
       if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(importQuarter))
         throw new Error("季度格式請輸入115Q2或2026Q2");
@@ -4134,8 +4251,20 @@ export default function DashboardClient({ user }: { user: User }) {
       // 檢核報告一跳出來就把「匯入季度資料」視窗收掉。
       // 兩個視窗疊在一起時，後面的匯入視窗會蓋住檢核報告的按鈕，
       // 使用者會以為匯入沒成功、又重選一次檔案。
+      /*
+       * 調查日期 × 期別檢查。判斷邏輯在 period-date.ts（三支程式同一份）。
+       * 這裡只算結果放進檢核報告，**不阻擋**——讀不到日期只是提醒，
+       * 對不起來才在按「確認匯入」時多問一次。
+       */
+      const periodChecks = dateChecks.map((item) =>
+        checkPeriodAgainstDate(
+          importQuarter,
+          item.found,
+          item.sheet ? item.file + "【" + item.sheet.trim() + "】" : item.file,
+        ),
+      );
       setShowImport(false);
-      setPendingImport({ files, records: parsed, report });
+      setPendingImport({ files, records: parsed, report, periodChecks });
       setBusy(false);
       return;
     } catch (e) {
@@ -4147,6 +4276,12 @@ export default function DashboardClient({ user }: { user: User }) {
   }
   async function confirmPendingImport() {
     if (!pendingImport) return;
+    /*
+     * 調查日期與所選季度對不起來時，寫入前再問一次。
+     * 讀不到日期不會走到這裡（那種是 unknown，只在報告裡提醒）。
+     */
+    const prompt = periodMismatchPrompt(pendingImport.periodChecks);
+    if (prompt && !confirm(prompt)) return;
     setBusy(true);
     try {
       const { files, records: parsed, report } = pendingImport;
@@ -6751,14 +6886,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.33.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.35.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.33.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.35.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -6993,10 +7128,13 @@ export default function DashboardClient({ user }: { user: User }) {
                 onChange={(e) => setQuarter(e.target.value)}
               >
                 {quarters.map((q) => (
-                  <option key={q}>{q}</option>
+                  <option key={q} value={q}>
+                    {quarterLabel(q)}
+                  </option>
                 ))}
               </select>
             </label>
+            {periodDisplayToggle}
             <label>
               日別
               <select
@@ -7509,6 +7647,7 @@ export default function DashboardClient({ user }: { user: User }) {
               rows={trendRows}
               /* 這張圖畫的是 trendRows（依 trendMode），單位要跟著它。 */
               unit={trendMetric === "actual" ? trendActualUnit : trendPcuUnit}
+              quarterLabels={quarterLabels.labels}
             />
             <div className="legend chart-legend">
               <span>
@@ -7768,7 +7907,9 @@ export default function DashboardClient({ user }: { user: User }) {
                   onChange={(e) => setQuarter(e.target.value)}
                 >
                   {quarters.map((q) => (
-                    <option key={q}>{q}</option>
+                    <option key={q} value={q}>
+                      {quarterLabel(q)}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -8114,6 +8255,53 @@ export default function DashboardClient({ user }: { user: User }) {
                 車種：{pendingImport.report.vehicles.join("、") || "原四大類"}
               </p>
             </section>
+            {/*
+              調查日期 × 期別。對不起來用紅底，按「確認匯入」時還會再問一次；
+              讀不到日期只提醒，不阻擋。
+            */}
+            {pendingImport.periodChecks.some(
+              (item) => item.status !== "match",
+            ) && (
+              <section
+                className={
+                  pendingImport.periodChecks.some(
+                    (item) => item.status === "mismatch",
+                  )
+                    ? "workflow-warning period-date-alert-bad"
+                    : "workflow-warning"
+                }
+                data-testid="period-date-alert"
+              >
+                {pendingImport.periodChecks.some(
+                  (item) => item.status === "mismatch",
+                ) && (
+                  <>
+                    <strong>
+                      ⚠️ 調查日期與你選的「{importQuarter}」不一致
+                    </strong>
+                    {pendingImport.periodChecks
+                      .filter((item) => item.status === "mismatch")
+                      .map((item) => (
+                        <p key={item.file}>
+                          <b>{item.file}</b>：檔案裡是 {item.date}（屬{" "}
+                          {item.dateLabel}），你選的是 {item.periodLabel}。
+                          <small>
+                            來源 {item.source}「{item.raw}」
+                          </small>
+                        </p>
+                      ))}
+                    <small>
+                      按「確認匯入」時會再問一次；確認無誤才會以你選的季度寫入。
+                    </small>
+                  </>
+                )}
+                {periodUnknownNotice(pendingImport.periodChecks) && (
+                  <small>
+                    {periodUnknownNotice(pendingImport.periodChecks)}
+                  </small>
+                )}
+              </section>
+            )}
             {pendingImport.report.warnings.length ? (
               <section className="workflow-warning">
                 <strong>需注意</strong>

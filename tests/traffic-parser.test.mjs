@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import initialData from "../app/traffic-data.json" with { type: "json" };
-import { parseTrafficSheetValues } from "../app/traffic-parser.ts";
+import {
+  headerDateCells,
+  parseTrafficSheetValues,
+} from "../app/traffic-parser.ts";
+import { findSurveyDate } from "../app/period-date.ts";
 
 const identity = { roadId: "T-01", roadName: "測試調查點", a: "往北", b: "往南" };
 const hours = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00～${String((hour + 1) % 24).padStart(2, "0")}:00`);
@@ -202,4 +206,50 @@ test("目的支線分欄格式：全形時間與冒號旁空白都要讀得到",
       label,
     );
   }
+});
+
+/*
+ * ── 表頭日期候選：不看固定欄位位置（v20.34）──────────────────
+ *
+ * 全日交通量的格式最萬用，同一個資訊在不同廠商的報表裡欄號都不一樣。
+ * headerDateCells 走的是和 armCodeOf／dayTypeOf 同一塊表頭（前 12 列），
+ * 把所有非空儲存格連同 A1 位址交出去，由 period-date.ts 決定哪一格是調查日期。
+ */
+test("表頭日期不論放在哪一欄、哪一列都讀得到，而且位址正確", function () {
+  const cases = [
+    { row: 2, col: 5, address: "F3" },
+    { row: 1, col: 27, address: "AB2" },
+    { row: 0, col: 0, address: "A1" },
+    { row: 11, col: 51, address: "AZ12" },
+  ];
+  for (const item of cases) {
+    const values = Array.from({ length: 14 }, () => []);
+    values[item.row][item.col] = "監測日期：115年01月25日(假日)";
+    const found = findSurveyDate(headerDateCells(values, "假日"));
+    assert.equal(found?.iso, "2026-01-25", JSON.stringify(item));
+    assert.equal(found?.cell, item.address, JSON.stringify(item));
+    assert.equal(found?.sheet, "假日");
+    assert.equal(found?.labelled, true);
+  }
+});
+
+test("第 13 列以後的日期不算表頭，不會被誤採", function () {
+  const values = Array.from({ length: 20 }, () => []);
+  values[15][3] = "監測日期：115年01月25日(假日)";
+  assert.equal(findSurveyDate(headerDateCells(values, "假日")), null);
+});
+
+test("表頭有多個日期時，有「日期：」標示的那一格勝出", function () {
+  const values = Array.from({ length: 14 }, () => []);
+  values[0][0] = "115年01月20日";
+  values[2][5] = "監測日期：115年01月25日(假日)";
+  const found = findSurveyDate(headerDateCells(values, "假日"));
+  assert.equal(found?.iso, "2026-01-25");
+  assert.equal(found?.cell, "F3");
+});
+
+test("「製表日期」不是調查日期，不可以拿來比對期別", function () {
+  const values = Array.from({ length: 14 }, () => []);
+  values[0][0] = "製表日期：115年03月01日";
+  assert.equal(findSurveyDate(headerDateCells(values, "統計表")), null);
 });

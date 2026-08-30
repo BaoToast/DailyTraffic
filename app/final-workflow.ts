@@ -22,6 +22,12 @@ export type TraceableTrafficRecord = {
   sourceSheetName?: string;
   sourceRow?: number;
   sourceRange?: string;
+  /**
+   * 表頭讀到的調查日期（YYYY-MM-DD）。舊資料沒有這一欄。
+   * **只作顯示與期別檢查用**——trafficIdentity 不含它，不影響覆蓋判斷、
+   * 加總、分類或任何計算。
+   */
+  surveyDate?: string;
 };
 
 export type AnomalyThresholds = {

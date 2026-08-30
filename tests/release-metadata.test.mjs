@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 
 const readJson = async (name) =>
   JSON.parse(await readFile(new URL(`../${name}`, import.meta.url), "utf8"));
@@ -74,4 +74,31 @@ test("手冊裡有本版的更新說明區塊", async () => {
     `manual.html 裡找不到「本版（${version}）更新內容」——` +
       `升版時可能只改了版號、忘了寫這一版做了什麼，或是字串取代沒有生效。`,
   );
+});
+
+test("GitHub Pages 根目錄建置產物與目前版本一致", async () => {
+  const version = await systemVersion();
+  const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const match = index.match(/\.\/assets\/(index-[A-Za-z0-9_-]+\.js)/);
+  assert.ok(match, "根目錄 index.html 找不到主程式資產");
+  const asset = await readFile(
+    new URL(`../assets/${match[1]}`, import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    asset.includes(version),
+    `根目錄建置產物不含 ${version}，可能仍是舊版網站`,
+  );
+  assert.ok(
+    asset.includes("period-display-toggle"),
+    "根目錄建置產物不含本版的期別顯示切換功能",
+  );
+});
+
+test("驗證報告檔名與目前版本一致，不得殘留舊版", async () => {
+  const version = await systemVersion();
+  const expected = `VALIDATION_${version}.md`;
+  const rootFiles = await readdir(new URL("../", import.meta.url));
+  const reports = rootFiles.filter((name) => /^VALIDATION_v[\d.]+\.md$/.test(name));
+  assert.deepEqual(reports, [expected]);
 });

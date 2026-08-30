@@ -22,6 +22,11 @@ export type ParsedTrafficRow = {
   sourceSheetName?: string;
   sourceRow?: number;
   sourceRange?: string;
+  /**
+   * 表頭讀到的調查日期（YYYY-MM-DD），讀不到就沒有這一欄。
+   * **只作顯示與期別檢查用**——不參與任何加總、分類或鍵值。
+   */
+  surveyDate?: string;
 };
 
 export type TurnKey = "left" | "through" | "right";
@@ -206,6 +211,43 @@ export function armCodeOf(values: unknown[][], sheetName = ""): string {
     .replace(/[\s　]/g, "")
     .match(/^路口[（(]?([A-Za-z])[)）]?$/);
   return fromName ? fromName[1].toUpperCase() : "";
+}
+
+/*
+ * 從表頭區找出「像日期」的儲存格，交給 period-date.ts 去判斷哪一格是調查日期。
+ *
+ * 和 armCodeOf／dayTypeOf 走同一塊表頭（前 12 列），**不看固定欄位位置**——
+ * 全日交通量的格式太萬用，同一個資訊在不同廠商的報表裡欄號都不一樣。
+ *
+ * 這支是**純新增**：不參與任何解析、加總或分類，只是把候選儲存格挑出來。
+ */
+function columnName(index: number): string {
+  let name = "";
+  let value = index;
+  while (value >= 0) {
+    name = String.fromCharCode((value % 26) + 65) + name;
+    value = Math.floor(value / 26) - 1;
+  }
+  return name;
+}
+
+export function headerDateCells(
+  values: unknown[][],
+  sheetName = "",
+): Array<{ text: string; sheet: string; cell: string }> {
+  const out: Array<{ text: string; sheet: string; cell: string }> = [];
+  values.slice(0, 12).forEach((row, rowIndex) => {
+    row.forEach((cell, columnIndex) => {
+      const text = String(cell ?? "").trim();
+      if (!text) return;
+      out.push({
+        text,
+        sheet: sheetName,
+        cell: columnName(columnIndex) + (rowIndex + 1),
+      });
+    });
+  });
+  return out;
 }
 
 /** 從表頭區找出日別；抓不到時回傳空字串。 */

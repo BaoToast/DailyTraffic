@@ -6,6 +6,7 @@ import {
   completenessSummary,
   detectAnomalies,
   filterAnomalies,
+  trafficIdentity,
   validateImport,
 } from "../app/final-workflow.ts";
 
@@ -36,6 +37,14 @@ function row(overrides = {}) {
     ...overrides,
   };
 }
+
+test("調查日期只作顯示，不得改變覆蓋判斷的身分鍵", () => {
+  const original = row();
+  assert.equal(
+    trafficIdentity({ ...original, surveyDate: "2026-01-25" }),
+    trafficIdentity({ ...original, surveyDate: "2026-02-25" }),
+  );
+});
 
 test("import validation reports append, overwrite and 24-hour completeness", () => {
   const complete = Array.from({ length: 24 }, (_, hour) =>

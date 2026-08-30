@@ -507,3 +507,11 @@
   color: var(--ink);
   line-height: 1.7;
 }
+
+/* 調查日期與所選季度對不起來時的紅底提示（在匯入前檢核報告裡）。 */
+.period-date-alert-bad{border-color:#e2a8a2;background:#fdecea;color:#9c3a32}
+.period-date-alert-bad strong{color:#9c3a32}
+/* 期別顯示切換（季別 ⇄ 調查月份）：只換畫面文字，不影響分組與計算。 */
+.period-display-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font-size:10px;cursor:pointer;white-space:nowrap}
+.period-display-toggle.is-on{background:#eff9f6;border-color:#176b5d;color:#176b5d;font-weight:700}
+.period-display-toggle:disabled{opacity:.45;cursor:not-allowed}
