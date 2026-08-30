@@ -22,6 +22,7 @@ import {
   parseTrafficSheetValues,
   prototypeFingerprint,
   SAFE_XLSX_READ_OPTIONS,
+  trafficSheetNamesForDay,
   type CoreVehicleKey,
   type DestinationCounts,
   type TurnCounts,
@@ -171,6 +172,7 @@ type TrafficRecord = {
   sourceSheetName?: string;
   sourceRow?: number;
   sourceRange?: string;
+  sourceWarnings?: string[];
   /** 表頭讀到的調查日期；只用於期別提示與畫面顯示。 */
   surveyDate?: string;
 };
@@ -1370,6 +1372,12 @@ export default function DashboardClient({ user }: { user: User }) {
     report: ReturnType<typeof validateImport>;
     /** 調查日期 × 期別的比對結果；只作提示，不影響寫入的任何數值。 */
     periodChecks: PeriodDateCheck[];
+    /**
+     * 逐檔提醒：讀出 0 列的檔案、日別退回檔名判定的檔案。
+     * 只作提示、不影響任何數值；目的是不要讓「少匯了一個檔」這種事
+     * 只反映在一個數字上。
+     */
+    fileWarnings: string[];
   } | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowState>(emptyWorkflowState());
   const [workflowReady, setWorkflowReady] = useState(false);
@@ -4131,6 +4139,19 @@ export default function DashboardClient({ user }: { user: User }) {
       sheet: string;
       found: ReturnType<typeof findSurveyDate>;
     }> = [];
+    /*
+     * 逐檔診斷。舊版一次匯入五個檔、其中一個讀出 0 列時，流程照樣成功，
+     * 少掉的那個只反映在檢核報告的「來源檔案 N」這個數字上，使用者要
+     * 自己數才會發現。這裡記下每個檔讀出幾列、用了哪些工作表、略過哪些、
+     * 日別是不是退回檔名判的，讓匯入前的檢核報告能指名道姓。
+     */
+    const fileNotes: Array<{
+      file: string;
+      rows: number;
+      used: string[];
+      skipped: string[];
+      dayFromFileName: boolean;
+    }> = [];
     for (const file of files) {
       /*
        * xlsx 0.18.5 有一則上游原型污染警示，npm 沒有可以升的修正版。
@@ -4147,9 +4168,24 @@ export default function DashboardClient({ user }: { user: User }) {
           header: 1,
           defval: "",
         });
-      const dayNamedSheets = (["平日", "假日"] as DayType[])
-        .map((dt) => ({ dt, name: book.SheetNames.find((n) => n.includes(dt)) }))
-        .filter((item): item is { dt: DayType; name: string } => Boolean(item.name));
+      /*
+       * 同一個日別可能有**多張**工作表，必須全部讀，不能只讀第一張。
+       *
+       * 舊寫法是 `SheetNames.find(n => n.includes(dt))`，只取第一個名稱含
+       * 該日別字樣的工作表。實測兩種真實會發生的情況：
+       *  ・工作表順序是「平日照片、平日」→ 選中「平日照片」，讀出 0 列，
+       *    **整份平日資料靜靜消失**；多檔一起匯入時連錯誤都不會出現。
+       *  ・同一日別拆成「平日-北向、平日-南向」→ 只讀北向，**一半資料不見**，
+       *    而檢核報告還會顯示綠字「未發現 24 小時缺漏」，因為讀到的那張
+       *    單方向確實是完整的 24 小時。
+       * 照片、監測日誌、時相圖這類非資料工作表改用名稱排除。
+       */
+      const dayNamedSheets = (["平日", "假日"] as DayType[]).flatMap((dt) =>
+        trafficSheetNamesForDay(book.SheetNames, dt).map((name) => ({
+          dt,
+          name,
+        })),
+      );
       /*
        * 表頭讀到的調查日期，附在每一列上。**只作顯示與期別檢查用**——
        * trafficIdentity 不含它，覆蓋判斷、加總、車種分類與任何計算都不受影響。
@@ -4161,6 +4197,9 @@ export default function DashboardClient({ user }: { user: User }) {
         iso ? rows.map((row) => ({ ...row, surveyDate: iso })) : rows;
       /* 這個檔案有沒有讀到任何一格日期——沒有就記一筆「讀不到」，但不阻擋。 */
       const before = dateChecks.length;
+      const rowsBefore = parsed.length;
+      const usedSheets: string[] = [];
+      let dayFromFileName = false;
       if (dayNamedSheets.length) {
         for (const { dt, name } of dayNamedSheets) {
           const values = readSheet(name);
@@ -4171,6 +4210,7 @@ export default function DashboardClient({ user }: { user: User }) {
            * 假日讀不到，假日仍必須明確提醒使用者自行確認。
            */
           dateChecks.push({ file: file.name, sheet: name, found });
+          usedSheets.push(name);
           parsed.push(
             ...stamp(
               parseTrafficSheetValues(values, dt, importQuarter, identity, {
@@ -4183,6 +4223,13 @@ export default function DashboardClient({ user }: { user: User }) {
         }
         if (dateChecks.length === before)
           dateChecks.push({ file: file.name, sheet: "", found: null });
+        fileNotes.push({
+          file: file.name,
+          rows: parsed.length - rowsBefore,
+          used: usedSheets,
+          skipped: book.SheetNames.filter((n) => !usedSheets.includes(n)),
+          dayFromFileName,
+        });
         continue;
       }
       // 七叉路口這類檔案沒有「平日」「假日」工作表，而是一條支線一張工作表
@@ -4191,11 +4238,18 @@ export default function DashboardClient({ user }: { user: User }) {
       for (const name of book.SheetNames) {
         const values = readSheet(name);
         if (!armCodeOf(values, name)) continue;
-        const dt =
-          (dayTypeOf(values) as DayType) ||
-          (file.name.includes("假日") ? "假日" : "平日");
+        /*
+         * 日別是資料的身分鍵之一（見 trafficIdentity）。表頭讀不到時退回
+         * 檔名是既有行為，但**必須說出來**：一份表頭沒寫日別、檔名也沒有
+         * 「假日」二字的假日調查檔會被判成平日，若同路段同方向已有平日
+         * 資料，寫入時會直接覆蓋，而報告只說「覆蓋 N 筆」。
+         */
+        const headerDay = dayTypeOf(values) as DayType | "";
+        if (!headerDay) dayFromFileName = true;
+        const dt = headerDay || (file.name.includes("假日") ? "假日" : "平日");
         const found = dateOf(values, name);
         dateChecks.push({ file: file.name, sheet: name, found });
+        usedSheets.push(name);
         parsed.push(
           ...stamp(
             parseTrafficSheetValues(values, dt, importQuarter, identity, {
@@ -4208,10 +4262,18 @@ export default function DashboardClient({ user }: { user: User }) {
       }
       if (dateChecks.length === before)
         dateChecks.push({ file: file.name, sheet: "", found: null });
+      fileNotes.push({
+        file: file.name,
+        rows: parsed.length - rowsBefore,
+        used: usedSheets,
+        skipped: book.SheetNames.filter((n) => !usedSheets.includes(n)),
+        dayFromFileName,
+      });
     }
     return {
       records: resolveDestinationTurns(parsed, activeProject, intersectionSettings),
       dateChecks,
+      fileNotes,
     };
   }
 
@@ -4225,8 +4287,47 @@ export default function DashboardClient({ user }: { user: User }) {
     }
     setBusy(true);
     try {
-      const { records: parsedSource, dateChecks } = await parseFiles(files);
-      if (!parsedSource.length) throw new Error("找不到平日／假日交通量資料");
+      const { records: parsedSource, dateChecks, fileNotes } =
+        await parseFiles(files);
+      /*
+       * 說不出原因的錯誤訊息等於沒有訊息。
+       * 舊版只丟一句「找不到平日／假日交通量資料」：不指名哪個檔、不說為什麼
+       *（工作表沒有路口編號標記？表頭找不到車種欄？時段格式不合？）、
+       * 也不給補救方向，使用者只能瞎猜。
+       */
+      if (!parsedSource.length)
+        throw new Error(
+          "沒有讀到任何交通量資料：\n" +
+            fileNotes
+              .map(
+                (note) =>
+                  `・${note.file}：讀出 0 列。` +
+                  (note.skipped.length
+                    ? `已略過的工作表：${note.skipped.join("、")}。`
+                    : "") +
+                  "請確認工作表名稱含「平日」或「假日」，或表頭有「路口編號」標記與逐時段的車種計數欄位。",
+              )
+              .join("\n"),
+        );
+      /*
+       * 部分檔案讀出 0 列時也要指名。這種情況最危險：流程會照常成功，
+       * 使用者以為五個檔都進去了，實際只進了四個。
+       */
+      const emptyFiles = fileNotes.filter((note) => note.rows === 0);
+      const guessedDayFiles = fileNotes.filter(
+        (note) => note.rows > 0 && note.dayFromFileName,
+      );
+      const sourceCellWarnings = [
+        ...new Set(
+          parsedSource.flatMap((record) =>
+            (record.sourceWarnings ?? []).map(
+              (warning) =>
+                `「${record.sourceFileName ?? "未命名檔案"}」` +
+                `${record.sourceSheetName ? `【${record.sourceSheetName}】` : ""}${warning}`,
+            ),
+          ),
+        ),
+      ];
       if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(importQuarter))
         throw new Error("季度格式請輸入115Q2或2026Q2");
       const targetProjectId = await ensurePersistentProject();
@@ -4264,7 +4365,29 @@ export default function DashboardClient({ user }: { user: User }) {
         ),
       );
       setShowImport(false);
-      setPendingImport({ files, records: parsed, report, periodChecks });
+      setPendingImport({
+        files,
+        records: parsed,
+        report,
+        periodChecks,
+        fileWarnings: [
+          ...emptyFiles.map(
+            (note) =>
+              `「${note.file}」讀出 0 列，不會有任何資料寫入。` +
+              (note.skipped.length
+                ? `已略過的工作表：${note.skipped.join("、")}。`
+                : "") +
+              "請確認工作表名稱與表頭格式。",
+          ),
+          ...guessedDayFiles.map(
+            (note) =>
+              `「${note.file}」的表頭讀不到「日期：…(平日／假日)」，日別是依檔名判定為${
+                note.file.includes("假日") ? "假日" : "平日"
+              }。日別是資料的身分鍵之一，判錯會讓資料寫到另一個日別、甚至覆蓋既有資料，請確認無誤。`,
+          ),
+          ...sourceCellWarnings,
+        ],
+      });
       setBusy(false);
       return;
     } catch (e) {
@@ -6886,14 +7009,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.35.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.36.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.35.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.36.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -8219,10 +8342,32 @@ export default function DashboardClient({ user }: { user: User }) {
                 筆交通紀錄
               </h3>
             </div>
+            {pendingImport.fileWarnings.length > 0 && (
+              /*
+               * 少匯了一個檔，不可以只反映在「來源檔案 N」這個數字上——
+               * 那要使用者自己數才會發現。這裡直接把檔名與原因寫出來。
+               */
+              <div className="file-warnings">
+                <b>⚠ 有 {pendingImport.fileWarnings.length} 項需要確認</b>
+                <ul>
+                  {pendingImport.fileWarnings.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="validation-grid">
               <div>
                 <small>來源檔案</small>
-                <strong>{pendingImport.report.sourceFiles.length}</strong>
+                <strong>
+                  {pendingImport.report.sourceFiles.length}
+                  {pendingImport.files.length !==
+                    pendingImport.report.sourceFiles.length && (
+                    <em className="of-total">
+                      ／選取 {pendingImport.files.length}
+                    </em>
+                  )}
+                </strong>
               </div>
               <div>
                 <small>調查點</small>

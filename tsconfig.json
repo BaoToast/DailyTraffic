@@ -6,6 +6,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // 測試以 node --experimental-strip-types 直接載入原始碼，import 路徑
+    // 必須帶 .ts；打包器也認得這種寫法。與路口轉向系統的設定一致。
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

@@ -469,9 +469,22 @@ export function detectAnomalies(
         );
         const peakLabel = peakFromBuckets(hourlyLabels).label;
         const peak = hourNumber(peakLabel);
-        const zeros = [...hourlyLabels.values()].filter(
-          (value) => value === 0,
-        ).length;
+        /*
+         * 「零流量時段」要數的是**整小時**，不是時間格。
+         *
+         * hourlyLabels 以原始時段標籤為鍵：15 分鐘一格的調查檔會有 96 個鍵，
+         * 深夜零流量的 15 分鐘格輕易就超過預設門檻 3，於是每一季都跳警示。
+         * 這正是同一個檔案裡 validateImport 已經修掉的同一種錯誤（見上方
+         * surveyCoverage 的註解：「舊寫法用 hours.size === 24 …完整 24 小時
+         * 的 15 分鐘資料有 96 個標籤 → 被判定不完整」），只是這一處沒跟著改。
+         * 這裡改成把零流量的時間格換算成實際涵蓋時數再比門檻。
+         */
+        const zeroLabels = [...hourlyLabels.entries()]
+          .filter(([, value]) => value === 0)
+          .map(([label]) => label);
+        const zeros = Math.round(
+          surveyCoverage(zeroLabels).coveredMinutes / 60,
+        );
         const vehicleTotals: Record<string, number> = {};
         selected.forEach((row) =>
           Object.entries(recordVehicles(row)).forEach(([vehicle, value]) => {

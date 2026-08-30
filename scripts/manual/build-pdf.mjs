@@ -1,11 +1,23 @@
 import { chromium } from "playwright";
 import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromePath } from "../chrome-path.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, "manual.html");
-const out = join(here, "..", "..", "public", "manuals", "Traffic_Analysis_Beginner_Guide_v20.35.pdf");
+
+/*
+ * 版號與更新日期一律從 manual.html 的封面戳記讀，不在這裡寫死。
+ * 寫死的話升版時會悄悄產生一份檔名與頁尾都還是舊版號的手冊，而且不會報錯。
+ */
+const manualHtml = readFileSync(src, "utf8");
+const stamp = manualHtml.match(/系統版本：(v[\d.]+)\s*　?更新日期：([\d-]+)/);
+if (!stamp)
+  throw new Error("manual.html 讀不到封面戳記「系統版本：vX.Y　更新日期：YYYY-MM-DD」");
+const [, MANUAL_VERSION, MANUAL_DATE] = stamp;
+
+const out = join(here, "..", "..", "public", "manuals", `Traffic_Analysis_Beginner_Guide_${MANUAL_VERSION}.pdf`);
 
 const chrome = chromePath();
 const browser = await chromium.launch({ executablePath: chrome, args: ["--no-sandbox"] });
@@ -24,7 +36,7 @@ await page.pdf({
   margin: { top: "20mm", bottom: "18mm", left: "16mm", right: "16mm" },
   headerTemplate: `<div style="${style}text-align:right;">全日交通量及車種組成 ｜ 新手使用說明手冊</div>`,
   footerTemplate:
-    `<div style="${style}text-align:center;">v20.35 ｜ 2026-08-30 ｜ 使用前請先匯出備份　　第 ` +
+    `<div style="${style}text-align:center;">${MANUAL_VERSION} ｜ ${MANUAL_DATE} ｜ 使用前請先匯出備份　　第 ` +
     `<span class="pageNumber"></span> / <span class="totalPages"></span> 頁</div>`,
 });
 

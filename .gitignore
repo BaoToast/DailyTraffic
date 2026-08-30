@@ -39,5 +39,6 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+/.samples/
 /package-stage-*/
 /traffic-site-*.tar.gz

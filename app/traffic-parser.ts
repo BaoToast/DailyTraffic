@@ -22,6 +22,8 @@ export type ParsedTrafficRow = {
   sourceSheetName?: string;
   sourceRow?: number;
   sourceRange?: string;
+  /** 原始計數格有日期／時間或其他非數字內容時，保留可追溯警告。 */
+  sourceWarnings?: string[];
   /**
    * 表頭讀到的調查日期（YYYY-MM-DD），讀不到就沒有這一欄。
    * **只作顯示與期別檢查用**——不參與任何加總、分類或鍵值。
@@ -85,8 +87,70 @@ function emptyTurns(): TurnCounts {
  *    才會算出同一組數字（實測 15 項全部一致）。
  */
 export function cellCount(value: unknown): number {
+  /*
+   * 日期／時間格式的儲存格一律當成 0，並且**不可以**讓它通過。
+   *
+   * `SAFE_XLSX_READ_OPTIONS` 帶 `cellDates: true`（時間欄需要它），所以
+   * 日期或時間格式的儲存格 `.v` 是 `Date` 物件，而 `Number(Date)` 是
+   * **有限的** epoch 毫秒——`Number.isFinite()` 擋不住它。實測一格
+   * 時間格會變成 1,788,073,200,000 輛，然後一路進尖峰判斷、PCU 換算與
+   * 全日累計，而匯入檢核報告還會顯示綠字「未發現空白、非數字、負值」，
+   * 因為它的判斷式也是 `!Number.isFinite()`。
+   *
+   * Excel 對「7:00」「12:30」這類輸入會自動套時間格式，是調查表填寫時
+   * 最常見的誤植；1970 年以後的日期是正值，會一路暢行無阻。
+   */
+  if (value instanceof Date) return 0;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+}
+
+/**
+ * 這一格是不是「有內容、但不是可用的數字」。
+ * 用於在匯入檢核報告中指名道姓，而不是靜靜當成 0。
+ * 空白格不算——稀疏的調查表本來就會有空格。
+ */
+export function isUnusableCount(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (value instanceof Date) return true;
+  const text = String(value).normalize("NFKC").trim();
+  if (!text) return false;
+  /* 「--」「－」「—」是既有調查表用來表示該轉向不存在的合法記號。 */
+  if (/^(?:-+|－+|—+|–+)$/.test(text)) return false;
+  return !Number.isFinite(Number(text));
+}
+
+function countWarning(value: unknown, columnIndex: number, rowIndex: number) {
+  const cell = `${columnName(columnIndex)}${rowIndex + 1}`;
+  if (value instanceof Date)
+    return `${cell} 是日期／時間格式，已按 0 輛處理，請確認原始檔。`;
+  return `${cell} 的內容「${String(value)}」不是數字，已按 0 輛處理，請確認原始檔。`;
+}
+
+/**
+ * 判斷工作表名稱是否明確是照片、日誌或說明頁。
+ * 只排除「去掉平／假日與分隔符後，整個名稱就是非資料類別」的工作表，
+ * 避免把「平日-號誌化路口」這類真正的交通量分頁誤排除。
+ */
+export function isNonTrafficSheetName(name: string): boolean {
+  const normalized = String(name)
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/平日|假日/g, "")
+    .replace(/[\s　_\-—–~～()（）[\]【】]/g, "");
+  return /^(?:照片|相片|photo|photos|時相|時相圖|號誌|號誌時相|號誌時相圖|監測日誌|日誌|log|logs|封面|說明|說明頁)\d*$/.test(
+    normalized,
+  );
+}
+
+/** 同一日別拆成多張資料工作表時，全部保留並排除明確的非資料頁。 */
+export function trafficSheetNamesForDay(
+  sheetNames: string[],
+  dayType: ParserDayType,
+): string[] {
+  return sheetNames.filter(
+    (name) => name.includes(dayType) && !isNonTrafficSheetName(name),
+  );
 }
 
 export function normalizeVehicleLabel(value: unknown): string {
@@ -381,6 +445,13 @@ export function parseTrafficSheetValues(
       const turnData = emptyTurns();
       const vehicleLabels: VehicleLabels = {};
       const vehicleCounts: VehicleCounts = {};
+      const sourceWarnings: string[] = [];
+      const readCount = (cellIndex: number) => {
+        const value = row[cellIndex];
+        if (isUnusableCount(value))
+          sourceWarnings.push(countWarning(value, cellIndex, rowIndex));
+        return cellCount(value);
+      };
       /*
        * 合併儲存格造成的重複車種標題，必須當成「這一車種的左／直／右三欄」。
        *
@@ -407,7 +478,7 @@ export function parseTrafficSheetValues(
           groups[directionIndex + 1]?.[0]?.index ??
           row.length;
         const firstIndex = run.indexes[0];
-        let count = cellCount(row[firstIndex]);
+        let count = readCount(firstIndex);
         if (isIntersection) {
           // 同一車種佔了三欄＝那三欄就是左／直／右；只佔一欄的舊格式才
           // 沿用「從這一欄往後切三格」的推測。
@@ -415,10 +486,10 @@ export function parseTrafficSheetValues(
             run.indexes.length >= 3
               ? run.indexes
                   .slice(0, 3)
-                  .map((cellIndex) => cellCount(row[cellIndex]))
+                  .map((cellIndex) => readCount(cellIndex))
               : row
                   .slice(firstIndex, Math.min(firstIndex + 3, nextColumn))
-                  .map((cell) => cellCount(cell));
+                  .map((_cell, offset) => readCount(firstIndex + offset));
           turnData[key] = {
             left: turnValues[0] || 0,
             through: turnValues[1] || 0,
@@ -428,7 +499,7 @@ export function parseTrafficSheetValues(
         } else if (run.indexes.length > 1) {
           // 路段格式若也出現重複標題，三欄要相加而不是只取最後一欄。
           count = run.indexes.reduce(
-            (sum, cellIndex) => sum + cellCount(row[cellIndex]),
+            (sum, cellIndex) => sum + readCount(cellIndex),
             0,
           );
         }
@@ -466,6 +537,9 @@ export function parseTrafficSheetValues(
         sourceSheetName: source?.sheetName,
         sourceRow: rowIndex + 1,
         sourceRange: `R${rowIndex + 1}C${firstDataColumn + 1}:R${rowIndex + 1}C${group.at(-1)!.index + (isIntersection ? 3 : 1)}`,
+        sourceWarnings: sourceWarnings.length
+          ? [...new Set(sourceWarnings)]
+          : undefined,
       });
     }
   }
@@ -569,6 +643,13 @@ function parseDestinationSheet(
     const destinationCounts: DestinationCounts = {};
     const vehicleCounts: VehicleCounts = {};
     const vehicleLabels: VehicleLabels = {};
+    const sourceWarnings: string[] = [];
+    const readCount = (cellIndex: number) => {
+      const value = row[cellIndex];
+      if (isUnusableCount(value))
+        sourceWarnings.push(countWarning(value, cellIndex, rowIndex));
+      return cellCount(value);
+    };
     for (const group of groups) {
       if (!group.destinations.length) continue;
       vehicleLabels[group.key] = group.label;
@@ -576,7 +657,7 @@ function parseDestinationSheet(
       let total = 0;
       for (const destination of group.destinations) {
         // 「--」「－」等代表該轉向不存在，cellCount 會把 NaN 當成 0。
-        const count = cellCount(row[destination.index]);
+        const count = readCount(destination.index);
         perDestination[destination.code] =
           (perDestination[destination.code] ?? 0) + count;
         total += count;
@@ -607,6 +688,9 @@ function parseDestinationSheet(
       sourceRange: `R${rowIndex + 1}C${firstDataColumn + 1}:R${rowIndex + 1}C${
         (destinationColumns.at(-1)?.index ?? firstDataColumn) + 1
       }`,
+      sourceWarnings: sourceWarnings.length
+        ? [...new Set(sourceWarnings)]
+        : undefined,
     });
   }
   return parsed;

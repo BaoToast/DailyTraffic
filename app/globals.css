@@ -515,3 +515,34 @@
 .period-display-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font-size:10px;cursor:pointer;white-space:nowrap}
 .period-display-toggle.is-on{background:#eff9f6;border-color:#176b5d;color:#176b5d;font-weight:700}
 .period-display-toggle:disabled{opacity:.45;cursor:not-allowed}
+
+/*
+ * ── 匯入檢核：逐檔提醒 ──
+ * 少匯了一個檔不可以只反映在「來源檔案 N」這個數字上，使用者要自己數才會發現。
+ */
+.file-warnings {
+  margin: 12px 0;
+  border-left: 3px solid #d99a00;
+  background: #fff8e8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.file-warnings b {
+  color: #8a5a00;
+}
+.file-warnings ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.file-warnings li {
+  margin-bottom: 5px;
+}
+.of-total {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  color: #b42318;
+  margin-left: 4px;
+}

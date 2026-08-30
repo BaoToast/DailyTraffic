@@ -7,6 +7,7 @@ import { launchOptions } from "../chrome-path.mjs";
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   AlignmentType,
@@ -30,7 +31,18 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, "manual.html");
-const out = join(here, "..", "..", "public", "manuals", "Traffic_Analysis_Beginner_Guide_v20.35.docx");
+
+/*
+ * 版號與更新日期一律從 manual.html 的封面戳記讀，不在這裡寫死。
+ * 寫死的話升版時會悄悄產生一份檔名與頁尾都還是舊版號的手冊，而且不會報錯。
+ */
+const manualHtml = readFileSync(src, "utf8");
+const stamp = manualHtml.match(/系統版本：(v[\d.]+)\s*　?更新日期：([\d-]+)/);
+if (!stamp)
+  throw new Error("manual.html 讀不到封面戳記「系統版本：vX.Y　更新日期：YYYY-MM-DD」");
+const [, MANUAL_VERSION, MANUAL_DATE] = stamp;
+
+const out = join(here, "..", "..", "public", "manuals", `Traffic_Analysis_Beginner_Guide_${MANUAL_VERSION}.docx`);
 
 const NAVY = "17324D";
 const TEAL = "148C8C";
@@ -432,7 +444,7 @@ for (const block of blocks) {
 
 const doc = new Document({
   creator: "全日交通量及車種組成",
-  title: "全日交通量及車種組成 新手使用說明手冊 v20.35",
+  title: `全日交通量及車種組成 新手使用說明手冊 ${MANUAL_VERSION}`,
   description: "適合完全沒有交通背景的新手，從匯入、檢查、分析到報表輸出與備份。",
   styles: {
     default: {
@@ -486,7 +498,7 @@ const doc = new Document({
               spacing: { before: 0 },
               children: [
                 new TextRun({
-                  text: "v20.35 ｜ 2026-08-30 ｜ 使用前請先匯出備份　　第 ",
+                  text: `${MANUAL_VERSION} ｜ ${MANUAL_DATE} ｜ 使用前請先匯出備份　　第 `,
                   font: FONT,
                   size: 15,
                   color: MUTED,
