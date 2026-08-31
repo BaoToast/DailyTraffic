@@ -122,6 +122,27 @@ export function surveyCoverage(hours: Iterable<string>): SurveyCoverage {
   };
 }
 
+/**
+ * 一行以內的調查涵蓋標示，給「歷季」各表逐列使用。
+ *
+ * 歷季各表是跨季度的，一張表裡可能同時有完整 24 小時和只調查幾小時的季度，
+ * 所以標題不能再帶時間範圍（「輛/日」對其中一半的列是錯的），
+ * 改成中性單位＋這一欄逐列說明。
+ *
+ * 回傳值刻意做成可排序、可篩選的短字串，讓使用者能在 Excel 的自動篩選裡
+ * 一眼把「不足 24 小時」的列挑出來。
+ */
+export function coverageLabelOf(coverage: SurveyCoverage): string {
+  if (!coverage.coveredMinutes) return "無法判定";
+  const hours = coverage.coveredMinutes / 60;
+  const hoursText = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+  if (!coverage.partial) return `完整24小時`;
+  const blocks = coverage.blocks
+    .map((block) => formatRange(block.start, block.end))
+    .join("、");
+  return `部分時段 ${hoursText} 小時（${blocks}）`;
+}
+
 /** 以白話說明調查涵蓋範圍，放在「全日交通量」旁邊當備註。 */
 export function coverageNote(coverage: SurveyCoverage): string {
   if (!coverage.coveredMinutes) return "";

@@ -81,6 +81,7 @@ import {
   type ConclusionTemplate,
 } from "./conclusion";
 import {
+  coverageLabelOf,
   coverageNote,
   peakFromBuckets,
   surveyCoverage,
@@ -431,7 +432,7 @@ function writeConclusionTemplates(
   projectId: string,
   templates: ConclusionTemplate[],
 ) {
-  if (!projectId || typeof localStorage === "undefined") return;
+  if (!projectId || typeof localStorage === "undefined") return false;
   let map: Record<string, ConclusionTemplate[]> = {};
   try {
     const raw = JSON.parse(localStorage.getItem(CONCLUSION_TEMPLATE_KEY) || "{}");
@@ -440,11 +441,24 @@ function writeConclusionTemplates(
     map = {};
   }
   map[projectId] = templates;
-  safeWrite(CONCLUSION_TEMPLATE_KEY, map);
+  return safeWrite(CONCLUSION_TEMPLATE_KEY, map);
 }
 
+/*
+ * 沒有計畫 id 就寫不進去，必須回報 false。
+ *
+ * 舊版這兩個函式在 projectId 為空時回傳 true（＝「已寫入」），可是實際上
+ * 一個位元組都沒寫。加上還原備份那條路徑誤用了 activeProject（在自動建立
+ * 計畫的同一個函式裡，React 狀態還沒更新，它是空字串），結果是：
+ * 換一台電腦、還沒有任何計畫時還原備份，畫面顯示還原完成、係數也確實
+ * 變成備份裡的值，但 localStorage 是空的，重新整理後無聲退回預設值，
+ * 所有 PCU 數字跟著改變而使用者不會收到任何警告。
+ *
+ * 「寫不進去卻回報成功」是這支程式裡最該杜絕的一類錯誤，因此這裡回傳
+ * false，由呼叫端負責說明原因。
+ */
 function writeProjectPcuFactors(projectId: string, factors: PcuFactors) {
-  if (!projectId) return true;
+  if (!projectId) return false;
   const map = readMap(PCU_BY_PROJECT_KEY);
   map[projectId] = factors;
   return safeWrite(PCU_BY_PROJECT_KEY, map);
@@ -453,10 +467,33 @@ function writeProjectTurnPcuFactors(
   projectId: string,
   factors: TurnPcuFactors,
 ) {
-  if (!projectId) return true;
+  if (!projectId) return false;
   const map = readMap(TURN_PCU_BY_PROJECT_KEY);
   map[projectId] = factors;
   return safeWrite(TURN_PCU_BY_PROJECT_KEY, map);
+}
+
+/**
+ * 刪除計畫時，把「依計畫分開存」的 localStorage 條目一併移除。
+ *
+ * 集中成一份清單而不是在 deleteProject 裡展開三段：日後新增依計畫存放的
+ * 鍵時只要加進 PROJECT_SCOPED_KEYS，刪除路徑就會自動跟上——分散寫的話，
+ * 新增的那一個會被漏掉，而且不會有任何跡象。
+ */
+const PROJECT_SCOPED_KEYS = [
+  PCU_BY_PROJECT_KEY,
+  TURN_PCU_BY_PROJECT_KEY,
+  CONCLUSION_TEMPLATE_KEY,
+] as const;
+
+function dropProjectScopedStorage(projectId: string) {
+  if (!projectId || typeof localStorage === "undefined") return;
+  for (const key of PROJECT_SCOPED_KEYS) {
+    const map = readMap(key);
+    if (!(projectId in map)) continue;
+    delete map[projectId];
+    safeWrite(key, map);
+  }
 }
 
 /**
@@ -1633,6 +1670,14 @@ export default function DashboardClient({ user }: { user: User }) {
       setToast("PCU係數必須是有效數字");
       return;
     }
+    /*
+     * PCU 係數是「依計畫」儲存的，沒有選計畫就沒有地方可以存。
+     * 先擋在這裡並說清楚，否則下面的失敗訊息會把原因誤說成「空間已滿」。
+     */
+    if (!activeProject) {
+      setToast("PCU係數是依計畫各自儲存的，請先在左側建立或選擇一個計畫再套用");
+      return;
+    }
     setPcuFactors({ ...pcuDraft });
     setTurnPcuFactors(structuredClone(turnPcuDraft));
     const savedRoad = writeProjectPcuFactors(activeProject, pcuDraft);
@@ -1646,15 +1691,29 @@ export default function DashboardClient({ user }: { user: User }) {
     );
   };
   const resetPcuFactors = () => {
+    /* 同 applyPcuFactors：沒有計畫就沒有儲存位置，先說清楚再退出。 */
+    if (!activeProject) {
+      setToast("PCU係數是依計畫各自儲存的，請先在左側建立或選擇一個計畫");
+      return;
+    }
     setPcuDraft({ ...PCU_FACTORS });
     setPcuFactors({ ...PCU_FACTORS });
     setTurnPcuDraft(structuredClone(TURN_PCU_FACTORS));
     setTurnPcuFactors(structuredClone(TURN_PCU_FACTORS));
-    writeProjectPcuFactors(activeProject, { ...PCU_FACTORS });
-    writeProjectTurnPcuFactors(activeProject, structuredClone(TURN_PCU_FACTORS));
+    const savedRoad = writeProjectPcuFactors(activeProject, {
+      ...PCU_FACTORS,
+    });
+    const savedTurn = writeProjectTurnPcuFactors(
+      activeProject,
+      structuredClone(TURN_PCU_FACTORS),
+    );
     setProjectHasOwnFactors(true);
     persistCoreVehicleSync(PCU_FACTORS, TURN_PCU_FACTORS);
-    setToast("已恢復本計畫的路段與路口轉向預設PCU係數");
+    setToast(
+      savedRoad && savedTurn
+        ? "已恢復本計畫的路段與路口轉向預設PCU係數"
+        : "預設係數已套用到目前畫面，但無法寫入瀏覽器儲存（可能空間已滿或瀏覽器封鎖網站資料），重新整理後會回到原本的值。",
+    );
   };
   /**
    * 各分析區塊自己的篩選列。
@@ -2525,6 +2584,58 @@ export default function DashboardClient({ user }: { user: User }) {
     turnPcuFactors,
     vehicleClassSettings,
   ]);
+  /*
+   * 歷季趨勢是跨季度的，一樣不能沿用「目前季度」算出來的單位。
+   * 這裡逐季（且逐調查點，理由同 surveyScope）算出各季自己的調查涵蓋，
+   * 供匯出的「歷季趨勢」工作表多加一欄標示。
+   *
+   * 刻意另開一個 memo 而不是塞進 TrendRow：TrendRow 同時餵給畫面上的
+   * 折線圖，動它的形狀會牽動到已經確認過的繪圖路徑。
+   */
+  const trendCoverageByQuarter = useMemo(() => {
+    const byQuarter = new Map<
+      string,
+      Map<DayType, Map<string, string[]>>
+    >();
+    for (const record of analysisRecords) {
+      if (trendRoad !== "ALL" && record.roadId !== trendRoad) continue;
+      if (trendMode === "平日" && record.dayType !== "平日") continue;
+      if (trendMode === "假日" && record.dayType !== "假日") continue;
+      const byDay =
+        byQuarter.get(record.quarter) ??
+        new Map<DayType, Map<string, string[]>>();
+      const byRoad = byDay.get(record.dayType) ?? new Map<string, string[]>();
+      const list = byRoad.get(record.roadId) ?? [];
+      list.push(record.hour ?? "");
+      byRoad.set(record.roadId, list);
+      byDay.set(record.dayType, byRoad);
+      byQuarter.set(record.quarter, byDay);
+    }
+    const summarize = (byRoad?: Map<string, string[]>) => {
+      if (!byRoad?.size) return "—";
+      const unique = [
+        ...new Set(
+          [...byRoad.values()].map((hours) =>
+            coverageLabelOf(surveyCoverage(hours)),
+          ),
+        ),
+      ];
+      return unique.length === 1
+        ? unique[0]
+        : `不同調查點涵蓋不同（${unique.join("；")}）`;
+    };
+    const labels = new Map<
+      string,
+      { weekday: string; holiday: string }
+    >();
+    for (const [q, byDay] of byQuarter) {
+      labels.set(q, {
+        weekday: summarize(byDay.get("平日")),
+        holiday: summarize(byDay.get("假日")),
+      });
+    }
+    return labels;
+  }, [analysisRecords, trendRoad, trendMode]);
   const compositionRecords = useMemo(
     () =>
       analysisRecords.filter(
@@ -2637,6 +2748,20 @@ export default function DashboardClient({ user }: { user: User }) {
     directionOptions,
     vehicleClassSettings,
   ]);
+  /*
+   * 歷季各表是「跨季度」的：一列一個（季度×日別×調查點）。
+   *
+   * 但單位標題（sheetActualUnit／pcu24Label／trendActualUnit）都是從
+   * surveyScope 算出來的，而 surveyScope 只看目前選的那一季。於是一張混排
+   * 多季的表，會被整張標成當季的單位——目前選 24 小時季時，只調查 4 小時的
+   * 那一季會被標成「全日實際交通量（輛/日）」並排在真正的全日量旁邊；
+   * 反過來選部分時段季時，真正的 24 小時資料會被標成「輛/調查時段」。
+   *
+   * 因此歷季各表改為：標題用不含時間範圍的中性單位（輛／PCU），
+   * 每一列另外附上它自己的「調查涵蓋」，讓每一季的性質看得出來。
+   * 涵蓋範圍必須逐（季度×日別×調查點）判斷，理由同 surveyScope 的註解：
+   * 把不同調查點的時段混在一起算，只要有一個 24 小時的就會蓋掉其他的。
+   */
   const historicalDailyRows = useMemo(() => {
     const map = new Map<
       string,
@@ -2645,6 +2770,7 @@ export default function DashboardClient({ user }: { user: User }) {
         dayType: DayType;
         roadId: string;
         roadName: string;
+        hours: string[];
         a: number;
         b: number;
         aPcu: number;
@@ -2666,6 +2792,7 @@ export default function DashboardClient({ user }: { user: User }) {
         dayType: r.dayType,
         roadId: r.roadId,
         roadName: r.roadName,
+        hours: [] as string[],
         // 路口有 A～G 支線，「方向A／方向B」這兩欄只適用雙向路段；
         // 路口列必須留白，否則 a+b 只含前兩條支線，與全日總量對不起來。
         isIntersection: false,
@@ -2684,6 +2811,7 @@ export default function DashboardClient({ user }: { user: User }) {
       const v = sumVehicles(r),
         p = sumPcu(r, pcuFactors, turnPcuFactors, vehicleClassSettings);
       if (r.surveyType === "intersection" || r.turnData) x.isIntersection = true;
+      x.hours.push(r.hour ?? "");
       x.total += v;
       x.pcu24 += p;
       const groups = effectiveVehicleCounts(r, vehicleClassSettings);
@@ -2703,12 +2831,22 @@ export default function DashboardClient({ user }: { user: User }) {
       }
       map.set(key, x);
     });
-    return [...map.values()].sort(
-      (a, b) =>
-        compareQuarters(a.quarter, b.quarter) ||
-        a.roadId.localeCompare(b.roadId) ||
-        a.dayType.localeCompare(b.dayType),
-    );
+    return [...map.values()]
+      .map(({ hours, ...row }) => {
+        const coverage = surveyCoverage(hours);
+        return {
+          ...row,
+          coverage,
+          /* 這一列自己的調查涵蓋，供歷季各表逐列標示，不受目前季度影響。 */
+          coverageLabel: coverageLabelOf(coverage),
+        };
+      })
+      .sort(
+        (a, b) =>
+          compareQuarters(a.quarter, b.quarter) ||
+          a.roadId.localeCompare(b.roadId) ||
+          a.dayType.localeCompare(b.dayType),
+      );
   }, [analysisRecords, pcuFactors, turnPcuFactors, vehicleClassSettings]);
   const historicalCompositionRows = useMemo(
     () =>
@@ -3373,9 +3511,14 @@ export default function DashboardClient({ user }: { user: User }) {
         ...new Set(
           anomalyAlerts.flatMap((item) => [item.fromQuarter, item.toQuarter]),
         ),
-      ].sort((a, b) =>
-        a.replace(/^(\d{2})Q/, "0$1Q").localeCompare(b.replace(/^(\d{2})Q/, "0$1Q")),
-      ),
+      /*
+       * 用 compareQuarters，不要另外寫一套補零字串排序。
+       * 舊寫法只把兩碼年份補成三碼，遇到同一個計畫混用民國與西元標記時
+       * 會排錯：2025Q1（＝民國114Q1）會被排到 114Q3 後面，因為它比的是
+       * 字串「114…」與「2025…」。compareQuarters 已經處理過這件事
+       * （四碼視為西元換算成民國），全系統只留這一套季度先後規則。
+       */
+      ].sort(compareQuarters),
     [anomalyAlerts],
   );
   /**
@@ -3961,6 +4104,13 @@ export default function DashboardClient({ user }: { user: User }) {
       );
       setVehicleClassSettings(nextVehicleClass);
       safeWrite("traffic-vehicle-class-settings-v1", nextVehicleClass);
+      /*
+       * 依計畫存放的 localStorage 內容也要一起清掉：PCU 係數、轉向 PCU
+       * 係數與結論範本。計畫 id 是 crypto.randomUUID()，不會重複，
+       * 所以留著不會被別的計畫撿去用，但會一直占著瀏覽器儲存空間，
+       * 而這支程式的儲存空間本來就吃緊（滿了會導致係數存不進去）。
+       */
+      dropProjectScopedStorage(selectedProject.id);
       /*
        * 計畫刪掉了，它在 IndexedDB 裡的工作流程狀態（定稿、檢核、門檻、
        * 範本、比較報表、匯入紀錄）也要一起清掉，否則會一直留著吃空間，
@@ -4628,6 +4778,11 @@ export default function DashboardClient({ user }: { user: User }) {
         .filter((r) => /^(?:\d{3}|\d{4})Q[1-4]$/.test(r.quarter));
       if (!source.length) throw new Error("備份檔內沒有可匯入的季度資料");
       /*
+       * 還原過程可能同時遇到多個 localStorage 寫入失敗。不要在途中直接
+       * setToast 後又被最後的「還原完成」蓋掉；先累積，最後一次說完整。
+       */
+      const restoreWarnings: string[] = [];
+      /*
        * 換一台電腦時，畫面上一個計畫都還沒有——而「還原完整備份」正是這時
        * 才會用到的功能。舊版在這裡直接擋下來，使用者必須自己先手動建一個
        * 計畫名稱才能還原，而備份檔裡本來就帶著計畫名稱（payload.project）。
@@ -4739,7 +4894,15 @@ export default function DashboardClient({ user }: { user: User }) {
         const restored = { ...(payload.pcuFactors as CorePcuFactors) };
         setPcuFactors(restored);
         setPcuDraft(restored);
-        writeProjectPcuFactors(activeProject, restored);
+        /*
+         * 一定要用 targetProjectId，不能用 activeProject——理由與上面
+         * 4680 行那段註解相同：計畫可能是本函式剛剛自動建立的，
+         * setActiveProject 還沒生效，activeProject 此時是空字串。
+         */
+        if (!writeProjectPcuFactors(targetProjectId, restored))
+          restoreWarnings.push(
+            "路段PCU係數未存入瀏覽器，重新整理後會退回原值",
+          );
       }
       // 轉向係數比照載入時的檢查：4 車種 × 3 轉向共 12 個有效數字才採用。
       // 否則壞掉的備份會把 localStorage 汙染成載入時會被拒絕的內容，
@@ -4759,9 +4922,13 @@ export default function DashboardClient({ user }: { user: User }) {
       ) {
         setTurnPcuFactors(restoredTurn);
         setTurnPcuDraft(restoredTurn);
-        writeProjectTurnPcuFactors(activeProject, restoredTurn);
+        /* 同上，必須是 targetProjectId。 */
+        if (!writeProjectTurnPcuFactors(targetProjectId, restoredTurn))
+          restoreWarnings.push(
+            "轉向PCU係數未存入瀏覽器，重新整理後會退回原值",
+          );
       } else if (payload.turnPcuFactors) {
-        setToast(
+        restoreWarnings.push(
           "備份中的轉向PCU係數不完整，已保留目前設定；請確認後於「PCU當量係數」重新輸入",
         );
       }
@@ -4777,7 +4944,7 @@ export default function DashboardClient({ user }: { user: User }) {
         ];
         setVehicleClassSettings(next);
         if (!safeWrite("traffic-vehicle-class-settings-v1", next))
-          setToast("車種分類設定沒有存進瀏覽器（空間可能已滿）");
+          restoreWarnings.push("車種分類設定未存入瀏覽器");
       }
       if (payload.intersectionSettings) {
         const next = [
@@ -4791,7 +4958,7 @@ export default function DashboardClient({ user }: { user: User }) {
         ];
         setIntersectionSettings(next);
         if (!safeWrite("traffic-intersection-settings-v1", next))
-          setToast("路口設定沒有存進瀏覽器（空間可能已滿）");
+          restoreWarnings.push("路口設定未存入瀏覽器");
       }
       if (payload.workflow) {
         /*
@@ -4840,13 +5007,18 @@ export default function DashboardClient({ user }: { user: User }) {
         for (const item of payload.conclusionTemplates)
           if (item && typeof item.name === "string") byName.set(item.name, item);
         const merged = [...byName.values()];
-        writeConclusionTemplates(targetProjectId, merged);
+        if (!writeConclusionTemplates(targetProjectId, merged))
+          restoreWarnings.push("結論條件範本未存入瀏覽器");
         setConclusionTemplates(merged);
       }
       await refreshRoadAliases(targetProjectId);
       setQuarter(restoredQuarters.sort(compareQuarters).at(-1) ?? quarter);
       setShowImport(false);
-      setToast(`已還原 ${restoredQuarters.length} 個季度，資料已永久保存`);
+      setToast(
+        restoreWarnings.length
+          ? `已還原 ${restoredQuarters.length} 個季度，但有 ${restoreWarnings.length} 項瀏覽器設定未完整保存：${restoreWarnings.join("；")}。請先匯出備份並清理瀏覽器儲存空間。`
+          : `已還原 ${restoredQuarters.length} 個季度，資料已永久保存`,
+      );
     } catch (error) {
       /*
        * JSON.parse 的訊息是英文的瀏覽器內部字串（例如
@@ -5408,6 +5580,10 @@ export default function DashboardClient({ user }: { user: User }) {
     setToast(`已儲存設定範本「${name}」`);
   }
   async function applyProjectTemplate(template: ProjectTemplate) {
+    if (!activeProject) {
+      setToast("設定範本是依計畫儲存的，請先建立或選擇一個計畫");
+      return;
+    }
     if (
       !window.confirm(
         `套用「${template.name}」會取代目前 PCU、車種分類、路口幾何與異常門檻設定，原始交通量不會改變。是否繼續？`,
@@ -5420,8 +5596,12 @@ export default function DashboardClient({ user }: { user: User }) {
     setPcuDraft(nextPcu);
     setTurnPcuFactors(nextTurn);
     setTurnPcuDraft(nextTurn);
-    writeProjectPcuFactors(activeProject, nextPcu);
-    writeProjectTurnPcuFactors(activeProject, nextTurn);
+    /* 寫不進去就要說，不能讓畫面上的係數和儲存的值悄悄不一致。 */
+    const templateWarnings: string[] = [];
+    const savedRoadPcu = writeProjectPcuFactors(activeProject, nextPcu);
+    const savedTurnPcu = writeProjectTurnPcuFactors(activeProject, nextTurn);
+    if (!savedRoadPcu || !savedTurnPcu)
+      templateWarnings.push("PCU係數未存入瀏覽器");
     const nextVehicleClass = [
       ...vehicleClassSettings.filter(
         (setting) => setting.projectId !== activeProject,
@@ -5431,7 +5611,8 @@ export default function DashboardClient({ user }: { user: User }) {
       ).map((setting) => ({ ...setting, projectId: activeProject })),
     ];
     setVehicleClassSettings(nextVehicleClass);
-    safeWrite("traffic-vehicle-class-settings-v1", nextVehicleClass);
+    if (!safeWrite("traffic-vehicle-class-settings-v1", nextVehicleClass))
+      templateWarnings.push("車種分類設定未存入瀏覽器");
     const nextIntersection = [
       ...intersectionSettings.filter(
         (setting) => setting.projectId !== activeProject,
@@ -5444,7 +5625,8 @@ export default function DashboardClient({ user }: { user: User }) {
       ).map((setting) => ({ ...setting, projectId: activeProject })),
     ];
     setIntersectionSettings(nextIntersection);
-    safeWrite("traffic-intersection-settings-v1", nextIntersection);
+    if (!safeWrite("traffic-intersection-settings-v1", nextIntersection))
+      templateWarnings.push("路口設定未存入瀏覽器");
     for (const alias of template.roadAliases as {
       roadId: string;
       aliasName: string;
@@ -5470,7 +5652,11 @@ export default function DashboardClient({ user }: { user: User }) {
       thresholds: { ...template.thresholds },
     }));
     setShowTemplateCenter(false);
-    setToast(`已套用設定範本「${template.name}」`);
+    setToast(
+      templateWarnings.length
+        ? `已套用設定範本「${template.name}」，但有 ${templateWarnings.length} 項只套用在目前畫面：${templateWarnings.join("、")}。重新整理後會回到原本的值。`
+        : `已套用設定範本「${template.name}」`,
+    );
   }
   function saveComparisonReport() {
     const name = reportTemplateName.trim();
@@ -5574,24 +5760,34 @@ export default function DashboardClient({ user }: { user: User }) {
         [`24小時（${sheetPcuUnit}）`]: r.pcu24,
       })),
     );
-    const historicalDailyExport = historicalDailyRows.map(
-      ({
-        vehicles: _vehicles,
-        motorcycle: _motorcycle,
-        small: _small,
-        large: _large,
-        special: _special,
-        ...row
-      }) => row,
-    );
+    /*
+     * 歷季各表是跨季度的，不能沿用上面依「目前季度」算出來的
+     * sheetActualUnit／sheetPcuUnit——同一張表裡可能同時有完整 24 小時
+     * 和只調查幾小時的季度。標題改用不含時間範圍的中性單位，
+     * 另外加一欄「調查涵蓋」逐列說明這一列到底調查了多久。
+     */
+    const historicalDailyExport = historicalDailyRows.map((r) => ({
+      季度: r.quarter,
+      日別: r.dayType,
+      調查點編號: r.roadId,
+      調查點名稱: r.roadName,
+      調查涵蓋: r.coverageLabel,
+      "方向A（輛・僅路段）": r.isIntersection ? "" : r.a,
+      "方向B（輛・僅路段）": r.isIntersection ? "" : r.b,
+      "合計（輛）": r.total,
+      "方向A（PCU・僅路段）": r.isIntersection ? "" : r.aPcu,
+      "方向B（PCU・僅路段）": r.isIntersection ? "" : r.bPcu,
+      "合計（PCU）": r.pcu24,
+    }));
     const comp = historicalCompositionRows.map((r) =>
       Object.fromEntries([
         ["季度", r.quarter],
         ["日別", r.dayType],
         ["調查點編號", r.roadId],
         ["調查點名稱", r.roadName],
+        ["調查涵蓋", r.coverageLabel],
         ...analysisVehicleCatalog.flatMap((vehicle) => [
-          [`${vehicle.label}（${sheetActualUnit}）`, r.vehicles[vehicle.key] ?? 0],
+          [`${vehicle.label}（輛）`, r.vehicles[vehicle.key] ?? 0],
           [`${vehicle.label}（%）`, r.vehiclePct[vehicle.key] ?? 0],
         ]),
       ]),
@@ -6021,17 +6217,34 @@ export default function DashboardClient({ user }: { user: User }) {
       const tr = wb.addWorksheet("歷季趨勢", {
         views: [{ state: "frozen", ySplit: 1 }],
       });
-      /* 歷季趨勢工作表的資料是 trendRows（依 trendMode），單位同樣要跟著它。 */
-      const trendUnit = trendMetric === "actual" ? trendActualUnit : trendPcuUnit;
-      tr.addRow(["季度", `平日（${trendUnit}）`, `假日（${trendUnit}）`]);
+      /*
+       * 歷季趨勢一樣是跨季度的表，標題不能帶「/日」或「/調查時段」——
+       * 那是依「目前季度」算出來的，對表裡其他季度可能是錯的。
+       * 單位改為中性的「輛」「PCU」，各季的平日／假日涵蓋分列於 D、E 欄。
+       * 折線圖只引用 A（類別）、B、C 三欄，新增說明欄不會影響圖表。
+       */
+      const trendUnit = trendMetric === "actual" ? "輛" : "PCU";
+      tr.addRow([
+        "季度",
+        `平日（${trendUnit}）`,
+        `假日（${trendUnit}）`,
+        "平日調查涵蓋",
+        "假日調查涵蓋",
+      ]);
       /*
        * 缺值（含被日別篩選掉的那一條）寫成空白格，不是 0——
        * Excel 的折線圖會把 0 畫成一個真實的資料點，看起來像「那一季是 0」。
        */
       trendRows.forEach((r) =>
-        tr.addRow([r.quarter, r.weekday ?? null, r.holiday ?? null]),
+        tr.addRow([
+          r.quarter,
+          r.weekday ?? null,
+          r.holiday ?? null,
+          trendCoverageByQuarter.get(r.quarter)?.weekday ?? "—",
+          trendCoverageByQuarter.get(r.quarter)?.holiday ?? "—",
+        ]),
       );
-      tr.columns = [16, 24, 24].map((width) => ({ width }));
+      tr.columns = [16, 24, 24, 30, 30].map((width) => ({ width }));
       header(tr.getRow(1));
       const currentComp = wb.addWorksheet("目前車種組成", {
         views: [{ state: "frozen", ySplit: 1 }],
@@ -6177,17 +6390,23 @@ export default function DashboardClient({ user }: { user: User }) {
       const hd = wb.addWorksheet("歷季全日交通量", {
         views: [{ state: "frozen", ySplit: 1 }],
       });
+      /*
+       * 歷季各表跨季度，標題不能帶時間範圍（見 historicalDailyRows 的註解）。
+       * 這裡一律用中性單位「輛」「PCU」，改由第 5 欄「調查涵蓋」逐列說明；
+       * 該欄也在自動篩選範圍內，使用者可以直接把不足 24 小時的列篩出來。
+       */
       hd.addRow([
         "季度",
         "日別",
         "調查點編號",
         "調查點名稱",
-        `方向A（${sheetActualUnit}・僅路段）`,
-        `方向B（${sheetActualUnit}・僅路段）`,
-        totalLabel,
-        `方向A（${sheetPcuUnit}・僅路段）`,
-        `方向B（${sheetPcuUnit}・僅路段）`,
-        pcu24Label,
+        "調查涵蓋",
+        "方向A（輛・僅路段）",
+        "方向B（輛・僅路段）",
+        "合計（輛）",
+        "方向A（PCU・僅路段）",
+        "方向B（PCU・僅路段）",
+        "合計（PCU）",
       ]);
       historicalDailyRows.forEach((r) =>
         hd.addRow([
@@ -6195,6 +6414,7 @@ export default function DashboardClient({ user }: { user: User }) {
           r.dayType,
           r.roadId,
           r.roadName,
+          r.coverageLabel,
           r.isIntersection ? "" : r.a,
           r.isIntersection ? "" : r.b,
           r.total,
@@ -6203,21 +6423,29 @@ export default function DashboardClient({ user }: { user: User }) {
           r.pcu24,
         ]),
       );
-      hd.columns = [12, 10, 16, 36, 20, 20, 25, 20, 20, 22].map((width) => ({
-        width,
-      }));
+      hd.columns = [12, 10, 16, 36, 26, 20, 20, 25, 20, 20, 22].map(
+        (width) => ({ width }),
+      );
       header(hd.getRow(1));
-      [8, 9, 10].forEach((c) => (hd.getColumn(c).numFmt = "#,##0.0"));
-      hd.autoFilter = { from: "A1", to: `J${historicalDailyRows.length + 1}` };
+      [9, 10, 11].forEach((c) => (hd.getColumn(c).numFmt = "#,##0.0"));
+      hd.autoFilter = { from: "A1", to: `K${historicalDailyRows.length + 1}` };
       const hc = wb.addWorksheet("歷季車種組成", {
         views: [{ state: "frozen", ySplit: 1 }],
       });
+      /*
+       * 同「歷季全日交通量」：跨季度的表不能用當季單位，改中性的「輛」
+       * 並加上「調查涵蓋」欄。這一欄插在第 5 欄，因此下面的車種數量欄
+       * 從第 6 欄起算——LEAD_COLUMNS 就是為了讓欄位位置只有一個來源，
+       * 避免標題、公式、欄寬與 numFmt 四個地方各自寫死而失去同步。
+       */
+      const HC_LEAD_COLUMNS = 5;
       hc.addRow([
         "季度",
         "日別",
         "調查點編號",
         "調查點名稱",
-        ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（${sheetActualUnit}）`),
+        "調查涵蓋",
+        ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（輛）`),
         ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（%）`),
       ]);
       historicalCompositionRows.forEach((r, i) => {
@@ -6226,13 +6454,14 @@ export default function DashboardClient({ user }: { user: User }) {
           r.dayType,
           r.roadId,
           r.roadName,
+          r.coverageLabel,
           ...analysisVehicleCatalog.map(
             (vehicle) => r.vehicles[vehicle.key] ?? 0,
           ),
         ]);
         const excelRow = i + 2,
-          countStart = 5,
-          countEnd = 4 + analysisVehicleCatalog.length,
+          countStart = HC_LEAD_COLUMNS + 1,
+          countEnd = HC_LEAD_COLUMNS + analysisVehicleCatalog.length,
           percentStart = countEnd + 1;
         analysisVehicleCatalog.forEach(
           (vehicle, j) =>
@@ -6243,19 +6472,20 @@ export default function DashboardClient({ user }: { user: User }) {
         );
       });
       hc.columns = [
-        ...[12, 10, 16, 36],
+        ...[12, 10, 16, 36, 26],
         ...analysisVehicleCatalog.map(() => 17),
         ...analysisVehicleCatalog.map(() => 14),
       ].map((width) => ({ width }));
       header(hc.getRow(1));
       analysisVehicleCatalog.forEach(
         (_, index) =>
-          (hc.getColumn(5 + analysisVehicleCatalog.length + index).numFmt =
-            "0.0%"),
+          (hc.getColumn(
+            HC_LEAD_COLUMNS + analysisVehicleCatalog.length + 1 + index,
+          ).numFmt = "0.0%"),
       );
       hc.autoFilter = {
         from: "A1",
-        to: `${colName(4 + analysisVehicleCatalog.length * 2)}${historicalCompositionRows.length + 1}`,
+        to: `${colName(HC_LEAD_COLUMNS + analysisVehicleCatalog.length * 2)}${historicalCompositionRows.length + 1}`,
       };
       const hct = wb.addWorksheet("歷季組成圖表資料", {
         views: [{ state: "frozen", ySplit: 1 }],
@@ -7009,14 +7239,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.37.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.38.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.37.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.38.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -9110,14 +9340,25 @@ export default function DashboardClient({ user }: { user: User }) {
                   </>
                 ) : null}
               </p>
+              {/*
+                這段以前寫「歷季全日量與趨勢」都依歷季分析面板的條件，
+                但只有「歷季趨勢」與「歷季組成圖表資料」是這樣；
+                「歷季全日交通量」與「歷季車種組成」走的是未經篩選的全部
+                資料（所有季度、所有日別、所有調查點），刻意如此——那兩張
+                是明細底稿。說明必須與實作一致，否則使用者會以為自己已經
+                把範圍縮小了。
+              */}
               <p className="export-scope-note">
-                下列兩項有自己的條件，不受上面的「日別」影響，請在對應面板調整：
-                <b>歷季全日量與趨勢</b>依「歷季分析」面板的
+                下列項目有自己的條件，不受上面的「日別」與「調查點」影響：
+                <b>歷季趨勢</b>與<b>歷季組成圖表資料</b>依「歷季分析」面板的
                 {trendMode}／
                 {trendRoad === "ALL"
                   ? "全部路段合計"
                   : (roadOptions.find(([id]) => id === trendRoad)?.[1] ?? trendRoad)}
                 ；<b>車種組成</b>依「車種組成」面板的{compositionMode}。
+                <b>歷季全日交通量</b>與<b>歷季車種組成</b>是明細底稿，
+                一律輸出本計畫全部季度、全部日別、全部調查點，不受任何篩選影響，
+                並在「調查涵蓋」欄逐列標示該季實際調查了多久。
                 「本季交通量、PCU與平假日比較」中的平假日比較一定同時含平日與假日，
                 不受「日別」限制。
               </p>

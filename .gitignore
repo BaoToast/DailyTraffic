@@ -40,6 +40,7 @@ yarn-error.log*
 /outputs/
 /work/
 /.samples/
+/.samples-coverage/
 /tsconfig.tsbuildinfo
 /_dtcheck.mjs
 /package-stage-*/
