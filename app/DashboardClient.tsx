@@ -84,6 +84,7 @@ import {
   coverageLabelOf,
   coverageNote,
   peakFromBuckets,
+  sameSurveyCoverage,
   surveyCoverage,
   type SurveyCoverage,
 } from "./partial-day";
@@ -108,6 +109,10 @@ import {
   checkPeriodAgainstDate,
   findSurveyDate,
   periodDisplayLabel,
+  quarterInYearStyle,
+  YEAR_STYLE_LABELS,
+  type YearStyle,
+  normalizeSurveyPeriod,
   periodMismatchPrompt,
   periodUnknownNotice,
   PERIOD_DISPLAY_LABELS,
@@ -138,6 +143,25 @@ type DayType = "平日" | "假日";
 type DayMode = DayType | "平日＋假日";
 type Direction = "ALL" | string;
 const DAY_MODES: DayMode[] = ["平日", "假日", "平日＋假日"];
+/**
+ * 匯出檔的車輛數／PCU 單位。
+ *
+ * 兩個維度都要看：
+ *   ・調查涵蓋不滿 24 小時 → 那個總量是實測時段的合計，不是全日量
+ *   ・日別選「平日＋假日」 → 匯出的是兩天的加總，不是任何一天的量
+ * 少看任何一個，匯出檔就會把加總標成單日值。畫面上的 dailyActualUnit
+ * 一直是這樣算的，這裡是讓匯出跟畫面用同一套規則。
+ */
+function exportActualUnit(day: DayMode, partial: boolean) {
+  if (day === "平日＋假日")
+    return partial ? "輛/平假日實測時段合計" : "輛/平假日合計";
+  return partial ? "輛/調查時段" : "輛/日";
+}
+function exportPcuUnit(day: DayMode, partial: boolean) {
+  if (day === "平日＋假日")
+    return partial ? "PCU/平假日實測時段合計" : "PCU/平假日合計";
+  return partial ? "PCU/調查時段" : "PCU/日";
+}
 type Metric = "actual" | "pcu";
 type TrendMode = "平日＋假日" | DayType;
 type CompositionMode = "平日＋假日" | DayType;
@@ -226,6 +250,19 @@ type DayComparison = {
   holidayActual: number;
   weekdayPcu: number;
   holidayPcu: number;
+  /*
+   * 「這一季有沒有做這個日別的調查」與「做了、但量是 0」是兩件事。
+   * 少了這兩個旗標，只做平日調查的季度會顯示「假日 0 輛／日、-100.0%」，
+   * 讀起來像假日交通量真的掉到零。歷季趨勢那邊早就用 null 區分了
+   * （見 TrendRow 的註解），平假日比較這條路徑漏掉。
+   */
+  weekdaySurveyed: boolean;
+  holidaySurveyed: boolean;
+  /** 各日別自己的調查涵蓋；不能拿目前工具列的單一日別代替。 */
+  weekdayCoverage: SurveyCoverage;
+  holidayCoverage: SurveyCoverage;
+  /** 只有涵蓋時段完全相同，差值與百分比才有意義。 */
+  coverageComparable: boolean;
 };
 type TrendRow = {
   quarter: string;
@@ -1303,9 +1340,14 @@ export default function DashboardClient({ user }: { user: User }) {
     (
       window as unknown as { __TRAFFIC_OFFLINE__?: boolean }
     ).__TRAFFIC_OFFLINE__ = true;
-  /* eslint-enable react-hooks/immutability */
   const [projects, setProjects] = useState<Project[]>([]);
+  /*
+   * 停用範圍要涵蓋到這一行：規則指的是「render 期間改了 window 上的旗標，
+   * 之後又讀它」，而它回報的位置是**讀取端**（這裡的 useState(!user)），
+   * 不是上面那個賦值。停用只框住賦值那幾行的話，規則會改在這裡報出來。
+   */
   const [offline, setOffline] = useState(!user);
+  /* eslint-enable react-hooks/immutability */
   const [activeProject, setActiveProject] = useState("");
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [records, setRecords] = useState<TrafficRecord[]>([]);
@@ -1316,6 +1358,13 @@ export default function DashboardClient({ user }: { user: User }) {
    * 季別為準。一季分兩個月做完時，這個切換讓使用者一眼看出
    * 115Q1 實際是「115年2、3月」。
    */
+  /*
+   * 年份顯示成民國還是西元。**純顯示**，與資料怎麼存無關——
+   * 季別一律以民國年寫法儲存，分組、排序、識別鍵全部走儲存值，
+   * 所以怎麼切換都不會多出季度、也不會動到任何計算。
+   * 匯出的 Excel 跟著一起換，避免畫面寫 2026Q1、交出去的報表寫 115Q1。
+   */
+  const [yearStyle, setYearStyle] = useState<YearStyle>("roc");
   const [periodDisplay, setPeriodDisplay] =
     useState<PeriodDisplayMode>("quarter");
   const [dayType, setDayType] = useState<DayMode>("平日");
@@ -1402,7 +1451,21 @@ export default function DashboardClient({ user }: { user: User }) {
     email: "",
     role: "viewer" as "viewer" | "editor",
   });
-  const [importQuarter, setImportQuarter] = useState("2026Q3");
+  const [importQuarter, setImportQuarter] = useState("115Q3");
+  /*
+   * 寫進資料的季度一律用民國年寫法。
+   *
+   * 輸入框同時接受 115Q2 與 2026Q2（提示文字就是這樣寫的），但如果照打的字
+   * 原樣存下去，同一季會因為寫法不同而變成兩個不同的鍵——季度清單是
+   * `[...new Set(records.map(r => r.quarter))]`，115Q1 與 2026Q1 會並列成
+   * 兩季、歷季趨勢被拆成兩段，而且永遠不會合併，因為它們字面上就是不同的字串
+   *（兩者的排序鍵其實完全相同，所以會相鄰出現，更難聯想到是寫法問題）。
+   * 正規化規則在三支共用的 period-date 模組裡。
+   */
+  const importQuarterKey = useMemo(
+    () => normalizeSurveyPeriod(importQuarter),
+    [importQuarter],
+  );
   const [pendingImport, setPendingImport] = useState<{
     files: File[];
     records: TrafficRecord[];
@@ -1743,6 +1806,7 @@ export default function DashboardClient({ user }: { user: User }) {
         </label>
       )}
       {show.quarter && periodDisplayToggle}
+      {show.quarter && yearStyleToggle}
       {show.day && (
         <label>
           日別
@@ -2029,10 +2093,22 @@ export default function DashboardClient({ user }: { user: User }) {
         ];
     const labels: Record<string, string> = {};
     for (const key of quarters)
-      labels[key] = periodDisplayLabel(key, dates[key] ?? [], periodDisplay);
+      labels[key] = periodDisplayLabel(
+        key,
+        dates[key] ?? [],
+        periodDisplay,
+        yearStyle,
+      );
     return { labels, anyDate: Object.keys(dates).length > 0 };
-  }, [activeRecords, quarters, periodDisplay]);
+  }, [activeRecords, quarters, periodDisplay, yearStyle]);
   const quarterLabel = (value: string) => quarterLabels.labels[value] || value;
+  /*
+   * 季度字串在畫面與匯出檔上要顯示成什麼年份寫法。
+   * 只換文字：傳進來的 quarter 仍是分組、排序與識別鍵的依據。
+   * quarterLabel 是「季別／調查月份」那一層，這一支只換年份寫法，
+   * 給不需要月份的地方（提示文字、標題、下拉選單）用。
+   */
+  const showQuarter = (value: string) => quarterInYearStyle(value, yearStyle);
   /* 期別顯示切換鈕。三支程式的外觀與文字一致。 */
   const periodDisplayToggle = (
     <button
@@ -2054,6 +2130,21 @@ export default function DashboardClient({ user }: { user: User }) {
       }
     >
       期別顯示：{PERIOD_DISPLAY_LABELS[periodDisplay]}
+    </button>
+  );
+  const yearStyleToggle = (
+    <button
+      type="button"
+      className={
+        yearStyle === "ad"
+          ? "period-display-toggle is-on"
+          : "period-display-toggle"
+      }
+      data-testid="year-style-toggle"
+      title="切換年份顯示方式：民國年（115Q1）／西元年（2026Q1）。畫面與匯出的 Excel 會一起換；資料一律以民國年儲存，切換不影響分組、排序與計算。"
+      onClick={() => setYearStyle(yearStyle === "ad" ? "roc" : "ad")}
+    >
+      年份顯示：{YEAR_STYLE_LABELS[yearStyle]}
     </button>
   );
   const directionOptions = useMemo(() => {
@@ -2359,7 +2450,14 @@ export default function DashboardClient({ user }: { user: User }) {
     ],
   );
   const dayComparisons = useMemo(() => {
-    const map = new Map<string, DayComparison>();
+    type DayComparisonAccumulator = Omit<
+      DayComparison,
+      "weekdayCoverage" | "holidayCoverage" | "coverageComparable"
+    > & {
+      weekdayHours: Set<string>;
+      holidayHours: Set<string>;
+    };
+    const map = new Map<string, DayComparisonAccumulator>();
     analysisRecords
       .filter(
         (r) =>
@@ -2375,7 +2473,18 @@ export default function DashboardClient({ user }: { user: User }) {
           holidayActual: 0,
           weekdayPcu: 0,
           holidayPcu: 0,
+          weekdaySurveyed: false,
+          holidaySurveyed: false,
+          weekdayHours: new Set<string>(),
+          holidayHours: new Set<string>(),
         };
+        if (r.dayType === "平日") {
+          x.weekdaySurveyed = true;
+          x.weekdayHours.add(r.hour);
+        } else {
+          x.holidaySurveyed = true;
+          x.holidayHours.add(r.hour);
+        }
         if (r.dayType === "平日") {
           x.weekdayActual += sumVehicles(r);
           x.weekdayPcu += sumPcu(
@@ -2395,11 +2504,25 @@ export default function DashboardClient({ user }: { user: User }) {
         }
         map.set(r.roadId, x);
       });
-    return [...map.values()].sort(
+    return [...map.values()]
+      .map(({ weekdayHours, holidayHours, ...row }) => {
+        const weekdayCoverage = surveyCoverage(weekdayHours);
+        const holidayCoverage = surveyCoverage(holidayHours);
+        return {
+          ...row,
+          weekdayCoverage,
+          holidayCoverage,
+          coverageComparable: sameSurveyCoverage(
+            weekdayCoverage,
+            holidayCoverage,
+          ),
+        };
+      })
+      .sort(
       (a, b) =>
         Math.max(b.weekdayActual, b.holidayActual) -
         Math.max(a.weekdayActual, a.holidayActual),
-    );
+      );
   }, [
     analysisRecords,
     quarter,
@@ -2413,6 +2536,24 @@ export default function DashboardClient({ user }: { user: User }) {
     () => [...new Map(activeRecords.map((r) => [r.roadId, r.roadName]))],
     [activeRecords],
   );
+  /*
+   * 匯出檔的下拉選單與 SUMIFS 是用「名稱」對應到輔助列的，
+   * 所以兩個調查點同名時會match到兩列、把兩者的量加在一起——
+   * 選單裡也會看到兩個一模一樣的選項，分不出是哪一個。
+   * 系統不強制名稱唯一（同一條路分段調查時本來就可能同名），
+   * 因此這裡只在「真的重複」時補上編號，其餘維持原本的顯示。
+   */
+  const roadExportLabels = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const [, name] of roadOptions)
+      count.set(name, (count.get(name) ?? 0) + 1);
+    return new Map(
+      roadOptions.map(([roadId, roadName]) => [
+        roadId,
+        (count.get(roadName) ?? 0) > 1 ? `${roadName}（${roadId}）` : roadName,
+      ]),
+    );
+  }, [roadOptions]);
   const roadManagerRows = useMemo(
     () =>
       roadOptions.map(([roadId, roadName]) => {
@@ -2704,9 +2845,13 @@ export default function DashboardClient({ user }: { user: User }) {
   }, [compositionItems, compositionTotals.total]);
   const compositionExportRows = useMemo(() => {
     const modes: CompositionMode[] = ["平日", "假日", "平日＋假日"];
+    /* 這裡的名稱就是 SUMIFS 的比對鍵，必須與下拉選單用同一組去重後的標籤。 */
     const roads: [string, string][] = [
       ["ALL", "全部路段／路口"],
-      ...roadOptions,
+      ...roadOptions.map(
+        ([roadId, roadName]) =>
+          [roadId, roadExportLabels.get(roadId) ?? roadName] as [string, string],
+      ),
     ];
     const directions: [string, string][] = [
       ["ALL", "全部方向"],
@@ -2745,6 +2890,7 @@ export default function DashboardClient({ user }: { user: User }) {
     analysisRecords,
     quarter,
     roadOptions,
+    roadExportLabels,
     directionOptions,
     vehicleClassSettings,
   ]);
@@ -4363,7 +4509,7 @@ export default function DashboardClient({ user }: { user: User }) {
           usedSheets.push(name);
           parsed.push(
             ...stamp(
-              parseTrafficSheetValues(values, dt, importQuarter, identity, {
+              parseTrafficSheetValues(values, dt, importQuarterKey, identity, {
                 fileName: file.name,
                 sheetName: name,
               }),
@@ -4402,7 +4548,7 @@ export default function DashboardClient({ user }: { user: User }) {
         usedSheets.push(name);
         parsed.push(
           ...stamp(
-            parseTrafficSheetValues(values, dt, importQuarter, identity, {
+            parseTrafficSheetValues(values, dt, importQuarterKey, identity, {
               fileName: file.name,
               sheetName: name,
             }),
@@ -4429,7 +4575,13 @@ export default function DashboardClient({ user }: { user: User }) {
 
   async function importSelectedFiles(files: File[]) {
     if (!files.length) return;
-    const invalid = files.find((file) => !/\.xlsx?$/i.test(file.name));
+    /*
+     * .xlsm（啟用巨集的活頁簿）也要收。三支系統以前不一致：路口轉向與
+     * 交通服務水準的檔案選取框都收 .xlsm、交通服務水準的說明文字還明寫
+     * 「支援 .xls、.xlsx、.xlsm」，只有本系統擋掉並回「不是支援的 Excel 檔案」。
+     * SheetJS 讀 .xlsm 與 .xlsx 走同一條路徑，沒有額外風險。
+     */
+    const invalid = files.find((file) => !/\.(xlsx?|xlsm)$/i.test(file.name));
     if (invalid) return setToast(`「${invalid.name}」不是支援的 Excel 檔案`);
     if (!activeProject) {
       setToast("請先建立並選擇計畫，再匯入季度資料");
@@ -4478,8 +4630,26 @@ export default function DashboardClient({ user }: { user: User }) {
           ),
         ),
       ];
-      if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(importQuarter))
+      if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(importQuarterKey))
         throw new Error("季度格式請輸入115Q2或2026Q2");
+      /*
+       * 這個計畫如果已經有「同一季、但用另一種寫法」的資料，要先擋下來。
+       *
+       * v20.39 以前季度是照使用者打的字原樣存的，而匯入框的預設值曾經是
+       * 西元寫法（2026Q3），所以既有資料裡可能已經有 2026Q3。現在一律存成
+       * 民國年，若不擋，同一季就會同時存在 2026Q3 與 115Q3 兩個鍵——
+       * 它們的排序鍵完全相同，會在季度清單裡相鄰出現，看起來只像
+       * 「同一季出現兩次」，歷季趨勢卻已經被拆成兩段而且永遠不會合併。
+       */
+      const clashing = quarters.find(
+        (q) => q !== importQuarterKey && normalizeSurveyPeriod(q) === importQuarterKey,
+      );
+      if (clashing)
+        throw new Error(
+          `這個計畫裡已經有「${clashing}」，和你要匯入的「${importQuarterKey}」是同一季，只是寫法不同（民國年與西元年）。` +
+            `本版起季度一律以民國年記錄，若直接寫入會變成兩個分開的季度，歷季趨勢也會被拆成兩段。` +
+            `請先到「品質與定稿」把「${clashing}」整季刪除後重新匯入，或改匯入其他季度。`,
+        );
       const targetProjectId = await ensurePersistentProject();
       const parsed = parsedSource.map((r) => ({
         ...r,
@@ -4495,9 +4665,9 @@ export default function DashboardClient({ user }: { user: User }) {
        * 季度時 replacedRows 是 0，於是照樣寫進去，而下面又會無條件把狀態
        * 改回「草稿」——定稿等於自己解除了，畫面上沒有任何提示。
        */
-      if ((workflow.statuses[importQuarter] ?? "草稿") === "定稿")
+      if ((workflow.statuses[importQuarterKey] ?? "草稿") === "定稿")
         throw new Error(
-          `${importQuarter} 已定稿，系統已阻擋${report.replacedRows ? "覆蓋" : "追加"}。請先在「品質與定稿」將狀態改回草稿或待確認。`,
+          `${importQuarterKey} 已定稿，系統已阻擋${report.replacedRows ? "覆蓋" : "追加"}。請先在「品質與定稿」將狀態改回草稿或待確認。`,
         );
       // 檢核報告一跳出來就把「匯入季度資料」視窗收掉。
       // 兩個視窗疊在一起時，後面的匯入視窗會蓋住檢核報告的按鈕，
@@ -4509,7 +4679,8 @@ export default function DashboardClient({ user }: { user: User }) {
        */
       const periodChecks = dateChecks.map((item) =>
         checkPeriodAgainstDate(
-          importQuarter,
+          /* 用正規化後的值，訊息裡顯示的季度才會和實際寫入的一致。 */
+          importQuarterKey,
           item.found,
           item.sheet ? item.file + "【" + item.sheet.trim() + "】" : item.file,
         ),
@@ -4568,7 +4739,7 @@ export default function DashboardClient({ user }: { user: User }) {
       for (const file of files) {
         const form = new FormData();
         form.append("projectId", targetProjectId);
-        form.append("quarter", importQuarter);
+        form.append("quarter", importQuarterKey);
         form.append("file", file);
         const res = await appFetch("/api/files", {
           method: "POST",
@@ -4583,7 +4754,7 @@ export default function DashboardClient({ user }: { user: User }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: targetProjectId,
-          quarter: importQuarter,
+          quarter: importQuarterKey,
           sourceObjectKeys: keys,
           records: parsed,
         }),
@@ -4605,7 +4776,7 @@ export default function DashboardClient({ user }: { user: User }) {
         importedAt: new Date().toISOString(),
         operator: user?.displayName ?? "本機使用者",
         device: `${navigator.platform || "瀏覽器"}｜${navigator.userAgent.split(" ").slice(-2).join(" ")}`,
-        quarter: importQuarter,
+        quarter: importQuarterKey,
         files: files.map((file) => file.name),
         rowCount: parsed.length,
         addedRows: report.addedRows,
@@ -4617,13 +4788,13 @@ export default function DashboardClient({ user }: { user: User }) {
       };
       setWorkflow((previous) => ({
         ...previous,
-        statuses: { ...previous.statuses, [importQuarter]: "草稿" },
+        statuses: { ...previous.statuses, [importQuarterKey]: "草稿" },
         checkedQuarters: previous.checkedQuarters.filter(
-          (item) => item !== importQuarter,
+          (item) => item !== importQuarterKey,
         ),
         history: [historyEntry, ...previous.history].slice(0, 10),
       }));
-      setQuarter(importQuarter);
+      setQuarter(importQuarterKey);
       setShowImport(false);
       setPendingImport(null);
       /*
@@ -4894,6 +5065,10 @@ export default function DashboardClient({ user }: { user: User }) {
         const restored = { ...(payload.pcuFactors as CorePcuFactors) };
         setPcuFactors(restored);
         setPcuDraft(restored);
+        /* 還原進來的係數就是這個計畫自己的設定；不更新這個旗標的話，
+           PCU 面板會一直寫著「本計畫尚未自行設定，目前使用系統預設值」，
+           但畫面上的數字其實已經是備份裡的係數了。 */
+        setProjectHasOwnFactors(true);
         /*
          * 一定要用 targetProjectId，不能用 activeProject——理由與上面
          * 4680 行那段註解相同：計畫可能是本函式剛剛自動建立的，
@@ -5039,12 +5214,18 @@ export default function DashboardClient({ user }: { user: User }) {
   }
   async function renameQuarter(e: React.FormEvent) {
     e.preventDefault();
-    const next = quarterDraft.trim().toUpperCase();
+    const rawNext = quarterDraft.trim().toUpperCase();
+    const next = normalizeSurveyPeriod(rawNext);
     if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(next))
       return setToast("季度格式請輸入115Q2或2026Q2");
     if (next === quarter) return setShowQuarterManager(false);
-    if (quarters.includes(next))
-      return setToast(`${next} 已存在，請先清除或改用其他名稱`);
+    const clashing = quarters.find(
+      (item) => item !== quarter && normalizeSurveyPeriod(item) === next,
+    );
+    if (clashing)
+      return setToast(
+        `${showQuarter(clashing)} 已存在，請先清除或改用其他名稱`,
+      );
     setBusy(true);
     try {
       const res = await appFetch("/api/quarters", {
@@ -5081,7 +5262,10 @@ export default function DashboardClient({ user }: { user: User }) {
       });
       setQuarter(next);
       setShowQuarterManager(false);
-      setToast(`季度已改為 ${next}`);
+      setToast(
+        `季度已改為 ${showQuarter(next)}` +
+          (rawNext !== next ? `（資料以民國年 ${next} 儲存）` : ""),
+      );
     } catch (error) {
       setToast(error instanceof Error ? error.message : "季度修改失敗");
     } finally {
@@ -5380,9 +5564,9 @@ export default function DashboardClient({ user }: { user: User }) {
       !window.confirm(
         // 已定稿的季度要在提示裡點名，否則刪掉的是一份已經確認交付的成果，
         // 而確認視窗裡連「定稿」兩個字都沒出現。
-        `確定清除「${selectedProject.name}」的 ${quarter} 分析資料？` +
+        `確定清除「${selectedProject.name}」的 ${showQuarter(quarter)} 分析資料？` +
           ((workflow.statuses[quarter] ?? "草稿") === "定稿"
-            ? `\n\n⚠ ${quarter} 目前的狀態是「定稿」，清除後該季度的定稿紀錄也會一併消失。`
+            ? `\n\n⚠ ${showQuarter(quarter)} 目前的狀態是「定稿」，清除後該季度的定稿紀錄也會一併消失。`
             : "") +
           "\n\n此動作無法復原；原始上傳檔仍會保留供追溯。",
       )
@@ -5726,10 +5910,26 @@ export default function DashboardClient({ user }: { user: User }) {
      * 欄名的單位要跟畫面一致。部分時段調查的總量不是全日量，
      * 標成「輛/日」會讓人直接拿去跟完整 24 小時的季度比較。
      */
-    const sheetActualUnit = surveyScope.partial ? "輛/調查時段" : "輛/日";
-    const sheetPcuUnit = surveyScope.partial ? "PCU/調查時段" : "PCU/日";
+    /*
+     * 單位要同時看「調查涵蓋」與「日別」。
+     *
+     * 只看 surveyScope.partial 的話，日別選「平日＋假日」時匯出的是兩天的
+     * 加總，卻會被標成「輛/日」——實測 14013T601 一份檔案匯出 12,838 輛
+     * 標成全日實際交通量，而那是平日 9,392 加假日 3,446 的合計，
+     * 比真正的平日量高了 37%。畫面上的 KPI 早就標「輛／平假日合計」了，
+     * 匯出檔卻沒有跟上，同一份檔案裡的另一張工作表也標成「平日＋假日全部時段」，
+     * 三處互相矛盾。這裡與畫面共用同一套判斷。
+     */
+    /*
+     * 匯出檔的季度欄要跟著畫面上的「年份顯示」切換走，否則畫面顯示
+     * 2026Q1、交出去的報表卻寫 115Q1，同一份資料兩種說法。
+     * 這只換顯示的字；儲存值與所有分組、排序、識別鍵仍是民國年。
+     */
+    const showQuarter = (value: string) => quarterInYearStyle(value, yearStyle);
+    const sheetActualUnit = exportActualUnit(dayType, surveyScope.partial);
+    const sheetPcuUnit = exportPcuUnit(dayType, surveyScope.partial);
     const roadDetails = roadOnlyRows.map((r) => ({
-      季度: quarter,
+      季度: showQuarter(quarter),
       日別: dayType,
       調查點編號: r.roadId,
       調查點名稱: r.roadName,
@@ -5746,7 +5946,7 @@ export default function DashboardClient({ user }: { user: User }) {
     }));
     const intersectionDetails = intersectionOnlyRows.flatMap((r) =>
       r.directions.map((d) => ({
-        季度: quarter,
+        季度: showQuarter(quarter),
         日別: dayType,
         流量視角: intersectionFlowLabel,
         路口編號: r.roadId,
@@ -5767,7 +5967,7 @@ export default function DashboardClient({ user }: { user: User }) {
      * 另外加一欄「調查涵蓋」逐列說明這一列到底調查了多久。
      */
     const historicalDailyExport = historicalDailyRows.map((r) => ({
-      季度: r.quarter,
+      季度: showQuarter(r.quarter),
       日別: r.dayType,
       調查點編號: r.roadId,
       調查點名稱: r.roadName,
@@ -5887,7 +6087,40 @@ export default function DashboardClient({ user }: { user: User }) {
     add("history", historicalDailyExport, "歷季全日交通量");
     add("composition", comp, "歷季車種組成");
     add("composition", directionComp, "方向別車種組成");
-    add("current", dayComparisons, "平假日比較");
+    /*
+     * 這一張以前是把 dayComparisons 直接丟給 json_to_sheet，而它是 React
+     * 狀態物件，欄名就是程式碼裡的屬性名——匯出的 .xls 標題列會是
+     * roadId / roadName / weekdayActual…，而且沒有任何單位，
+     * 「平假日差」與「假日相較平日（%）」兩欄也整個不見。
+     * 其餘每一個 add() 傳的都是中文鍵的物件，只有這裡漏了。
+     */
+    const dayComparisonRows = dayComparisons.map((r) => ({
+      調查點編號: r.roadId,
+      調查點名稱: r.roadName,
+      "平日實際量（輛）": r.weekdaySurveyed ? r.weekdayActual : null,
+      "假日實際量（輛）": r.holidaySurveyed ? r.holidayActual : null,
+      "平日PCU（PCU）": r.weekdaySurveyed ? r.weekdayPcu : null,
+      "假日PCU（PCU）": r.holidaySurveyed ? r.holidayPcu : null,
+      平日調查涵蓋: r.weekdaySurveyed
+        ? coverageLabelOf(r.weekdayCoverage)
+        : "本季未調查",
+      假日調查涵蓋: r.holidaySurveyed
+        ? coverageLabelOf(r.holidayCoverage)
+        : "本季未調查",
+      /* 沒有假日資料時寫空白，不是 0——0 會被 Excel 的加總與平均吃進去。 */
+      "平假日差（輛）":
+        r.weekdaySurveyed && r.holidaySurveyed && r.coverageComparable
+          ? r.holidayActual - r.weekdayActual
+          : null,
+      "假日相較平日（%）":
+        r.weekdaySurveyed &&
+        r.holidaySurveyed &&
+        r.coverageComparable &&
+        r.weekdayActual
+          ? r.holidayActual / r.weekdayActual - 1
+          : null,
+    }));
+    add("current", dayComparisonRows, "平假日比較");
     add("settings", roadFactorRows, "路段PCU係數");
     add("settings", turnFactorRows, "路口轉向PCU係數");
     add("settings", classRows, "車種歸類設定");
@@ -5952,14 +6185,30 @@ export default function DashboardClient({ user }: { user: User }) {
        * 也會讓 4 小時的量被當成一整天。舊版 .xls 匯出（exportLegacy）早就依
        * surveyScope.partial 切過單位了，主要交付用的 .xlsx 這一支漏掉。
        */
-      const sheetActualUnit = surveyScope.partial ? "輛/調查時段" : "輛/日";
-      const sheetPcuUnit = surveyScope.partial ? "PCU/調查時段" : "PCU/日";
-      const pcu24Label = surveyScope.partial
-        ? `調查時段PCU（${sheetPcuUnit}）`
-        : `24小時PCU（${sheetPcuUnit}）`;
-      const totalLabel = surveyScope.partial
-        ? `調查時段實際交通量（${sheetActualUnit}）`
-        : `全日實際交通量（${sheetActualUnit}）`;
+      /* 與 .xls 匯出共用同一套單位判斷，理由見 exportActualUnit 的說明。 */
+      /*
+       * 匯出檔的季度欄要跟著畫面上的「年份顯示」切換走，否則畫面顯示
+       * 2026Q1、交出去的報表卻寫 115Q1，同一份資料兩種說法。
+       * 這只換顯示的字；儲存值與所有分組、排序、識別鍵仍是民國年。
+       */
+      const showQuarter = (value: string) => quarterInYearStyle(value, yearStyle);
+      const sheetActualUnit = exportActualUnit(dayType, surveyScope.partial);
+      const sheetPcuUnit = exportPcuUnit(dayType, surveyScope.partial);
+      /*
+       * 欄位名稱本身也要跟著日別走：「平日＋假日」時這一欄是兩天的加總，
+       * 叫它「全日實際交通量」或「24小時PCU」都是錯的。
+       */
+      const twoDay = dayType === "平日＋假日";
+      const pcu24Label = twoDay
+        ? `平假日合計PCU（${sheetPcuUnit}）`
+        : surveyScope.partial
+          ? `調查時段PCU（${sheetPcuUnit}）`
+          : `24小時PCU（${sheetPcuUnit}）`;
+      const totalLabel = twoDay
+        ? `平假日合計實際交通量（${sheetActualUnit}）`
+        : surveyScope.partial
+          ? `調查時段實際交通量（${sheetActualUnit}）`
+          : `全日實際交通量（${sheetActualUnit}）`;
       const ExcelJS = (await import("exceljs")).default;
       /*
        * exceljs 是動態載入的，型別要在這裡就地宣告；只寫這裡真的會用到的
@@ -6016,7 +6265,7 @@ export default function DashboardClient({ user }: { user: User }) {
       ]);
       roadOnlyRows.forEach((r) =>
         data.addRow([
-          quarter,
+          showQuarter(quarter),
           dayType,
           r.roadId,
           r.roadName,
@@ -6041,11 +6290,16 @@ export default function DashboardClient({ user }: { user: User }) {
         ]),
       );
       if (!roadOnlyRows.length)
+        /* 只有真的會產生那張工作表時才叫使用者去看它（產生條件見下方的
+           if (intersectionOnlyRows.length)）。舊版無條件寫這句，
+           一個路口資料也沒有時，會指向一張根本不在檔案裡的工作表。 */
         data.addRow([
-          quarter,
+          showQuarter(quarter),
           dayType,
           "",
-          `本季無路段格式資料；請查看「路口${intersectionFlowLabel}交通量」工作表`,
+          intersectionOnlyRows.length
+            ? `本季無路段格式資料；請查看「路口${intersectionFlowLabel}交通量」工作表`
+            : "本季這個日別與篩選條件下沒有任何調查資料；請確認上方的季度、日別與調查點篩選。",
         ]);
       data.columns = [
         ...[12, 10, 16, 34, 20, 20, 17, 17, 23, 20, 23, 18, 21, 18, 21, 18],
@@ -6087,7 +6341,7 @@ export default function DashboardClient({ user }: { user: User }) {
         intersectionOnlyRows.forEach((r) =>
           r.directions.forEach((d) =>
             intersectionData.addRow([
-              quarter,
+              showQuarter(quarter),
               dayType,
               intersectionFlowLabel,
               r.roadId,
@@ -6192,28 +6446,51 @@ export default function DashboardClient({ user }: { user: User }) {
       dc.addRow([
         "調查點編號",
         "調查點名稱",
-        `平日實際量（${sheetActualUnit}）`,
-        `假日實際量（${sheetActualUnit}）`,
-        `平日${pcu24Label}`,
-        `假日${pcu24Label}`,
-        `平假日差（${sheetActualUnit}）`,
+        "平日實際量（輛）",
+        "假日實際量（輛）",
+        "平日PCU（PCU）",
+        "假日PCU（PCU）",
+        "平日調查涵蓋",
+        "假日調查涵蓋",
+        "平假日差（輛）",
         "假日相較平日（%）",
       ]);
+      /*
+       * 沒調查過的日別一律寫空白格，不是 0。
+       * 0 會被 Excel 的加總與平均吃進去，而「假日相較平日 -100%」
+       * 讀起來像那一季的假日流量真的歸零——實際上只是沒做假日調查。
+       * 歷季趨勢那張表早就是這樣處理的，這裡沿用同一個原則。
+       */
       dayComparisons.forEach((r) =>
         dc.addRow([
           r.roadId,
           r.roadName,
-          r.weekdayActual,
-          r.holidayActual,
-          r.weekdayPcu,
-          r.holidayPcu,
-          r.holidayActual - r.weekdayActual,
-          r.weekdayActual ? r.holidayActual / r.weekdayActual - 1 : 0,
+          r.weekdaySurveyed ? r.weekdayActual : null,
+          r.holidaySurveyed ? r.holidayActual : null,
+          r.weekdaySurveyed ? r.weekdayPcu : null,
+          r.holidaySurveyed ? r.holidayPcu : null,
+          r.weekdaySurveyed
+            ? coverageLabelOf(r.weekdayCoverage)
+            : "本季未調查",
+          r.holidaySurveyed
+            ? coverageLabelOf(r.holidayCoverage)
+            : "本季未調查",
+          r.weekdaySurveyed && r.holidaySurveyed && r.coverageComparable
+            ? r.holidayActual - r.weekdayActual
+            : null,
+          r.weekdaySurveyed &&
+          r.holidaySurveyed &&
+          r.coverageComparable &&
+          r.weekdayActual
+            ? r.holidayActual / r.weekdayActual - 1
+            : null,
         ]),
       );
-      dc.columns = [16, 36, 22, 22, 25, 25, 20, 20].map((width) => ({ width }));
+      dc.columns = [16, 36, 22, 22, 22, 22, 30, 30, 20, 20].map((width) => ({
+        width,
+      }));
       header(dc.getRow(1));
-      dc.getColumn(8).numFmt = "0.0%";
+      dc.getColumn(10).numFmt = "0.0%";
       const tr = wb.addWorksheet("歷季趨勢", {
         views: [{ state: "frozen", ySplit: 1 }],
       });
@@ -6237,7 +6514,7 @@ export default function DashboardClient({ user }: { user: User }) {
        */
       trendRows.forEach((r) =>
         tr.addRow([
-          r.quarter,
+          showQuarter(r.quarter),
           r.weekday ?? null,
           r.holiday ?? null,
           trendCoverageByQuarter.get(r.quarter)?.weekday ?? "—",
@@ -6293,7 +6570,9 @@ export default function DashboardClient({ user }: { user: User }) {
       // 無法安全表示時就不要放下拉（欄位仍可手動輸入），也不要寫出壞掉的清單。
       const roadListFormula = excelListFormula([
         "全部路段／路口",
-        ...roadOptions.map(([, name]) => name),
+        ...roadOptions.map(
+          ([roadId, name]) => roadExportLabels.get(roadId) ?? name,
+        ),
       ]);
       const directionListFormula = excelListFormula([
         "全部方向",
@@ -6410,7 +6689,7 @@ export default function DashboardClient({ user }: { user: User }) {
       ]);
       historicalDailyRows.forEach((r) =>
         hd.addRow([
-          r.quarter,
+          showQuarter(r.quarter),
           r.dayType,
           r.roadId,
           r.roadName,
@@ -6450,7 +6729,7 @@ export default function DashboardClient({ user }: { user: User }) {
       ]);
       historicalCompositionRows.forEach((r, i) => {
         const row = hc.addRow([
-          r.quarter,
+          showQuarter(r.quarter),
           r.dayType,
           r.roadId,
           r.roadName,
@@ -6496,7 +6775,7 @@ export default function DashboardClient({ user }: { user: User }) {
       ]);
       compositionTrendRows.forEach((r) =>
         hct.addRow([
-          r.quarter,
+          showQuarter(r.quarter),
           ...analysisVehicleCatalog.map(
             (vehicle) => r.vehicles[vehicle.key] ?? 0,
           ),
@@ -6529,7 +6808,9 @@ export default function DashboardClient({ user }: { user: User }) {
       projectSheet.addRow([
         "計畫名稱",
         "日別",
-        "實際交通量（輛/調查日）",
+        /* 這一欄以前寫死「輛/調查日」，旁邊的 PCU 欄卻是依調查涵蓋算的，
+           同一列並排兩種單位；4 小時的量會被當成一整個調查日的量。 */
+        `實際交通量（${sheetActualUnit}）`,
         pcu24Label,
       ]);
       projectComparisons.forEach((r) =>
@@ -6991,7 +7272,7 @@ export default function DashboardClient({ user }: { user: User }) {
               ],
             },
             {
-              title: `${quarter}平日與假日全日交通量比較（${dailyActualUnit}）`,
+              title: `${showQuarter(quarter)}平日與假日交通量比較（輛；調查涵蓋見資料表）`,
               categories: `'平假日比較'!$B$2:$B$${nd}`,
               series: [
                 {
@@ -7070,7 +7351,8 @@ export default function DashboardClient({ user }: { user: User }) {
               categories: `'跨計畫比較'!$A$2:$A$${np}`,
               series: [
                 {
-                  name: "實際交通量（輛/調查日）",
+                  /* 原生圖表的系列名稱要與它引用的那一欄同單位。 */
+                  name: `實際交通量（${sheetActualUnit}）`,
                   formula: `'跨計畫比較'!$C$2:$C$${np}`,
                   color: "148C8C",
                   cache: projectComparisons.map((r) => r.actual),
@@ -7230,7 +7512,8 @@ export default function DashboardClient({ user }: { user: User }) {
               <span className={`status-dot status-${currentStatus}`} />
               <div>
                 <small>
-                  目前計畫・{quarter || "尚無季度"}・{currentStatus}
+                  目前計畫・{quarter ? showQuarter(quarter) : "尚無季度"}・
+                  {currentStatus}
                 </small>
                 <h2>{selectedProject.name}</h2>
               </div>
@@ -7239,14 +7522,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.38.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.39.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.38.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.39.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -7488,6 +7771,7 @@ export default function DashboardClient({ user }: { user: User }) {
               </select>
             </label>
             {periodDisplayToggle}
+            {yearStyleToggle}
             <label>
               日別
               <select
@@ -7911,17 +8195,34 @@ export default function DashboardClient({ user }: { user: User }) {
                   className={dayMetric === "pcu" ? "active" : ""}
                   onClick={() => setDayMetric("pcu")}
                 >
-                  {surveyScope.partial ? "調查時段PCU" : "24小時PCU"}
+                  PCU
                 </button>
               </div>
             </div>
             {renderBlockFilters({ quarter: true, road: true, flow: true, direction: true })}
             <div className="comparison-list">
               {dayComparisons.map((r) => {
+                /*
+                 * 單位要跟著調查涵蓋走。上面那顆切換鈕已經會在部分時段時
+                 * 顯示「調查時段PCU」，這裡卻寫死「PCU／日」，同一個面板
+                 * 上下兩行互相矛盾。
+                 */
                 const w =
                     dayMetric === "actual" ? r.weekdayActual : r.weekdayPcu,
                   h = dayMetric === "actual" ? r.holidayActual : r.holidayPcu,
-                  u = dayMetric === "actual" ? "輛／日" : "PCU／日";
+                  unitOf = (coverage: SurveyCoverage) =>
+                    dayMetric === "actual"
+                      ? coverage.partial
+                        ? "輛／調查時段"
+                        : "輛／日"
+                      : coverage.partial
+                        ? "PCU／調查時段"
+                        : "PCU／日",
+                  wUnit = unitOf(r.weekdayCoverage),
+                  hUnit = unitOf(r.holidayCoverage),
+                  /* 沒做這個日別的調查，和「做了但量是 0」要分得開。 */
+                  wDone = r.weekdaySurveyed,
+                  hDone = r.holidaySurveyed;
                 return (
                   <div className="comparison-row" key={r.roadId}>
                     <div>
@@ -7935,7 +8236,9 @@ export default function DashboardClient({ user }: { user: User }) {
                           <em style={{ width: `${(w / maxDay) * 100}%` }} />
                         </i>
                         <strong>
-                          {decimalFormatter.format(w)} {u}
+                          {wDone
+                            ? `${decimalFormatter.format(w)} ${wUnit}`
+                            : "本季未調查"}
                         </strong>
                       </span>
                       <span>
@@ -7947,12 +8250,33 @@ export default function DashboardClient({ user }: { user: User }) {
                           />
                         </i>
                         <strong>
-                          {decimalFormatter.format(h)} {u}
+                          {hDone
+                            ? `${decimalFormatter.format(h)} ${hUnit}`
+                            : "本季未調查"}
                         </strong>
                       </span>
                     </div>
-                    <div className={h >= w ? "delta up" : "delta down"}>
-                      {w ? pct(h - w, w) : "—"}
+                    {/*
+                      兩個日別都調查過才算得出增減。少了這個判斷，只做平日的
+                      季度會顯示「-100.0%」，讀起來像假日流量歸零。
+                    */}
+                    <div
+                      className={
+                        hDone && r.coverageComparable && h >= w
+                          ? "delta up"
+                          : "delta down"
+                      }
+                      title={
+                        wDone && hDone && !r.coverageComparable
+                          ? "平日與假日的調查時段不同，不直接計算增減比例"
+                          : undefined
+                      }
+                    >
+                      {wDone && hDone && r.coverageComparable && w
+                        ? pct(h - w, w)
+                        : wDone && hDone && !r.coverageComparable
+                          ? "涵蓋不同"
+                          : "—"}
                     </div>
                   </div>
                 );
@@ -8020,7 +8344,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 <h3>跨計畫整體比較</h3>
               </div>
               <small>
-                {quarter}・{dayType}・{dailyActualUnit}、{dailyPcuUnit}
+                {showQuarter(quarter)}・{dayType}・{dailyActualUnit}、{dailyPcuUnit}
               </small>
             </div>
             {renderBlockFilters({ quarter: true, day: true })}
@@ -8555,6 +8879,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 templateName={conclusionTemplateName}
                 setTemplateName={setConclusionTemplateName}
                 notify={(message: string) => setToast(message)}
+                showQuarter={showQuarter}
               />
             )}
           </article>
@@ -8652,7 +8977,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 ) && (
                   <>
                     <strong>
-                      ⚠️ 調查日期與你選的「{importQuarter}」不一致
+                      ⚠️ 調查日期與你選的「{importQuarterKey}」不一致
                     </strong>
                     {pendingImport.periodChecks
                       .filter((item) => item.status === "mismatch")
@@ -8720,7 +9045,7 @@ export default function DashboardClient({ user }: { user: User }) {
           <div className="modal workflow-modal">
             <div>
               <span>資料完整度與異常管理</span>
-              <h3>{quarter} 品質與定稿</h3>
+              <h3>{showQuarter(quarter)} 品質與定稿</h3>
             </div>
             <div className="validation-grid">
               <div>
@@ -8923,7 +9248,7 @@ export default function DashboardClient({ user }: { user: User }) {
                         <option value="">不限</option>
                         {anomalyQuarters.map((q) => (
                           <option key={q} value={q}>
-                            {q}
+                            {showQuarter(q)}
                           </option>
                         ))}
                       </select>
@@ -8942,7 +9267,7 @@ export default function DashboardClient({ user }: { user: User }) {
                         <option value="">不限</option>
                         {anomalyQuarters.map((q) => (
                           <option key={q} value={q}>
-                            {q}
+                            {showQuarter(q)}
                           </option>
                         ))}
                       </select>
@@ -9136,7 +9461,7 @@ export default function DashboardClient({ user }: { user: User }) {
                           setImportQuarter(
                             entry.quarter.match(
                               /^(?:\d{3}|\d{4})Q[1-4]$/,
-                            )?.[0] ?? importQuarter,
+                            )?.[0] ?? importQuarterKey,
                           );
                           setToast(
                             `已帶入季度 ${entry.quarter}，請重新選取檔案：${entry.files.join("、")}`,
@@ -9320,7 +9645,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 direction: true,
               })}
               <p className="export-scope-summary">
-                目前將匯出：<b>{quarter}</b>・<b>{dayType}</b>・
+                目前將匯出：<b>{showQuarter(quarter)}</b>・<b>{dayType}</b>・
                 <b>
                   {roadFilter === "ALL"
                     ? "全部調查點"
@@ -9928,6 +10253,17 @@ export default function DashboardClient({ user }: { user: User }) {
                 pattern="(?:\d{3}|\d{4})Q[1-4]"
                 placeholder="例如115Q2或2026Q2"
               />
+              {/*
+                打西元年時要當場告訴使用者實際會存成什麼。
+                資料一律以民國年寫法存放（見 importQuarterKey 的說明），
+                不講的話使用者會以為畫面上會看到 2026Q2，找不到就重打一次，
+                結果同一季被匯入兩遍。
+              */}
+              {importQuarterKey && importQuarterKey !== importQuarter ? (
+                <small className="from-content">
+                  將存成「{importQuarterKey}」（資料一律以民國年記錄）
+                </small>
+              ) : null}
             </label>
             <div
               className={`upload-zone drag-zone ${dragActive ? "drag-active" : ""}`}
@@ -9955,7 +10291,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".xls,.xlsx"
+                accept=".xls,.xlsx,.xlsm"
                 onChange={importFiles}
               />
               <strong>拖曳 Excel 檔案到這裡</strong>
@@ -10605,7 +10941,7 @@ export default function DashboardClient({ user }: { user: User }) {
           <form className="modal" onSubmit={renameQuarter}>
             <div>
               <span>季度資料管理</span>
-              <h3>管理 {quarter}</h3>
+              <h3>管理 {showQuarter(quarter)}</h3>
             </div>
             <label>
               季度名稱
@@ -10656,6 +10992,15 @@ export default function DashboardClient({ user }: { user: User }) {
  * 刻意做成獨立元件、狀態由外面傳進來：收合再展開時條件與草稿都還在，
  * 使用者不會因為捲動或收合而丟掉剛設好的一整組條件。
  */
+/*
+ * 年度是「115」這種光年份的字串，沒有 Qn，showQuarter() 認不得。
+ * 借一個季度殼子換算完再把 Qn 去掉；換不成就原樣回傳。
+ */
+function showYearOnly(year: string, show: (value: string) => string) {
+  const match = String(show(String(year) + "Q1")).match(/^(\d{2,4})Q1$/);
+  return match ? match[1] : String(year);
+}
+
 function ConclusionStudio(props: {
   rows: ConclusionRow[];
   projectName: string;
@@ -10671,6 +11016,11 @@ function ConclusionStudio(props: {
   templateName: string;
   setTemplateName: (value: string) => void;
   notify: (message: string) => void;
+  /*
+   * 季度要顯示成民國年還是西元年。只換看到的字：下拉選單的 value、篩選、
+   * 排序與分組一律走儲存的季度字串，切換不會挑到不同的資料。
+   */
+  showQuarter: (value: string) => string;
 }) {
   const { condition, rows } = props;
   const quarters = useMemo(
@@ -10755,6 +11105,8 @@ function ConclusionStudio(props: {
       buildConclusion(rows, condition, {
         projectName: props.projectName,
         systemVersion: props.systemVersion,
+        /* 草稿上的季度跟著畫面的年份顯示切換走；篩選與排序仍走儲存值。 */
+        showQuarter: props.showQuarter,
         generatedAt: stamp,
       }),
     );
@@ -10825,7 +11177,7 @@ function ConclusionStudio(props: {
               >
                 {quarters.map((q) => (
                   <option key={q} value={q}>
-                    {q}
+                    {props.showQuarter(q)}
                   </option>
                 ))}
               </select>
@@ -10840,7 +11192,7 @@ function ConclusionStudio(props: {
               >
                 {years.map((y) => (
                   <option key={y} value={y}>
-                    {y} 年
+                    {showYearOnly(y, props.showQuarter)} 年
                   </option>
                 ))}
               </select>
@@ -10860,7 +11212,7 @@ function ConclusionStudio(props: {
                 >
                   {quarters.map((q) => (
                     <option key={q} value={q}>
-                      {q}
+                      {props.showQuarter(q)}
                     </option>
                   ))}
                 </select>
@@ -10877,7 +11229,7 @@ function ConclusionStudio(props: {
                 >
                   {quarters.map((q) => (
                     <option key={q} value={q}>
-                      {q}
+                      {props.showQuarter(q)}
                     </option>
                   ))}
                 </select>

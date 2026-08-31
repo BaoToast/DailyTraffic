@@ -108,7 +108,7 @@ async function importFile(name) {
     .locator('.modal-backdrop .modal label:has-text("資料季度") input')
     .fill("115Q1");
   await page
-    .locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]')
+    .locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]')
     .setInputFiles({
       name,
       mimeType:

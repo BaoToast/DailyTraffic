@@ -66,7 +66,7 @@ async function importFile(name) {
   await page.waitForTimeout(400);
   await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill("115Q1");
   // 以 buffer 形式送檔：直接給含中文的檔名，避免非 ASCII 路徑在 setInputFiles 靜默失敗
-  await page.locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]').setInputFiles({
+  await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({
     name,
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer: readFileSync(join(SAMPLES, name)),
@@ -109,7 +109,7 @@ await importFile("115T1-02_中正路口.xlsx");
   await page.locator('.toolbar button:has-text("匯入資料")').first().click();
   await page.waitForTimeout(400);
   await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill("115Q2");
-  await page.locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]').setInputFiles({
+  await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({
     name: "115T1-01_中山路.xlsx",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer,

@@ -220,14 +220,23 @@ test("交付包裡沒有任何試算表檔案（避免真實調查資料被提�
   const walk = async (dir) => {
     for (const entry of await readdir(new URL(dir, root), { withFileTypes: true })) {
       /*
-       * `.samples/` 是 `npm run samples` 當場產生的匿名測試樣本，
-       * 在 .gitignore 裡、也不會進交付包，所以不算數。
-       * 其餘一律要檢查。
+       * `.samples/` 與 `.samples-coverage/` 都是 `npm run samples`／`npm run e2e`
+       * 當場產生的匿名測試樣本，兩個都在 .gitignore 裡、也不會進交付包，
+       * 所以不算數。其餘一律要檢查。
+       *
+       * （這兩個名字要與 .gitignore 一致——先前只排除了 `.samples`，
+       *   跑完 e2e 之後這一支就會對一個根本不會被提交的目錄紅字。）
        */
       if (
-        ["node_modules", "dist", ".next", ".git", ".wrangler", ".samples"].includes(
-          entry.name,
-        )
+        [
+          "node_modules",
+          "dist",
+          ".next",
+          ".git",
+          ".wrangler",
+          ".samples",
+          ".samples-coverage",
+        ].includes(entry.name)
       )
         continue;
       const next = `${dir}${entry.name}${entry.isDirectory() ? "/" : ""}`;
@@ -280,4 +289,22 @@ test("有 .gitattributes 且關閉了換行轉換", async () => {
     ".gitattributes 缺少 `* -text`：在 Windows 上取出時 Git 會把建置產物轉成 CRLF，" +
       "備份包就無法與線上內容逐位元核對（2026-08-27 實際發生過）",
   );
+});
+
+test("被排除的產出目錄名稱與 .gitignore 一致", async () => {
+  /*
+   * 上一支測試手寫了一份「不用檢查的目錄」清單。清單漂移的話會出現兩種
+   * 錯法：漏掉一個 gitignore 有的（跑完 e2e 就紅字，像先前的 .samples-coverage），
+   * 或多排除一個 gitignore 沒有的（真的被提交的檔案就掃不到了，而且沒有跡象）。
+   */
+  const source = await readFile(new URL("dependency-manifest.test.mjs", import.meta.url), "utf8");
+  const listed = [...source.matchAll(/"(\.samples(?:-coverage)?)"/g)].map((m) => m[1]);
+  const ignore = await readFile(new URL(".gitignore", root), "utf8");
+  for (const name of [...new Set(listed)])
+    assert.ok(
+      new RegExp(`^/?${name.replace(".", "\\.")}/?$`, "m").test(ignore),
+      `${name} 被測試排除，但 .gitignore 裡沒有它——真的被提交的話掃不到`,
+    );
+  for (const name of [".samples", ".samples-coverage"])
+    assert.ok(listed.includes(name), `.gitignore 有 ${name}，測試卻沒有排除它`);
 });

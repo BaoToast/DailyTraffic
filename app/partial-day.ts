@@ -143,6 +143,26 @@ export function coverageLabelOf(coverage: SurveyCoverage): string {
   return `部分時段 ${hoursText} 小時（${blocks}）`;
 }
 
+/**
+ * 判斷兩組調查涵蓋能不能直接做平假日差值與百分比。
+ *
+ * 只看總時數不夠：同樣 4 小時，07:00～09:00＋17:00～19:00 與
+ * 08:00～10:00＋18:00～20:00 代表不同時段，直接相減仍會誤導。
+ * 因此總分鐘數與每個連續區塊的起訖都必須一致；讀不到時段時不猜。
+ */
+export function sameSurveyCoverage(
+  a: SurveyCoverage,
+  b: SurveyCoverage,
+): boolean {
+  if (!a.coveredMinutes || !b.coveredMinutes) return false;
+  if (a.coveredMinutes !== b.coveredMinutes || a.blocks.length !== b.blocks.length)
+    return false;
+  return a.blocks.every(
+    (block, index) =>
+      block.start === b.blocks[index]?.start && block.end === b.blocks[index]?.end,
+  );
+}
+
 /** 以白話說明調查涵蓋範圍，放在「全日交通量」旁邊當備註。 */
 export function coverageNote(coverage: SurveyCoverage): string {
   if (!coverage.coveredMinutes) return "";

@@ -122,7 +122,7 @@ async function openReportBuffer(name, buffer, quarterText = "115Q1") {
   await page.locator('.toolbar button:has-text("匯入資料")').first().click();
   await page.waitForTimeout(400);
   await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill(quarterText);
-  await page.locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]').setInputFiles({
+  await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({
     name,
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer,
@@ -278,6 +278,91 @@ ok(
     return diff.slice(0, 6).join("  ") || "（長度不同）";
   })(),
 );
+
+/* ── 民國年 ⇄ 西元年顯示切換（v20.39） ──────────────────────
+ *
+ * 和期別顯示是兩個獨立的開關：期別切「季別／調查月份」，年份切「民國／西元」。
+ * 兩個都只換文字。這裡把年份切到西元之後再量一次同一份畫面：
+ * 除了年份那幾個字，每一個數字都必須逐字相同。
+ */
+const yearToggle = page.locator('[data-testid="year-style-toggle"]');
+ok("有年份顯示切換鈕", (await yearToggle.count()) > 0);
+const yearToggleText = async () =>
+  (await yearToggle.count()) ? (await yearToggle.first().innerText()).trim() : "（沒有這顆按鈕）";
+ok("預設顯示民國年", /年份顯示：民國年/.test(await yearToggleText()), await yearToggleText());
+
+/* 先切回季別，才量得到「季度字串本身」換了年份寫法。 */
+if (await toggle.count()) {
+  await toggle.first().click();
+  await page.waitForTimeout(700);
+}
+const rocText = await pageText();
+ok("民國年模式下季度下拉是 115Q1", /115Q1/.test(await quarterSelect()), await quarterSelect());
+
+if (await yearToggle.count()) {
+  await yearToggle.first().click();
+  await page.waitForTimeout(700);
+}
+ok("切到「西元年」", /年份顯示：西元年/.test(await yearToggleText()), await yearToggleText());
+const adQuarter = await quarterSelect();
+ok(
+  "季度下拉改成 2026Q1，而且不再出現民國年寫法",
+  /2026Q1/.test(adQuarter) && !/115Q1/.test(adQuarter),
+  adQuarter,
+);
+const adText = await pageText();
+/*
+ * 切換鈕自己的字樣本來就會變，季度字樣也是；其餘一個字都不可以動。
+ * 這一條是整個切換最重要的保證：只換文字，不動任何數字。
+ */
+const stripYear = (t) =>
+  t.replace(/年份顯示：(民國年|西元年)/g, "§鈕").replace(/(?:115Q1|2026Q1)/g, "§");
+ok(
+  "切換年份寫法前後畫面上的數字完全相同（只有年份文字變了）",
+  stripYear(rocText) === stripYear(adText),
+  (function () {
+    const a = stripYear(rocText).split(" ");
+    const b = stripYear(adText).split(" ");
+    const diff = [];
+    for (let i = 0; i < Math.max(a.length, b.length); i += 1)
+      if (a[i] !== b[i]) diff.push(`#${i} 「${a[i]}」→「${b[i]}」`);
+    return diff.slice(0, 6).join("  ") || "（長度不同）";
+  })(),
+);
+ok("量到的畫面確實有內容（不是拿空白畫面當通過）", rocText.length > 400, `${rocText.length} 字`);
+/*
+ * 切成西元年之後，資料顯示的地方不可以再看到民國年寫法的季度。
+ *
+ * 兩類文字要先排除，否則會永遠紅字：
+ *  ・說明文字（.help／.muted／.note）——它們是在**舉例**解釋功能怎麼用
+ *   （「想只寫『115Q2 每個路段的全日交通量』」），不是在顯示這批資料的季度。
+ *  ・「將存成 115Q1」這種提示——它講的就是「會存成什麼」，本來就該是民國年。
+ */
+const adDataText = (
+  await page.evaluate(() => {
+    const root = document.querySelector("main") || document.body;
+    const clone = root.cloneNode(true);
+    clone.querySelectorAll(".toast, .help, .muted, .note").forEach((n) => n.remove());
+    return clone.innerText || clone.textContent || "";
+  })
+).replace(/\s+/g, " ");
+const leftover = adDataText
+  .replace(/將存成[「 ]?\d{2,3}Q[1-4]」?/g, "〔說明文字〕")
+  .match(/(?:^|[^0-9])(\d{2,3})Q[1-4](?![0-9])/);
+ok(
+  "切成西元年之後畫面上看不到民國年寫法的季度",
+  !leftover,
+  leftover
+    ? `…${adDataText.slice(Math.max(0, leftover.index - 25), leftover.index + 25)}…`
+    : "",
+);
+
+/* 切回民國年，畫面要完全回到原樣 */
+if (await yearToggle.count()) {
+  await yearToggle.first().click();
+  await page.waitForTimeout(700);
+}
+ok("切回民國年後畫面與切換前逐字相同", (await pageText()) === rocText);
 
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 2).join(" | "));
 

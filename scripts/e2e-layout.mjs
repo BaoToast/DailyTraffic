@@ -46,7 +46,7 @@ for (const [name, quarter] of [["115T1-01_中山路.xlsx", "115Q1"], ["115T1-02_
   await page.locator('.toolbar button:has-text("匯入資料")').first().click();
   await page.waitForTimeout(400);
   await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill(quarter);
-  await page.locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]').setInputFiles({
+  await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({
     name, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer: readFileSync(join(SAMPLES, name)),
   });

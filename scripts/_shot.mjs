@@ -21,7 +21,7 @@ await page.waitForTimeout(700);
 await page.locator('.toolbar button:has-text("匯入資料")').first().click();
 await page.waitForTimeout(400);
 await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill("115Q1");
-await page.locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]').setInputFiles({name:"115T1-02_中正路口.xlsx",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",buffer:readFileSync("/home/claude/work/traffic/.samples/115T1-02_中正路口.xlsx")});
+await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({name:"115T1-02_中正路口.xlsx",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",buffer:readFileSync("/home/claude/work/traffic/.samples/115T1-02_中正路口.xlsx")});
 await page.waitForTimeout(2500);
 const c=page.locator('.modal-backdrop button:has-text("確認")');
 if(await c.count()){await c.first().click();await page.waitForTimeout(2500);}

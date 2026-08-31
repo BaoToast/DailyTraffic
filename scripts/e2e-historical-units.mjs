@@ -156,7 +156,7 @@ try {
       .locator('.modal-backdrop .modal label:has-text("資料季度") input')
       .fill(quarter);
     await page
-      .locator('.modal-backdrop .modal input[accept=".xls,.xlsx"]')
+      .locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]')
       .setInputFiles({
         name,
         mimeType:
@@ -280,6 +280,35 @@ try {
       /^部分時段 4 小時/.test(String(q2[weekdayCoverage] ?? "")) &&
         q2[holidayCoverage] === "完整24小時",
       `${q2[weekdayCoverage]} / ${q2[holidayCoverage]}`,
+    );
+  }
+
+  /*
+   * 同季平假日比較不能只看其中一個日別的涵蓋來標整列單位；兩邊調查
+   * 時段不同時，也不能產生看似精確、實際上不可比的差值與百分比。
+   */
+  const dayComparison = book.Sheets["平假日比較"];
+  ok("平假日比較存在", Boolean(dayComparison));
+  if (dayComparison) {
+    const rows = XLSX.utils.sheet_to_json(dayComparison, { header: 1, defval: "" });
+    const headers = rows[0].map((v) => String(v ?? ""));
+    const weekdayCoverage = headers.indexOf("平日調查涵蓋");
+    const holidayCoverage = headers.indexOf("假日調查涵蓋");
+    const difference = headers.indexOf("平假日差（輛）");
+    const percentage = headers.indexOf("假日相較平日（%）");
+    ok("平假日比較分列兩種日別的調查涵蓋", weekdayCoverage >= 0 && holidayCoverage >= 0, headers.join(" | "));
+    ok("平假日比較使用中性數量單位", headers.includes("平日實際量（輛）") && headers.includes("假日實際量（輛）"), headers.join(" | "));
+    const row = rows[1] ?? [];
+    ok(
+      "涵蓋不同時，各日別仍顯示自己的調查範圍",
+      row[weekdayCoverage] === "完整24小時" &&
+        /^部分時段 4 小時/.test(String(row[holidayCoverage] ?? "")),
+      `${row[weekdayCoverage]} / ${row[holidayCoverage]}`,
+    );
+    ok(
+      "涵蓋不同時，不計算平假日差與百分比",
+      row[difference] === "" && row[percentage] === "",
+      `差值=${row[difference]} / 百分比=${row[percentage]}`,
     );
   }
 

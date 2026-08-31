@@ -102,3 +102,43 @@ test("驗證報告檔名與目前版本一致，不得殘留舊版", async () =>
   const reports = rootFiles.filter((name) => /^VALIDATION_v[\d.]+\.md$/.test(name));
   assert.deepEqual(reports, [expected]);
 });
+
+/*
+ * 「如何更新」段落必須跟著版本走。
+ *
+ * 這一支是踩到坑才補的：那一段從 v20.35 起就沒再改過，v20.36～v20.38
+ * 三次發布都照原樣交出去。照那份說明操作的人會拿**錯的版號**去確認部署
+ * 有沒有成功，而且列出的「本版網站資產」是三版前的檔名——依它刪檔會
+ * 刪錯，依它保留會留下一堆已經不用的舊資產。
+ */
+test("更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名", async () => {
+  const version = await systemVersion();
+  const notes = await readFile(
+    new URL("../【更新說明】請先讀我.txt", import.meta.url),
+    "utf8",
+  );
+  const section = notes.slice(notes.indexOf("如何更新"));
+  assert.notEqual(notes.indexOf("如何更新"), -1, "找不到「如何更新」段落");
+
+  /* 版號：只有本版與「上一版應回 404」那一句可以出現別的版號 */
+  const versions = [...new Set([...section.matchAll(/v(\d+\.\d+(?:\.\d+)?)/g)].map((m) => "v" + m[1]))];
+  const unexpected = versions.filter(
+    (v) => v !== version && !new RegExp(`舊版 ${v.replace(/\./g, "\\.")} `).test(section),
+  );
+  assert.deepEqual(unexpected, [], "「如何更新」段落殘留了舊版號");
+
+  /* 資產檔名：要與實際建置產物一致 */
+  const listed = section
+    .slice(section.indexOf("本版網站資產："))
+    .split("\n")
+    .slice(1)
+    .map((line) => line.trim())
+    .filter((line) => /^[A-Za-z0-9_.-]+\.(js|css)$/.test(line));
+  /*
+   * 讀根目錄的 assets/（那就是要部署上去的那一份，也是交付包裡有的），
+   * 不能讀 github-pages/dist——它不在交付包裡。
+   */
+  const actual = (await readdir(new URL("../assets", import.meta.url))).sort();
+  assert.ok(listed.length > 0, "「本版網站資產」清單是空的");
+  assert.deepEqual(listed.sort(), actual, "列出的資產檔名與實際建置產物不一致");
+});

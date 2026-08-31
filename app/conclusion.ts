@@ -122,7 +122,24 @@ export type ConclusionMeta = {
   projectName: string;
   systemVersion: string;
   generatedAt: string;
+  /*
+   * 季度在草稿上要寫成民國年還是西元年。
+   *
+   * **純顯示**的換字：篩選（row.quarter === scope.quarter）、排序（quarterKey）
+   * 與分組一律走傳進來的儲存值，換寫法不會挑到不同的資料、也不會動到任何數字。
+   * 不傳就照原樣輸出，舊呼叫端與單元測試的行為完全不變。
+   */
+  showQuarter?: (quarter: string) => string;
 };
+
+/*
+ * 季度顯示用的換字（見 ConclusionMeta.showQuarter）。
+ *
+ * 用模組層變數而不是一路傳參數：組字的輔助函式有七、八個，全部加一個參數
+ * 會讓每一個簽章都變髒。buildConclusion 是同步的，進入時設定、用完即可。
+ */
+let quarterText: (quarter: string) => string = (quarter) =>
+  String(quarter ?? "");
 
 function num(value: number | null | undefined, digits: number) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
@@ -202,15 +219,29 @@ export function selectRows(
 }
 
 function scopeLabel(scope: ConclusionScope, rows: ConclusionRow[]) {
-  if (scope.kind === "quarter") return scope.quarter;
-  if (scope.kind === "year") return scope.year + " 年度";
-  if (scope.kind === "range") return scope.from + "～" + scope.to;
+  if (scope.kind === "quarter") return quarterText(scope.quarter);
+  if (scope.kind === "year") return yearText(scope.year) + " 年度";
+  if (scope.kind === "range")
+    return quarterText(scope.from) + "～" + quarterText(scope.to);
   const quarters = Array.from(new Set(rows.map((r) => r.quarter))).sort(
     (a, b) => quarterKey(a) - quarterKey(b),
   );
   return quarters.length
-    ? "全計畫（" + quarters[0] + "～" + quarters.at(-1) + "）"
+    ? "全計畫（" +
+        quarterText(quarters[0]) +
+        "～" +
+        quarterText(quarters.at(-1) as string) +
+        "）"
     : "全計畫";
+}
+
+/*
+ * 年度是「115」這種光年份的字串，沒有 Qn，quarterText 認不得。
+ * 借一個季度殼子換算完再把 Qn 去掉；換不成就原樣回傳。
+ */
+function yearText(year: string) {
+  const match = String(quarterText(String(year) + "Q1")).match(/^(\d{2,4})Q1$/);
+  return match ? match[1] : String(year);
 }
 
 function rowLabel(row: ConclusionRow) {
@@ -334,8 +365,8 @@ function describeGrowth(
         : null;
       lines.push(
         `　${rowLabel(ordered[0])}・${CONCLUSION_PERIOD_LABELS[period]}：` +
-          `由 ${first.quarter} 的 ${whole(first.cell.total)} ${first.cell.unitCount} ` +
-          `變為 ${last.quarter} 的 ${whole(last.cell.total)} ${last.cell.unitCount}，` +
+          `由 ${quarterText(first.quarter)} 的 ${whole(first.cell.total)} ${first.cell.unitCount} ` +
+          `變為 ${quarterText(last.quarter)} 的 ${whole(last.cell.total)} ${last.cell.unitCount}，` +
           (change === null
             ? "起始季為 0，變動幅度無法以百分比表示"
             : `${change >= 0 ? "增加" : "減少"} ${Math.abs(change).toFixed(1)}%`) +
@@ -357,7 +388,7 @@ function describeExtremes(
     const points = rows
       .filter((row) => row.scopeCode === "ALL" && row.periods[period]?.hasData)
       .map((row) => ({
-        label: `${row.roadName}（${row.quarter}・${row.dayType}）`,
+        label: `${row.roadName}（${quarterText(row.quarter)}・${row.dayType}）`,
         cell: row.periods[period]!,
       }));
     if (points.length < 2) continue;
@@ -415,7 +446,7 @@ function describeDayCompare(rows: ConclusionRow[], periods: PeriodKey[]) {
       }
       const change = a.total ? (b.total / a.total - 1) * 100 : null;
       lines.push(
-        `　${weekday.roadName}（${weekday.quarter}）・${rowLabel(weekday)}・` +
+        `　${weekday.roadName}（${quarterText(weekday.quarter)}）・${rowLabel(weekday)}・` +
           `${CONCLUSION_PERIOD_LABELS[period]}：平日 ${whole(a.total)} ${a.unitCount}、` +
           `假日 ${whole(b.total)} ${b.unitCount}，` +
           (change === null
@@ -433,6 +464,10 @@ export function buildConclusion(
   condition: ConclusionCondition,
   meta: ConclusionMeta,
 ): string {
+  quarterText =
+    typeof meta.showQuarter === "function"
+      ? meta.showQuarter
+      : (quarter: string) => String(quarter ?? "");
   const chosen = selectRows(rows, condition);
   const periods = condition.periods.length
     ? condition.periods
@@ -461,7 +496,7 @@ export function buildConclusion(
   const dayTypes = Array.from(new Set(chosen.map((r) => r.dayType)));
   out.push("");
   out.push(
-    `統計範圍：${quarters.length} 個季度（${quarters.join("、")}）、` +
+    `統計範圍：${quarters.length} 個季度（${quarters.map(quarterText).join("、")}）、` +
       `${roads.length} 個調查點、共 ${chosen.length} 列；` +
       `日別：${dayTypes.join("、")}；` +
       `時段：${periods.map((p) => CONCLUSION_PERIOD_LABELS[p]).join("、")}。`,
@@ -495,7 +530,7 @@ export function buildConclusion(
     for (const [, group] of groups) {
       heading(`${group[0].roadName}（${group[0].roadId}）`);
       for (const row of group) {
-        out.push(`　〔${row.quarter}・${row.dayType}・${rowLabel(row)}〕`);
+        out.push(`　〔${quarterText(row.quarter)}・${row.dayType}・${rowLabel(row)}〕`);
         for (const period of periods) out.push(...describeCell(row, period, condition));
       }
       if (wants("growth")) out.push(...describeGrowth(group, periods));
@@ -505,7 +540,7 @@ export function buildConclusion(
     for (const quarter of quarters) {
       const group = body.filter((row) => row.quarter === quarter);
       if (!group.length) continue;
-      heading(`${quarter}（共 ${group.length} 列）`);
+      heading(`${quarterText(quarter)}（共 ${group.length} 列）`);
       for (const row of group) {
         out.push(`　〔${row.roadName}・${row.dayType}・${rowLabel(row)}〕`);
         for (const period of periods) out.push(...describeCell(row, period, condition));
@@ -517,7 +552,7 @@ export function buildConclusion(
     heading("整體結果");
     const first = body[0];
     out.push(
-      `　代表列：${first.roadName}（${first.roadId}）・${first.quarter}・` +
+      `　代表列：${first.roadName}（${first.roadId}）・${quarterText(first.quarter)}・` +
         `${first.dayType}・${rowLabel(first)}`,
     );
     for (const period of periods) out.push(...describeCell(first, period, condition));

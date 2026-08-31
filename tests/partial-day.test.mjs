@@ -130,6 +130,18 @@ test("空資料與無法解析的時段不會造成例外", () => {
   assert.equal(coverageNote(surveyCoverage([])), "");
 });
 
+test("平假日只有調查時段完全相同才可直接比較", async () => {
+  const { sameSurveyCoverage } = await import("../app/partial-day.ts");
+  const weekday = surveyCoverage(["07:00～09:00", "17:00～19:00"]);
+  const same = surveyCoverage(["07:00～08:00", "08:00～09:00", "17:00～19:00"]);
+  const shifted = surveyCoverage(["08:00～10:00", "18:00～20:00"]);
+  const shorter = surveyCoverage(["07:00～09:00"]);
+  assert.equal(sameSurveyCoverage(weekday, same), true, "同一批時段的分列方式不同仍可比較");
+  assert.equal(sameSurveyCoverage(weekday, shifted), false, "總時數相同但時鐘區間不同不可比較");
+  assert.equal(sameSurveyCoverage(weekday, shorter), false, "總時數不同不可比較");
+  assert.equal(sameSurveyCoverage(surveyCoverage([]), surveyCoverage([])), false, "讀不到時段時不可猜測");
+});
+
 test("5 分鐘與 30 分鐘資料也能正確湊成一小時", () => {
   const five = Array.from({ length: 24 }, (_, i) => ({
     hour: formatRange(420 + i * 5, 425 + i * 5),
