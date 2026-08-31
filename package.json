@@ -1,6 +1,6 @@
 {
   "name": "traffic-volume-vehicle-composition",
-  "version": "20.36.0",
+  "version": "20.37.0",
   "private": true,
   "engines": {
     "node": ">=22.18.0"

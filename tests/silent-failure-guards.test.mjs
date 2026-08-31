@@ -138,3 +138,53 @@ test("匯入失敗訊息要逐檔說明原因", () => {
   );
   assert.match(dashboard, /沒有讀到任何交通量資料/);
 });
+
+/* ── 判斷與寫入必須用同一個運算式 ── */
+test("全形數字要正確讀出，不可以靜靜變成 0", () => {
+  /*
+   * 舊版 cellCount 沒做 NFKC、isUnusableCount 有——兩個式子不一致就會說謊：
+   * 「１２３」存 0 卻不提醒，123 輛被靜靜吃掉。
+   */
+  assert.equal(cellCount("１２３"), 123);
+  assert.equal(cellCount("５０"), 50);
+  assert.equal(isUnusableCount("１２３"), false, "正常數字不該被標記");
+});
+
+test("布林值計為 0，訊息才不會與實際行為不符", () => {
+  /* 舊版存 1，訊息卻寫「已按 0 輛處理」。 */
+  assert.equal(cellCount(true), 0);
+  assert.equal(cellCount(false), 0);
+  assert.equal(isUnusableCount(true), true, "要標記出來讓使用者確認");
+});
+
+test("合法的占位符不可誤報", () => {
+  for (const mark of ["--", "－", "—", "–", "", null, undefined])
+    assert.equal(isUnusableCount(mark), false, `${JSON.stringify(mark)} 不該被標記`);
+});
+
+/* ── 日別判讀要排除非調查日期 ── */
+test("「製表日期」不可以蓋掉真正的調查日期", async () => {
+  const { dayTypeOf } = await import("../app/traffic-parser.ts");
+  const rows = (list) => list.map((t) => [t]);
+  /*
+   * 舊版掃前 12 列、任一格含「假日」就回假日，於是製表日期、甚至
+   *「備註：假日不施測」這種說明文字都會蓋掉真正的調查日期。
+   * 日別是 trafficIdentity 與 DB 唯一索引的欄位，判錯會覆蓋既有紀錄。
+   */
+  assert.equal(
+    dayTypeOf(rows(["製表日期：115年03月01日(假日)", "日期：115年01月26日(平日)"])),
+    "平日",
+  );
+  assert.equal(
+    dayTypeOf(rows(["備註：假日不施測", "日期：115年01月26日(平日)"])),
+    "平日",
+  );
+  assert.equal(dayTypeOf(rows(["製表日期：115年03月01日(假日)"])), "");
+  assert.equal(dayTypeOf(rows(["備註：假日不施測"])), "");
+  /* 既有的寬鬆比對仍要支援（舊格式只寫「平日」二字） */
+  assert.equal(dayTypeOf(rows(["假日"])), "假日");
+  assert.equal(dayTypeOf(rows(["平日交通量調查表"])), "平日");
+  assert.equal(dayTypeOf(rows(["調查日別：假日"])), "假日");
+  assert.equal(dayTypeOf(rows(["115/01/26（平日）"])), "平日");
+  assert.equal(dayTypeOf(rows(["日期：115年01月26日(平日)"])), "平日");
+});

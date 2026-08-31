@@ -40,5 +40,7 @@ yarn-error.log*
 /outputs/
 /work/
 /.samples/
+/tsconfig.tsbuildinfo
+/_dtcheck.mjs
 /package-stage-*/
 /traffic-site-*.tar.gz

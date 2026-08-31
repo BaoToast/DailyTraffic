@@ -131,6 +131,18 @@ const flatten = (text: string) =>
     .normalize("NFKC")
     .replace(/\s+/g, "");
 
+/**
+ * 這段文字是不是「非調查日期」的標籤（製表日期、列印日期…）。
+ *
+ * 這條規則原本只用在 findSurveyDate 內部，但平假日（資料別）的判讀也需要它：
+ * 表頭同時有「製表日期：…(假日)」與「日期：…(平日)」時，若不排除前者，
+ * 會依掃描順序得到「假日」——而資料別是識別鍵的一部分。
+ * 三支系統都要用同一份清單，所以放在這裡對外提供。
+ */
+export function isNonSurveyDateText(text: string): boolean {
+  return NON_SURVEY_DATE_LABEL.test(flatten(text));
+}
+
 export function isLabelledSurveyDateText(text: string): boolean {
   const flat = flatten(text);
   if (NON_SURVEY_DATE_LABEL.test(flat)) return false;

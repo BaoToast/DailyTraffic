@@ -1,3 +1,10 @@
+/* 日期與「非調查日期」判斷來自三支系統共用的 period-date 模組。 */
+import {
+  isLabelledSurveyDateText,
+  isNonSurveyDateText,
+  parseSurveyDateText,
+} from "./period-date.ts";
+
 export type ParserDayType = "平日" | "假日";
 
 export type ParsedTrafficRow = {
@@ -88,21 +95,35 @@ function emptyTurns(): TurnCounts {
  */
 export function cellCount(value: unknown): number {
   /*
-   * 日期／時間格式的儲存格一律當成 0，並且**不可以**讓它通過。
-   *
-   * `SAFE_XLSX_READ_OPTIONS` 帶 `cellDates: true`（時間欄需要它），所以
-   * 日期或時間格式的儲存格 `.v` 是 `Date` 物件，而 `Number(Date)` 是
-   * **有限的** epoch 毫秒——`Number.isFinite()` 擋不住它。實測一格
-   * 時間格會變成 1,788,073,200,000 輛，然後一路進尖峰判斷、PCU 換算與
-   * 全日累計，而匯入檢核報告還會顯示綠字「未發現空白、非數字、負值」，
-   * 因為它的判斷式也是 `!Number.isFinite()`。
-   *
-   * Excel 對「7:00」「12:30」這類輸入會自動套時間格式，是調查表填寫時
-   * 最常見的誤植；1970 年以後的日期是正值，會一路暢行無阻。
+   * 判斷與寫入必須用**同一個運算式**，否則訊息會說謊。
+   * 姊妹系統「路口轉向」在同一個地方寫著這句話，這裡先前沒有遵守：
+   *  ・全形數字「１２３」：cellCount 存 0，isUnusableCount 卻說「可用」
+   *    → 123 輛被靜靜吃掉，連提醒都沒有
+   *  ・布林 TRUE：存 1，訊息卻寫「已按 0 輛處理」
+   * 現在兩支都走 normalizeCountValue()，行為與訊息一定一致。
    */
-  if (value instanceof Date) return 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+  const parsed = normalizeCountValue(value);
+  return parsed === null ? 0 : Math.round(parsed);
+}
+
+/**
+ * 把儲存格內容轉成「可用的車輛數」；不是可用的數字時回 null。
+ *
+ * 日期／時間格式的儲存格一律不可用：`SAFE_XLSX_READ_OPTIONS` 帶
+ * `cellDates: true`（時間欄需要它），所以它們的 `.v` 是 `Date` 物件，
+ * 而 `Number(Date)` 是**有限的** epoch 毫秒——`Number.isFinite()` 擋不住。
+ * 布林值同理：`Number(true)` 是 1，會被當成 1 輛。
+ * 全形數字要先 NFKC 正規化，否則「１２３」會變成 0 而且不會被標記。
+ */
+function normalizeCountValue(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (value instanceof Date) return null;
+  if (typeof value === "boolean") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const text = String(value).normalize("NFKC").trim();
+  if (!text) return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -111,13 +132,15 @@ export function cellCount(value: unknown): number {
  * 空白格不算——稀疏的調查表本來就會有空格。
  */
 export function isUnusableCount(value: unknown): boolean {
+  /* 與 cellCount 共用同一個判斷，訊息才不會與實際行為不符。 */
   if (value === undefined || value === null) return false;
-  if (value instanceof Date) return true;
-  const text = String(value).normalize("NFKC").trim();
+  const text =
+    value instanceof Date ? "date" : String(value).normalize("NFKC").trim();
+  /* 空白格是正常的：稀疏的調查表本來就會有空格。 */
   if (!text) return false;
-  /* 「--」「－」「—」是既有調查表用來表示該轉向不存在的合法記號。 */
-  if (/^(?:-+|－+|—+|–+)$/.test(text)) return false;
-  return !Number.isFinite(Number(text));
+  /* 「--」「－」「—」是「該轉向不存在」的既有合法記號，不誤報。 */
+  if (/^[-－—–]+$/.test(text)) return false;
+  return normalizeCountValue(value) === null;
 }
 
 function countWarning(value: unknown, columnIndex: number, rowIndex: number) {
@@ -316,12 +339,48 @@ export function headerDateCells(
 
 /** 從表頭區找出日別；抓不到時回傳空字串。 */
 export function dayTypeOf(values: unknown[][]): ParserDayType | "" {
-  for (const row of values.slice(0, 12))
-    for (const cell of row) {
-      const text = String(cell ?? "");
-      if (text.includes("假日")) return "假日";
-      if (text.includes("平日")) return "平日";
-    }
+  /*
+   * 日別判讀要分兩段，不能「任何一格含『假日』就算」。
+   *
+   * 舊寫法掃前 12 列、只要任一格的字串含有「假日」就回假日，於是：
+   *  ・「製表日期：115年03月01日(假日)」排在真正的調查日期上方 → 判成假日
+   *  ・「備註：假日不施測」這種說明文字 → 也判成假日
+   * 日別是 trafficIdentity 與 DB 唯一索引的欄位，判錯會把資料寫到另一個日別、
+   * 甚至用 ON CONFLICT 覆蓋掉既有紀錄，而報告只會說「覆蓋 N 筆」。
+   *
+   * 第一段：找有「日期：」標示、且括號裡明寫平假日的儲存格——這是最可靠的
+   * 來源，並且排除製表日期、列印日期這類非調查日期（排除清單來自三支共用的
+   * period-date 模組，不在這裡另寫一份）。
+   * 第二段：沒有第一段時，只接受「像日期的整格文字」或獨立的日別標籤。
+   * 不能再用任意子字串比對，否則單獨一格「備註：假日不施測」仍會判成假日，
+   * 而且會繞過匯入前的「日別依檔名推測」警告。
+   */
+  const cells = values
+    .slice(0, 12)
+    .flatMap((row) => row.map((c) => String(c ?? "")));
+  const oneDayTypeIn = (text: string): ParserDayType | "" => {
+    const normalized = text.normalize("NFKC");
+    const hits = (["平日", "假日"] as ParserDayType[]).filter((day) =>
+      normalized.includes(day),
+    );
+    return hits.length === 1 ? hits[0] : "";
+  };
+  for (const text of cells) {
+    if (isNonSurveyDateText(text)) continue;
+    if (!isLabelledSurveyDateText(text)) continue;
+    const marked = oneDayTypeIn(text);
+    if (marked) return marked;
+  }
+  for (const text of cells) {
+    if (isNonSurveyDateText(text)) continue;
+    const dated = parseSurveyDateText(text) ? oneDayTypeIn(text) : "";
+    if (dated) return dated;
+    const compact = text.normalize("NFKC").replace(/[\s　]+/g, "");
+    const labelled = compact.match(
+      /^(?:(?:調查|施測)?(?:日別|資料別)[:：]?)?(平日|假日)(?:交通量(?:調查)?表?)?$/,
+    );
+    if (labelled) return labelled[1] as ParserDayType;
+  }
   return "";
 }
 
