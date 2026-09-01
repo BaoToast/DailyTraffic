@@ -113,6 +113,8 @@ import {
   YEAR_STYLE_LABELS,
   type YearStyle,
   normalizeSurveyPeriod,
+  checkSurveyPeriodInput,
+  surveyPeriodInputMessage,
   periodMismatchPrompt,
   periodUnknownNotice,
   PERIOD_DISPLAY_LABELS,
@@ -4630,8 +4632,14 @@ export default function DashboardClient({ user }: { user: User }) {
           ),
         ),
       ];
-      if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(importQuarterKey))
-        throw new Error("季度格式請輸入115Q2或2026Q2");
+      /*
+       * 形狀檢查不夠：normalizeSurveyPeriod 只在民國 90～200 這個窗口內換算，
+       * 超出窗口的四碼年份會原樣通過（例如 2112Q3），於是同一季會存成兩個鍵。
+       * 改用共用的 checkSurveyPeriodInput()，並分開講「格式不對」與「超出範圍」。
+       */
+      const periodCheck = checkSurveyPeriodInput(importQuarter);
+      if (!periodCheck.ok)
+        throw new Error(surveyPeriodInputMessage(periodCheck.reason));
       /*
        * 這個計畫如果已經有「同一季、但用另一種寫法」的資料，要先擋下來。
        *
@@ -4940,13 +4948,33 @@ export default function DashboardClient({ user }: { user: User }) {
         throw new Error(
           `備份檔第 ${badIndex + 1} 筆資料缺少必要欄位（${REQUIRED_TEXT.join("、")}），為避免損壞既有資料已停止還原`,
         );
-      const source = payload.records
-        .map((r) => ({
+      const badQuarterIndex = payload.records.findIndex(
+        (r) => !checkSurveyPeriodInput(String(r.quarter)).ok,
+      );
+      if (badQuarterIndex >= 0) {
+        const badQuarter = String(payload.records[badQuarterIndex].quarter);
+        const check = checkSurveyPeriodInput(badQuarter);
+        throw new Error(
+          `備份檔第 ${badQuarterIndex + 1} 筆資料的季度「${badQuarter}」無法還原：` +
+            (!check.ok
+              ? surveyPeriodInputMessage(check.reason)
+              : "季度格式不正確"),
+        );
+      }
+      /*
+       * 備份可能來自尚未統一儲存格式的舊版。合法的 2026Q1 必須在寫回前
+       * 轉成 115Q1；不能只拿共用函式做 filter 後仍把原字串寫進資料庫。
+       * 也不能靜靜濾掉壞季度，否則一份混有好壞資料的備份會只還原一部分，
+       * 畫面卻回報成功。
+       */
+      const source = payload.records.map((r) => {
+        const check = checkSurveyPeriodInput(String(r.quarter));
+        return {
           ...r,
-          quarter: String(r.quarter).toUpperCase(),
+          quarter: check.ok ? check.key : String(r.quarter).toUpperCase(),
           roadId: normalizeRoadId(r.roadId),
-        }))
-        .filter((r) => /^(?:\d{3}|\d{4})Q[1-4]$/.test(r.quarter));
+        };
+      });
       if (!source.length) throw new Error("備份檔內沒有可匯入的季度資料");
       /*
        * 還原過程可能同時遇到多個 localStorage 寫入失敗。不要在途中直接
@@ -4983,7 +5011,21 @@ export default function DashboardClient({ user }: { user: User }) {
         setToast(`已依備份檔自動建立計畫「${name}」，正在還原資料…`);
       }
       const incomingQuarters = [...new Set(source.map((r) => r.quarter))];
-      const overlaps = incomingQuarters.filter((q) => quarters.includes(q));
+      const existingQuarterByKey = new Map(
+        quarters.map((item) => [normalizeSurveyPeriod(item), item]),
+      );
+      const alternateWriting = incomingQuarters.find((item) => {
+        const existing = existingQuarterByKey.get(item);
+        return existing && existing !== item;
+      });
+      if (alternateWriting) {
+        const existing = existingQuarterByKey.get(alternateWriting);
+        throw new Error(
+          `這個計畫裡已經有「${existing}」，和備份中的「${alternateWriting}」是同一季、但寫法不同。` +
+            "為避免形成兩個季度，請先刪除既有季度或改用不含該季度的備份。",
+        );
+      }
+      const overlaps = incomingQuarters.filter((q) => existingQuarterByKey.has(q));
       /*
        * 匯入 Excel 的路徑會擋下已定稿的季度，還原備份的路徑以前不會——
        * 同一個鎖，一條路擋得住、另一條走得過去，等於沒有鎖。
@@ -5215,9 +5257,9 @@ export default function DashboardClient({ user }: { user: User }) {
   async function renameQuarter(e: React.FormEvent) {
     e.preventDefault();
     const rawNext = quarterDraft.trim().toUpperCase();
-    const next = normalizeSurveyPeriod(rawNext);
-    if (!/^(?:\d{3}|\d{4})Q[1-4]$/.test(next))
-      return setToast("季度格式請輸入115Q2或2026Q2");
+    const renameCheck = checkSurveyPeriodInput(rawNext);
+    if (!renameCheck.ok) return setToast(surveyPeriodInputMessage(renameCheck.reason));
+    const next = renameCheck.key;
     if (next === quarter) return setShowQuarterManager(false);
     const clashing = quarters.find(
       (item) => item !== quarter && normalizeSurveyPeriod(item) === next,
@@ -7279,13 +7321,24 @@ export default function DashboardClient({ user }: { user: User }) {
                   name: "平日",
                   formula: `'平假日比較'!$C$2:$C$${nd}`,
                   color: "148C8C",
-                  cache: dayComparisons.map((r) => r.weekdayActual),
+                  /*
+                   * 沒做這個日別的調查要寫 null，不能寫 0。
+                   * 資料表那一格已經是空白了（M4），但圖表的 numCache 若寫 0，
+                   * 不重算 cache 的檢視器就會畫出一根 0 的長條——同一份檔案裡
+                   * 表是空白、圖是 0，正是 M4 要消滅的那種讀法。
+                   * chartXml 本來就會把 null 略過成缺口。
+                   */
+                  cache: dayComparisons.map((r) =>
+                    r.weekdaySurveyed ? r.weekdayActual : null,
+                  ),
                 },
                 {
                   name: "假日",
                   formula: `'平假日比較'!$D$2:$D$${nd}`,
                   color: "E58A2B",
-                  cache: dayComparisons.map((r) => r.holidayActual),
+                  cache: dayComparisons.map((r) =>
+                    r.holidaySurveyed ? r.holidayActual : null,
+                  ),
                 },
               ],
             },
@@ -7522,14 +7575,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.39.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.40.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.39.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.40.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -9459,9 +9512,9 @@ export default function DashboardClient({ user }: { user: User }) {
                           setShowHistoryCenter(false);
                           setShowImport(true);
                           setImportQuarter(
-                            entry.quarter.match(
-                              /^(?:\d{3}|\d{4})Q[1-4]$/,
-                            )?.[0] ?? importQuarterKey,
+                            checkSurveyPeriodInput(entry.quarter).ok
+                              ? checkSurveyPeriodInput(entry.quarter).key
+                              : importQuarterKey,
                           );
                           setToast(
                             `已帶入季度 ${entry.quarter}，請重新選取檔案：${entry.files.join("、")}`,
@@ -10250,7 +10303,7 @@ export default function DashboardClient({ user }: { user: User }) {
               <input
                 value={importQuarter}
                 onChange={(e) => setImportQuarter(e.target.value.toUpperCase())}
-                pattern="(?:\d{3}|\d{4})Q[1-4]"
+                pattern="\d{2,4}Q[1-4]"
                 placeholder="例如115Q2或2026Q2"
               />
               {/*
@@ -10954,7 +11007,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 autoFocus
                 value={quarterDraft}
                 onChange={(e) => setQuarterDraft(e.target.value.toUpperCase())}
-                pattern="(?:\d{3}|\d{4})Q[1-4]"
+                pattern="\d{2,4}Q[1-4]"
                 placeholder="例如115Q2或2026Q2"
                 required
               />

@@ -101,6 +101,13 @@ test("驗證報告檔名與目前版本一致，不得殘留舊版", async () =>
   const rootFiles = await readdir(new URL("../", import.meta.url));
   const reports = rootFiles.filter((name) => /^VALIDATION_v[\d.]+\.md$/.test(name));
   assert.deepEqual(reports, [expected]);
+  const report = await readFile(new URL(`../${expected}`, import.meta.url), "utf8");
+  assert.match(
+    report,
+    new RegExp(`^# 全日交通量及車種組成 ${version.replace(/\./g, "\\.")} 驗證報告`, "m"),
+    "驗證報告檔名雖正確，但標題仍是舊版",
+  );
+  assert.match(report, /前一正式版：v20\.39（commit `378158a85c8e8480a145b5005a09c6ee1bca283d`）/);
 });
 
 /*

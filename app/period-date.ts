@@ -135,6 +135,61 @@ export function normalizeSurveyPeriod(input: string): string {
   return formatPeriod(period);
 }
 
+/*
+ * ── 季度輸入的最終把關 ────────────────────────────────────────
+ *
+ * normalizeSurveyPeriod() 只在「民國 90～200（西元 2001～2111）」這個窗口內
+ * 換算；超出窗口的四碼年份它會**原樣回傳**。若寫入路徑只用
+ * /^(?:\d{3}|\d{4})Q[1-4]$/ 這種形狀檢查，`2112Q3` 會通過並被原樣存進去，
+ * 於是同一季同時存在 `201Q3` 與 `2112Q3` 兩個鍵——而且兩者的排序鍵完全相同，
+ * 畫面上只看得出「同一季出現了兩次」，很難想到是寫法造成的。
+ * 這正是本系統一路在消滅的那一類問題，只是發生在換算窗口之外。
+ *
+ * 另一個方向：民國 99 年（西元 2010）是**合法的兩碼民國年**，排序鍵、
+ * 正規化與 Excel 排序一直都認得它，但形狀檢查只收 3～4 碼，於是使用者
+ * 有 99 年的資料時反而打不進去。
+ *
+ * 所以把「可不可以寫入」收斂成一支共用函式：一律先正規化，再要求結果是
+ * 2～3 碼的民國年寫法。回傳的 reason 讓呼叫端可以說清楚是哪一種不合格。
+ */
+export type SurveyPeriodCheck =
+  | { ok: true; key: string }
+  | { ok: false; key: string; reason: "format" | "range" };
+
+export function checkSurveyPeriodInput(input: string): SurveyPeriodCheck {
+  const raw = String(input ?? "")
+    .normalize("NFKC")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+  const match = /^(\d{2,4})Q([1-4])$/.exec(raw);
+  if (!match)
+    return { ok: false, key: normalizeSurveyPeriod(raw), reason: "format" };
+
+  const digits = match[1];
+  const year = Number(digits);
+  /*
+   * 四碼一律視為西元，二～三碼一律視為民國。不能只檢查正規化後的
+   * 字串長相：89Q1、201Q3、999Q1 經 normalizeSurveyPeriod() 仍會長得像
+   * 合法的二～三碼季度，但其實都在本系統允許的民國 90～200 年之外。
+   */
+  const inRange =
+    digits.length === 4
+      ? year >= 2001 && year <= 2111
+      : year >= 90 && year <= 200;
+  if (!inRange)
+    return { ok: false, key: normalizeSurveyPeriod(raw), reason: "range" };
+
+  return { ok: true, key: normalizeSurveyPeriod(raw) };
+}
+
+/** 年份不合格時給使用者看的說明，三支共用同一句。 */
+export function surveyPeriodInputMessage(reason: "format" | "range"): string {
+  return reason === "format"
+    ? "季度格式請輸入 115Q2（民國年）或 2026Q2（西元年）。"
+    : "年份超出可換算範圍：民國年請填 90～200，西元年請填 2001～2111。" +
+        "資料一律以民國年儲存，超出範圍的年份會變成一個比對不到的季度。";
+}
+
 export function samePeriod(a: ParsedPeriod | null, b: ParsedPeriod | null): boolean {
   return Boolean(a && b && a.adYear === b.adYear && a.kind === b.kind && a.num === b.num);
 }

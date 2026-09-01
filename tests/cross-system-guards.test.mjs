@@ -230,7 +230,13 @@ test("季度一律以民國年寫法寫入", async () => {
     "async function renameQuarter(",
     "async function refreshRoadAliases",
   );
-  assert.match(renameBlock, /const next = normalizeSurveyPeriod\(rawNext\)/);
+  /*
+   * v20.40 起改走共用的 checkSurveyPeriodInput()——它比原本的
+   * normalizeSurveyPeriod()＋形狀正規式多擋一件事：換算窗口外的四碼年份。
+   * 這裡釘的是「改名一定要經過正規化後的鍵」，不釘實作用哪一支函式。
+   */
+  assert.match(renameBlock, /checkSurveyPeriodInput\(rawNext\)/);
+  assert.match(renameBlock, /const next = renameCheck\.key/);
   assert.match(renameBlock, /newQuarter: next/);
   assert.match(renameBlock, /normalizeSurveyPeriod\(item\) === next/);
 });
@@ -400,4 +406,100 @@ test("結論草稿的換字是可選的，不傳就維持舊輸出；篩選與�
         `${where}：換寫法之後除了季度字樣以外必須逐字相同（數字不可以有任何變化）`,
       );
     }
+});
+
+/* ── 季度輸入的最終把關（v20.40） ── */
+
+test("超出換算範圍的四碼年份不得原樣存成季度鍵", async () => {
+  /*
+   * normalizeSurveyPeriod() 只在民國 90～200（西元 2001～2111）這個窗口內換算，
+   * 窗口外的四碼年份會原樣回傳。舊版的寫入路徑只做形狀檢查
+   * /^(?:\d{3}|\d{4})Q[1-4]$/，於是 2112Q3 通過並被原樣存入——它和 201Q3 是
+   * 同一季，排序鍵還完全相同（實測都是 807），畫面上只看得出「同一季出現兩次」。
+   */
+  const { checkSurveyPeriodInput, normalizeSurveyPeriod } = await import(
+    "../app/period-date.ts"
+  );
+  const { quarterOrderKey } = await import("../app/final-workflow.ts");
+
+  for (const [roc, ad] of [["201Q3", "2112Q3"], ["89Q1", "2000Q1"], ["79Q2", "1990Q2"]]) {
+    /* 先證明問題確實存在：兩者是同一季、排序鍵相同，但正規化併不起來 */
+    assert.equal(quarterOrderKey(roc), quarterOrderKey(ad), `${roc} 與 ${ad} 是同一季`);
+    assert.notEqual(normalizeSurveyPeriod(ad), roc, "正規化窗口外，併不起來");
+    /* 所以寫入必須擋下來 */
+    const check = checkSurveyPeriodInput(ad);
+    assert.equal(check.ok, false, `${ad} 不可以寫入`);
+    assert.equal(check.reason, "range");
+    const rocCheck = checkSurveyPeriodInput(roc);
+    assert.equal(rocCheck.ok, false, `${roc} 也在允許的民國年範圍外`);
+    assert.equal(rocCheck.reason, "range");
+  }
+  for (const bad of ["201Q1", "999Q4", "00Q1"])
+    assert.equal(checkSurveyPeriodInput(bad).ok, false, `${bad} 不可以只因長得像季度就通過`);
+  /* 窗口內的一律放行並換成民國年 */
+  for (const [roc, ad] of [["115Q1", "2026Q1"], ["114Q4", "2025Q4"], ["100Q3", "2011Q3"]]) {
+    for (const input of [roc, ad]) {
+      const check = checkSurveyPeriodInput(input);
+      assert.equal(check.ok, true, `${input} 應放行`);
+      assert.equal(check.key, roc, `${input} 應存成 ${roc}`);
+    }
+  }
+});
+
+test("民國兩碼年份是合法寫法，不得被輸入檢查擋掉", async () => {
+  /*
+   * 民國 99 年＝西元 2010。排序鍵、正規化與 Excel 排序一直都認得兩碼，
+   * 只有寫入路徑的形狀檢查是 3～4 碼，於是有 99 年資料的人反而打不進去，
+   * 舊備份裡的 99 年資料也會在還原時被靜靜濾掉。
+   */
+  const { checkSurveyPeriodInput } = await import("../app/period-date.ts");
+  for (const q of ["99Q4", "99Q1", "90Q2"]) {
+    const check = checkSurveyPeriodInput(q);
+    assert.equal(check.ok, true, `${q} 應放行`);
+    assert.equal(check.key, q);
+  }
+  assert.equal(checkSurveyPeriodInput("2010Q4").key, "99Q4", "西元 2010 應換成民國 99");
+  /* 真正的壞格式仍要擋 */
+  for (const bad of ["115Q5", "115", "abc", "", "115Q", "Q1"])
+    assert.equal(checkSurveyPeriodInput(bad).ok, false, `「${bad}」應擋下`);
+});
+
+test("寫入路徑一律走共用檢查，不得再用形狀正規式", () => {
+  assert.doesNotMatch(
+    source,
+    /\/\^\(\?:\\d\{3\}\|\\d\{4\}\)Q\[1-4\]\$\//,
+    "仍有寫入路徑在用只看形狀的正規式（會放行 2112Q3、擋掉 99Q4）",
+  );
+  assert.match(source, /const periodCheck = checkSurveyPeriodInput\(importQuarter\)/);
+  assert.match(source, /const renameCheck = checkSurveyPeriodInput\(rawNext\)/);
+  assert.match(source, /const badQuarterIndex = payload\.records\.findIndex/);
+});
+
+test("平假日比較圖表的 cache 對「本季未調查」要寫 null，不可寫 0", () => {
+  /*
+   * 資料表那一格已經是空白（M4），但圖表的 numCache 若寫 0，
+   * 不重算 cache 的檢視器會畫出一根 0 的長條——同一份檔案裡表是空白、圖是 0。
+   */
+  assert.match(source, /r\.weekdaySurveyed \? r\.weekdayActual : null/);
+  assert.match(source, /r\.holidaySurveyed \? r\.holidayActual : null/);
+  assert.doesNotMatch(
+    source,
+    /cache: dayComparisons\.map\(\(r\) => r\.(weekday|holiday)Actual\)/,
+    "圖表 cache 仍直接寫值，未調查的日別會變成 0",
+  );
+  /* chartXml 必須把 null 略過（否則寫 null 反而壞掉） */
+  assert.match(source, /v === null \|\| v === undefined \|\| !Number\.isFinite\(Number\(v\)\)/);
+});
+
+test("備份季度要正規化後才寫回，且壞季度不得被靜靜濾掉", () => {
+  assert.match(source, /const badQuarterIndex = payload\.records\.findIndex/);
+  assert.match(source, /備份檔第 \$\{badQuarterIndex \+ 1\} 筆資料的季度/);
+  assert.match(source, /quarter: check\.ok \? check\.key/);
+  assert.doesNotMatch(
+    source,
+    /\.filter\(\(r\) => checkSurveyPeriodInput\(r\.quarter\)\.ok\)/,
+    "混有壞季度的備份不可只還原其中一部分",
+  );
+  assert.match(source, /const existingQuarterByKey = new Map/);
+  assert.match(source, /和備份中的「\$\{alternateWriting\}」是同一季、但寫法不同/);
 });
