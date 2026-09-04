@@ -28,5 +28,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # package-lock.json 由 npm 11.6.2 產生；固定版本可避免不同 npm
+      # 對 optional dependencies 的解析差異造成 npm ci 誤判不同步。
+      - run: npm install --global npm@11.6.2
       - run: npm ci
       - run: npm test
