@@ -69,10 +69,18 @@ test("手冊裡有本版的更新說明區塊", async () => {
     new URL("../scripts/manual/manual.html", import.meta.url),
     "utf8",
   );
-  assert.ok(
-    manual.includes(`本版（${version}）更新內容`),
-    `manual.html 裡找不到「本版（${version}）更新內容」——` +
-      `升版時可能只改了版號、忘了寫這一版做了什麼，或是字串取代沒有生效。`,
+  /*
+   * v20.42 起，手冊不再收錄「每一版改了什麼」——那是維護紀錄不是操作說明，
+   * 使用者明確表示新手不需要看（見 tests/manual-version-log.test.mjs 的說明）。
+   * 這一支原本靠「本版（vX）更新內容」確認手冊真的重新產生過；
+   * 改用封面戳記當錨點，同樣擋得住「只改檔名、內容還是舊版」。
+   */
+  const stamp = manual.match(/系統版本：(v[\d.]+)　更新日期：(\d{4}-\d{2}-\d{2})/);
+  assert.ok(stamp, "manual.html 找不到「系統版本：vX　更新日期：YYYY-MM-DD」封面戳記");
+  assert.equal(
+    stamp[1],
+    version,
+    `manual.html 封面戳記寫 ${stamp[1]}，程式是 ${version}——升版時可能只改了檔名，忘了重新產生手冊。`,
   );
 });
 
@@ -107,7 +115,13 @@ test("驗證報告檔名與目前版本一致，不得殘留舊版", async () =>
     new RegExp(`^# 全日交通量及車種組成 ${version.replace(/\./g, "\\.")} 驗證報告`, "m"),
     "驗證報告檔名雖正確，但標題仍是舊版",
   );
-  assert.match(report, /前一正式版：v20\.39（commit `378158a85c8e8480a145b5005a09c6ee1bca283d`）/);
+  /*
+   * 前一正式版的指標每次發布都要手改一次（v20.42 從 v20.39 改成 v20.40）。
+   * 這是字面值，改版時很容易忘；忘了改就會指到兩版前，看報告的人會拿錯的
+   * 基準去比對。日後可以改成從單一來源讀取，這一版先維持字面值以免動到
+   * 發布流程。
+   */
+  assert.match(report, /前一正式版：v20\.40（commit `18f54d00c9013f37fdf49b742d45f58d44b84cab`）/);
 });
 
 /*

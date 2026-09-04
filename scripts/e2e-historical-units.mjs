@@ -19,12 +19,16 @@
  */
 import { chromium } from "playwright";
 import http from "node:http";
+import * as fs from "node:fs";
 import { readFileSync, existsSync, statSync, mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
 import { launchOptions } from "./chrome-path.mjs";
+
+// SheetJS 0.20.x 的 ESM 版本需要明確綁定 Node.js 檔案系統才能輸出樣本。
+XLSX.set_fs(fs);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");

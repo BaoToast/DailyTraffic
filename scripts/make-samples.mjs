@@ -1,7 +1,12 @@
 import * as XLSX from "xlsx";
+import * as fs from "node:fs";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// SheetJS 0.20.x 的 ESM 版本不會自行綁定 Node.js 檔案系統；測試樣本輸出前
+// 必須明確提供 fs，否則 writeFileSync 會回報「cannot save file」。
+XLSX.set_fs(fs);
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), "..", ".samples");
 mkdirSync(dir, { recursive: true });

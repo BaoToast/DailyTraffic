@@ -157,6 +157,10 @@ export type SurveyPeriodCheck =
   | { ok: false; key: string; reason: "format" | "range" };
 
 export function checkSurveyPeriodInput(input: string): SurveyPeriodCheck {
+  /*
+   * 先做 NFKC 正規化並去掉所有空白：從 Excel／Word／PDF 複製貼上很常帶進
+   * 全形數字或全形 Ｑ，手打時也常在中間多一個空白。三支必須一視同仁。
+   */
   const raw = String(input ?? "")
     .normalize("NFKC")
     .replace(/\s+/g, "")
@@ -165,21 +169,24 @@ export function checkSurveyPeriodInput(input: string): SurveyPeriodCheck {
   if (!match)
     return { ok: false, key: normalizeSurveyPeriod(raw), reason: "format" };
 
-  const digits = match[1];
-  const year = Number(digits);
   /*
-   * 四碼一律視為西元，二～三碼一律視為民國。不能只檢查正規化後的
-   * 字串長相：89Q1、201Q3、999Q1 經 normalizeSurveyPeriod() 仍會長得像
-   * 合法的二～三碼季度，但其實都在本系統允許的民國 90～200 年之外。
+   * 年份**以數值判定，不看位數**。
+   *
+   * 舊寫法依位數分派（四碼一律當西元），於是把 `0115Q1` 判成「西元 115 年、
+   * 超出範圍」，回一句「民國年請填 90～200」——但 0115 就是 115，訊息與事實
+   * 矛盾；而共用的 normalizeSurveyPeriod() 一直都把它算成 115Q1，等於檢查與
+   * 正規化對同一個字串有兩種看法。Number() 會吃掉前導零，改用數值就一致了。
+   *
+   * 民國 90～200 與西元 2001～2111 兩段不重疊，所以數值本身就足以分辨，
+   * 不需要位數。範圍外一律擋下：normalizeSurveyPeriod() 只在這個窗口內換算，
+   * 窗口外的年份會原樣回傳，放行就會產生一個永遠比對不到的季度鍵。
    */
-  const inRange =
-    digits.length === 4
-      ? year >= 2001 && year <= 2111
-      : year >= 90 && year <= 200;
-  if (!inRange)
-    return { ok: false, key: normalizeSurveyPeriod(raw), reason: "range" };
-
-  return { ok: true, key: normalizeSurveyPeriod(raw) };
+  const year = Number(match[1]);
+  const quarter = match[2];
+  if (year >= 90 && year <= 200) return { ok: true, key: year + "Q" + quarter };
+  if (year >= 2001 && year <= 2111)
+    return { ok: true, key: year - 1911 + "Q" + quarter };
+  return { ok: false, key: normalizeSurveyPeriod(raw), reason: "range" };
 }
 
 /** 年份不合格時給使用者看的說明，三支共用同一句。 */

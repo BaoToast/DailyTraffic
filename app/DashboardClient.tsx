@@ -4452,7 +4452,8 @@ export default function DashboardClient({ user }: { user: User }) {
     }> = [];
     for (const file of files) {
       /*
-       * xlsx 0.18.5 有一則上游原型污染警示，npm 沒有可以升的修正版。
+       * SheetJS 0.20.3 已包含上游原型污染修正；這裡仍保留匯入前後的原型
+       * 指紋檢查，作為解析第三方工作簿時的額外縱深防護。
        * 這裡用共用的安全解析選項（關掉公式／內嵌 HTML／VBA），並在解析
        * 後立刻比對 Object.prototype——被污染就中止這一次匯入，而不是
        * 只在說明文件裡寫一句「請匯入可信來源的檔案」。
@@ -7575,14 +7576,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.40.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.42.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.40.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.42.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -10303,7 +10304,6 @@ export default function DashboardClient({ user }: { user: User }) {
               <input
                 value={importQuarter}
                 onChange={(e) => setImportQuarter(e.target.value.toUpperCase())}
-                pattern="\d{2,4}Q[1-4]"
                 placeholder="例如115Q2或2026Q2"
               />
               {/*
@@ -11007,7 +11007,6 @@ export default function DashboardClient({ user }: { user: User }) {
                 autoFocus
                 value={quarterDraft}
                 onChange={(e) => setQuarterDraft(e.target.value.toUpperCase())}
-                pattern="\d{2,4}Q[1-4]"
                 placeholder="例如115Q2或2026Q2"
                 required
               />

@@ -503,3 +503,36 @@ test("備份季度要正規化後才寫回，且壞季度不得被靜靜濾掉",
   assert.match(source, /const existingQuarterByKey = new Map/);
   assert.match(source, /和備份中的「\$\{alternateWriting\}」是同一季、但寫法不同/);
 });
+
+/* ── 三支共用的季度輸入行為契約 ── */
+
+test("季度輸入把關必須完全符合三支共用的行為契約", async () => {
+  /*
+   * 上一輪三支的 checkSurveyPeriodInput() 被改成三種不同寫法，而三支的守門
+   * 測試都只驗自己那一份，所以沒有任何一支看得到分歧。這裡改成跑共用契約：
+   * 契約檔在三支裡逐位元相同，任何一支的實作漂掉，就是它自己的測試紅。
+   */
+  const { runContract, CASES } = await import("./period-input-contract.mjs");
+  const { checkSurveyPeriodInput, normalizeSurveyPeriod } = await import(
+    "../app/period-date.ts"
+  );
+  assert.ok(CASES.length >= 50, "契約案例數異常，檔案可能被截斷");
+  const problems = runContract(checkSurveyPeriodInput, normalizeSurveyPeriod);
+  assert.deepEqual(problems, [], "與共用行為契約不符：\n" + problems.join("\n"));
+});
+
+test("行為契約檔本身必須與另外兩支逐位元相同", async () => {
+  /*
+   * 三支各自釘同一個 SHA-256。只改一支的契約檔，那一支就會紅；
+   * 要改行為就得三支的契約檔一起改、雜湊一起換——這正是我們要的。
+   * 用雜湊而不是跨包引用檔案，交付包才能解壓後獨立執行。
+   */
+  const { createHash } = await import("node:crypto");
+  const { readFileSync } = await import("node:fs");
+  const bytes = readFileSync(new URL("./period-input-contract.mjs", import.meta.url));
+  assert.equal(
+    createHash("sha256").update(bytes).digest("hex"),
+    "638f2b48ed3d7e24e7c605314eb2149f3cc5c07865f69a99d8c767a52945fe75",
+    "行為契約檔與另外兩支不同步；三支必須是同一份檔案",
+  );
+});

@@ -1,6 +1,6 @@
 {
   "name": "traffic-volume-vehicle-composition",
-  "version": "20.40.0",
+  "version": "20.42.0",
   "private": true,
   "engines": {
     "node": ">=22.18.0"
@@ -23,7 +23,7 @@
     "jszip": "^3.10.1",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "xlsx": "^0.18.5"
+    "xlsx": "file:./vendor/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
