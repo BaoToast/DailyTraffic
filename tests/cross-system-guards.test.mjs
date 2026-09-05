@@ -49,32 +49,108 @@ test("非調查日期清單要涵蓋彙整、輸出、建檔、產製", () => {
 
 /* ── H2：匯出的單位要同時看調查涵蓋與日別 ── */
 
-test("平日＋假日的匯出單位不可標成單日值", () => {
+test("「平日＋假日」不得把兩天相加成一列", () => {
   /*
-   * 日別選「平日＋假日」時匯出的是兩天的加總。舊版只看 surveyScope.partial，
-   * 於是 14013T601 一份檔案匯出 12,838 輛（平日 9,392＋假日 3,446）
-   * 被標成「全日實際交通量（輛/日）」，比真正的平日量高 37%。
-   * 畫面的 KPI 早就標「輛／平假日合計」，匯出檔沒跟上。
+   * 這一條的歷史值得寫清楚，因為它被修過兩次，第一次只修了一半。
+   *
+   * 【原始問題（v20.39）】日別選「平日＋假日」時，同一個調查點的平日與假日
+   * 被加成一列，卻標成「全日實際交通量（輛/日）」：14013T601 匯出 12,838 輛
+   * （平日 9,392＋假日 3,446），比真正的平日量高 37%。
+   * 當時的修法是**把標示改誠實**——改標「輛／平假日合計」。
+   *
+   * 【使用者指出的真正問題】標示誠實不代表數字有用：
+   *   「平日+假日是把兩天的車輛/當量做加總計算，這樣的計算方式，
+   *     是否沒有實質應用的價值? 通常平日+假日應該是指把這兩個時段的結果
+   *     同時顯示出來吧?」
+   * 他是對的。一個平日量加一個假日量，既不是 AADT、不是任何一天的日交通量、
+   * 也不是設計小時交通量，沒有對應的工程意義。
+   * 實測中山路 115Q1：平日 42,090 輛、假日 32,675 輛 → 相加 74,765 輛。
+   *
+   * 而且系統本來就已經自相矛盾：同一個模式下的**尖峰**欄早就是取兩天之中
+   * 較大的那個、並標明是哪一天（不是把 2,779.5 與 2,134 相加），
+   * 每小時趨勢也早就依日別分開。只有總量、各方向量還在相加。
+   *
+   * 【現在的規則】「平日＋假日」＝兩天各出一列，每一格都是單日的量。
+   * 因此也就不再需要、也不可以出現「平假日合計」這種單位或欄名。
    */
-  const block = blockFrom("function exportActualUnit(", "type Metric =");
-  assert.match(block, /day === "平日＋假日"/, "單位要看日別");
-  assert.match(block, /平假日合計/);
-  assert.match(block, /平假日實測時段合計/, "部分時段又選平假日時要兩者都反映");
+  const block = blockFrom("const roadRows = useMemo", "const roadOnlyRows");
+  assert.match(
+    block,
+    /const splitByDay = dayType === "平日＋假日"/,
+    "roadRows 必須在「平日＋假日」時依日別分列",
+  );
+  assert.match(
+    block,
+    /splitByDay \? `\$\{r\.roadId\}\|\$\{r\.dayType \?\? ""\}` : r\.roadId/,
+    "分組鍵要帶日別，否則兩天又會被併成一列",
+  );
+  assert.match(block, /map\.set\(keyOf\(r\), x\)/, "寫回 map 要用同一把鍵");
 
-  /* 兩條匯出路徑都要改用共用函式，不可以再各寫一份 */
+  /*
+   * 分列之後，分析範圍這條路徑（明細表、KPI、匯出、趨勢圖）不可以再出現
+   * 「平假日合計」。唯一的例外是**車種組成面板**：那一頁看的是占比，
+   * 分母用兩天合起來算是有意義的，所以它標「輛・平假日兩天合計」，
+   * 刻意用不同的字樣，才不會和已經取消的舊標示混在一起。
+   */
   assert.doesNotMatch(
     source,
-    /const sheetActualUnit = surveyScope\.partial \? "輛\/調查時段" : "輛\/日";/,
-    "仍有匯出路徑只看 surveyScope.partial",
+    /平假日實測時段合計/,
+    "「平假日實測時段合計」是舊的加總標示，分列之後不該再出現",
   );
+  /* [^"\n] 很重要：不加 \n 的話 [^"]* 會跨行吃掉一整段程式碼 */
+  const combinedLabels =
+    source.match(/"[^"\n]*平假日合計[^"\n]*"|`[^`\n]*平假日合計[^`\n]*`/g) ?? [];
+  assert.deepEqual(
+    combinedLabels,
+    [],
+    "還有地方把兩天標成「平假日合計」——分列之後每一格都是單日量：\n" +
+      combinedLabels.join("、"),
+  );
+  assert.match(
+    source,
+    /輛・平假日兩天合計/,
+    "車種組成面板的兩天合計要用專屬字樣標明，不可以省略單位",
+  );
+
+  /* 兩條匯出路徑仍然要共用同一套單位函式，不可以各寫一份 */
   assert.equal(
     (source.match(/exportActualUnit\(dayType, surveyScope\.partial\)/g) ?? []).length,
     2,
     ".xls 與 .xlsx 兩條匯出路徑都要用同一套單位判斷",
   );
-  /* 欄位名稱本身也要跟著日別走 */
-  assert.match(source, /平假日合計實際交通量/);
-  assert.match(source, /平假日合計PCU/);
+  /* 匯出的每一列要寫「這一列自己的日別」，不是寫「平日＋假日」 */
+  assert.equal(
+    (source.match(/日別: r\.dayType \|\| dayType/g) ?? []).length,
+    2,
+    "路段格式與路口格式的匯出都要寫這一列自己的日別",
+  );
+  assert.match(
+    source,
+    /const dailyTotals = useMemo[\s\S]*?row\.dayType[\s\S]*?dayType: row\.dayType/,
+    "KPI 的平假日數值要依每列自己的日別分組",
+  );
+  assert.match(
+    source,
+    /const projectComparisons = useMemo\([\s\S]*?\.flatMap\([\s\S]*?r\.dayType === selectedDay/,
+    "跨計畫比較在平日＋假日模式也必須分日產生列",
+  );
+  assert.ok(
+    (source.match(/dayQualifiedLabel\(/g) ?? []).length >= 7,
+    "畫面與可編輯 Excel 的分類標籤要帶日別，避免兩天同名而無法辨識",
+  );
+});
+
+test("歷季趨勢的單位不可寫成「合計」——它畫的是兩條各自單日的線", () => {
+  /*
+   * trendRows 一直把 weekday 與 holiday 分成兩個欄位（被篩掉的那一條給 null
+   * 而不是 0，見它自己的註解），從來沒有相加。但單位原本寫「輛／平假日合計」，
+   * 而 trendMode 的**預設值就是「平日＋假日」**——所以什麼都不動的預設畫面上，
+   * 兩條單日的線掛著一個「合計」的單位。同一批 trendRows 也會進 Excel 折線圖。
+   */
+  const block = blockFrom("const trendActualUnit =", "const intersectionFlowLabel");
+  assert.doesNotMatch(block, /合計/, "趨勢圖的單位不可以出現「合計」");
+  assert.match(block, /輛／調查日/);
+  assert.match(block, /PCU／日/);
 });
 
 /* ── H3：.xls 的平假日比較表 ── */

@@ -32,8 +32,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SYSTEM_VERSION } from "../app/system-release.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SKIP = new Set(["node_modules", ".git", ".next", ".turbo", ".wrangler"]);
@@ -55,7 +56,16 @@ function walk(dir, out = []) {
 }
 
 test("包裡每一份手冊副本都必須來自同一次產生", () => {
-  const files = walk(ROOT).filter((f) => /Traffic_Analysis_Beginner_Guide_v20\.42\.(pdf|docx)$/.test(f));
+  /*
+   * 檔名由版號的單一來源推導，不要寫死。
+   * 寫死的話升版時得記得回來改這一支，忘了改就會變成
+   *「找不到本版手冊」而不是「手冊沒同步」——訊息會把人帶往錯的方向。
+   * basename() 而不是自己 split("/")：Windows 的路徑分隔是反斜線。
+   */
+  const base = `Traffic_Analysis_Beginner_Guide_${SYSTEM_VERSION}`;
+  const files = walk(ROOT).filter((f) =>
+    [`${base}.pdf`, `${base}.docx`].includes(basename(f)),
+  );
   assert.ok(
     files.length > 0,
     "包裡找不到任何本版手冊——升版時可能忘了重新產生，或檔名對不上。",
@@ -73,6 +83,7 @@ test("包裡每一份手冊副本都必須來自同一次產生", () => {
   /* 同一種副檔名只能有一個雜湊。 */
   for (const kind of ["pdf", "docx"]) {
     const groups = [...byHash.entries()].filter(([k]) => k.startsWith(kind + ":"));
+    assert.ok(groups.length > 0, `包裡缺少本版 ${kind} 手冊。`);
     if (groups.length <= 1) continue;
     const detail = groups
       .map(([k, list]) => `  ${k.slice(kind.length + 1, kind.length + 13)}…  ${list.join("、")}`)

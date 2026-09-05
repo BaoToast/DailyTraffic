@@ -141,10 +141,18 @@ const confirmImport = async () => {
   if (await confirm.count()) { await confirm.click(); await page.waitForTimeout(2800); }
   await closeLeftovers();
 };
-/** 目前計畫已寫入幾個調查點——量畫面上的調查點下拉選項數。 */
+/**
+ * 目前計畫已寫入幾個調查點——打開調查點的複選清單，數裡面有幾項。
+ *
+ * 這裡過去數的是 <select> 的 <option>；調查點篩選改成可複選之後
+ * 那個下拉不存在了，數出來會恆為 0，這一支測試會變成「永遠不會紅」。
+ */
 const roadCount = async () => {
   await page.waitForTimeout(400);
-  return page.locator('.filters label:has-text("調查點") select option').count();
+  return page.evaluate(() => {
+    const btn = document.querySelector(".filters .multi-picker-btn");
+    return btn ? Number(btn.dataset.count || 0) : 0;
+  });
 };
 
 /* ── A：日期落在所選季度內 ── */

@@ -57,8 +57,21 @@ export type ComparisonReportTemplate = {
   compareProjectIds: string[];
   quarter: string;
   dayType: string;
-  roadFilter: string;
-  direction: string;
+  /**
+   * 調查點條件。
+   *
+   * 現行格式改成可複選，存的是 roadFilters（空陣列＝全部）。
+   * roadFilter 是 v20.43 以前的舊欄位（單一字串，"ALL" 代表全部），
+   * 保留為選填只為了讓**已經存過的範本仍然載得進來**——載入時會轉成陣列，
+   * 之後再存就只寫新欄位。兩個都不要當成必填。
+   */
+  roadFilters?: string[];
+  /** @deprecated 舊版單選格式；只在載入舊範本時讀取。 */
+  roadFilter?: string;
+  /** 車流方向條件。現行格式可複選（空陣列＝全部）。 */
+  directions?: string[];
+  /** @deprecated 舊版單選格式；只在載入舊範本時讀取。 */
+  direction?: string;
   metric: "actual" | "pcu";
   exportSections: Record<string, boolean>;
   /** 時段車種分析的匯出勾選；v19.1 以前存的範本沒有這個欄位，載入時會套用預設值。 */

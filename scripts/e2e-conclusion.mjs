@@ -197,7 +197,7 @@ ok(
 
 /* ── 加勾 PCU，草稿要變 ── */
 await page.locator('#conclusionStudio .conclusion-metrics label:has-text("當量交通量（PCU）") input').check();
-await page.locator('#conclusionStudio button:has-text("重新產生")').click();
+await page.locator('#conclusionStudio button:has-text("產生草稿")').click();
 await page.waitForTimeout(800);
 const text2 = await draft.inputValue();
 ok("加勾 PCU 之後草稿有變", text2 !== text1);
@@ -208,7 +208,7 @@ for (const label of await page.locator("#conclusionStudio .conclusion-field:has-
   const text = (await label.innerText()).trim();
   if (text === "上午尖峰小時") await label.locator("input").check();
 }
-await page.locator('#conclusionStudio button:has-text("重新產生")').click();
+await page.locator('#conclusionStudio button:has-text("產生草稿")').click();
 await page.waitForTimeout(800);
 const text3 = await draft.inputValue();
 const amLine = text3.split("\n").find((line) => /上午尖峰小時：/.test(line)) || "";
@@ -219,7 +219,7 @@ ok("尖峰的單位是 /hr 不是 /日", /輛\/hr/.test(amLine) && !/輛\/日/.t
 await page.locator('#conclusionStudio input[name="traffic-conclusion-scope"]').nth(2).check();
 await page.waitForTimeout(400);
 await page.locator('#conclusionStudio .conclusion-metrics label:has-text("季度之間的變動幅度") input').check();
-await page.locator('#conclusionStudio button:has-text("重新產生")').click();
+await page.locator('#conclusionStudio button:has-text("產生草稿")').click();
 await page.waitForTimeout(800);
 const text4 = await draft.inputValue();
 ok("季度區間的標頭寫出起訖", /【結論草稿】\d+Q\d～\d+Q\d/.test(text4), text4.split("\n")[0]);
@@ -258,7 +258,7 @@ await selects.first().selectOption({ index: 0 });
 await selects.nth(1).selectOption({ index: 0 });
 await page.locator("#conclusionStudio .conclusion-field:has-text('路段') input[type=checkbox]").last().check();
 await page.waitForTimeout(300);
-await page.locator('#conclusionStudio button:has-text("重新產生")').click();
+await page.locator('#conclusionStudio button:has-text("產生草稿")').click();
 await page.waitForTimeout(800);
 const text5 = await draft.inputValue();
 ok("挑不到資料時給的是說明而不是空白", text5.length > 60, text5.slice(0, 90));

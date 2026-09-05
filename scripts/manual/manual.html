@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8" />
-<title>全日交通量及車種組成 新手使用說明手冊 v20.42</title>
+<title>全日交通量及車種組成 新手使用說明手冊 v20.47</title>
 <style>
   :root{
     --navy:#17324d; --teal:#148c8c; --orange:#e58a2b; --ink:#203142;
@@ -104,7 +104,7 @@
     </tbody>
   </table>
 
-  <p class="stamp">系統版本：v20.42　更新日期：2026-09-03</p>
+  <p class="stamp">系統版本：v20.47　更新日期：2026-09-05</p>
 
   <div class="box info">
   <span class="t">本手冊只寫「現在怎麼用」</span>
@@ -170,7 +170,7 @@
     </tr>
     <tr>
       <td class="k">平日／假日</td>
-      <td>兩種不同的調查日。上班日與週末的車流型態差很多，所以要分開調查、分開統計。選「平日＋假日」時畫面會一起彙整或並列比較。</td>
+      <td>兩種不同的調查日。上班日與週末的車流型態差很多，所以要分開調查、分開統計。選「平日＋假日」時，同一個調查點會<strong>分成兩列</strong>（平日一列、假日一列），兩天的數字並排對照，不會加在一起。</td>
       <td>輛、PCU、%</td>
     </tr>
     <tr>
@@ -213,7 +213,7 @@
     <tr><td class="k">左側欄</td><td>「我的計畫」清單與建立計畫的 <span class="btn">＋</span> 按鈕；下方可勾選要跨計畫比較的計畫。</td></tr>
     <tr><td class="k">工具列</td><td>目前計畫名稱與狀態，右邊一整排功能鈕：<span class="btn">新手使用手冊 PDF</span> <span class="btn">Word</span> <span class="btn">管理計畫</span> <span class="btn">品質與定稿</span> <span class="btn">追溯與版本</span> <span class="btn">設定範本</span> <span class="btn">管理季度</span> <span class="btn">匯出備份</span> <span class="btn">匯入資料</span> <span class="btn">報表批次輸出中心</span> <span class="btn">.xls</span></td></tr>
     <tr><td class="k">三張管理卡片</td><td><span class="btn">管理名稱</span>（路段方向與別名）、<span class="btn">管理路口幾何</span>（支線與轉向）、<span class="btn">管理車種</span>（車種分類與當量）。</td></tr>
-    <tr><td class="k">篩選器</td><td>季度、日別、路段／路口、路口流量視角、車流方向、搜尋調查點。<strong>這一列會影響下面幾乎所有數字。</strong></td></tr>
+    <tr><td class="k">篩選器</td><td>季度、日別、路段／路口、路口流量視角、車流方向、搜尋調查點。<strong>這一列會影響下面幾乎所有數字。</strong>其中<strong>路段／路口</strong>與<strong>車流方向</strong>可以複選（見下方說明）。</td></tr>
     <tr><td class="k">PCU 當量係數</td><td>機車、小型車、大型車、特種車四格輸入欄，以及 <span class="btn">車種分類與新增當量</span> <span class="btn">路口轉向係數</span> <span class="btn">套用係數</span> <span class="btn">恢復預設</span>。</td></tr>
     <tr><td class="k">三張大數字卡</td><td>全日實際交通量、24 小時 PCU、尖峰小時當量交通量。</td></tr>
     <tr><td class="k">圖表區</td><td>路段排名、車種組成圓環圖、24 小時型態、同季平假日、歷季分析、跨計畫比較。</td></tr>
@@ -221,6 +221,28 @@
     <tr><td class="k">最下方</td><td><strong>時段車種分析（獨立區塊）</strong>——見第 9 章。</td></tr>
   </tbody>
 </table>
+<div class="box new">
+  <span class="t">路段／路口與車流方向可以複選</span>
+  <p>這兩個篩選點下去是<strong>勾選清單</strong>，可以一次挑好幾個
+  （例如同時看中山路與中正路口）。按鈕上會顯示目前選了什麼：
+  沒選是「全部調查點」，選一個顯示它的名字，選多個顯示「已選 N 個」。</p>
+  <p style="margin-top:2mm"><strong>一個都不勾＝全部，不是全部排除。</strong>
+  清單上方有<span class="btn">全部調查點</span>與<span class="btn">全選</span>兩顆，
+  可以一次清掉或一次勾滿。</p>
+  <p style="margin-top:2mm"><strong>複選只改變「看到哪幾筆」，不改變任何計算。</strong>
+  把所有調查點都勾起來，和一個都不勾，畫面上的每一格數字完全相同。</p>
+  <table>
+    <thead><tr><th style="width:34%">情況</th><th>說明</th></tr></thead>
+    <tbody>
+      <tr><td class="k">季度與日別</td><td>維持單選。季度決定整個儀表板分析哪一季，是<strong>分析參數</strong>而不是顯示篩選。</td></tr>
+      <tr><td class="k">換了路口流量視角</td><td>方向代碼整組換掉，所以已勾的方向會自動清空，避免留著篩不到東西的條件。</td></tr>
+      <tr><td class="k">合併路段之後</td><td>被合併掉的那一條若正被勾著，會自動改指向合併後的目標。</td></tr>
+      <tr><td class="k">「管理名稱」「管理路口幾何」</td><td>剛好只勾<strong>一條</strong>時，開啟後預設就是那一條；沒勾或勾了多條時用清單第一條。</td></tr>
+      <tr><td class="k">存好的匯出範本</td><td>舊範本（單選時代存的）照樣載得進來，會自動轉成複選格式。</td></tr>
+    </tbody>
+  </table>
+</div>
+
 
 <div class="box info">
   <span class="t">數字看起來不對？先看篩選器</span>
@@ -233,7 +255,8 @@
 <div class="step"><div class="h">步驟 1｜建立計畫</div>
   <p>按左側的 <span class="btn">＋</span>，輸入計畫名稱（例如「OO 路拓寬工程交通調查」）。不同工程或不同委託案，建議各建立一個計畫。</p></div>
 <div class="step"><div class="h">步驟 2｜匯入季度資料</div>
-  <p>按 <span class="btn">匯入資料</span>，先在「資料季度」填入季度（例如 <code>115Q2</code> 或 <code>2026Q2</code>），再點虛線框選取、或直接把 Excel 拖進去。可以一次選多份。</p></div>
+  <p>按 <span class="btn">匯入資料</span>，先在「資料季度」填入季度（例如 <code>115Q2</code> 或 <code>2026Q2</code>），再點虛線框選取、或直接把 Excel <strong>拖進去</strong>。可以一次選多份，拖曳經過時虛線框會亮起來。</p>
+  <p>檔案多的時候，畫面中央會出現「正在處理資料…」，下面一行寫著<strong>第幾／共幾份</strong>與正在讀的檔名。<strong>看到數字在跳就是還在跑，不必重按。</strong></p></div>
 <div class="step"><div class="h">步驟 3｜先讀「匯入前檢核報告」</div>
   <p>系統會先跳出報告，列出它從檔案裡讀到的調查點、日別、方向、車種、筆數與總車輛數。<strong>確認無誤才按確認</strong>；覺得怪就取消，回去檢查原始檔。</p></div>
 <div class="step"><div class="h">步驟 4｜確認名稱與方向</div>
@@ -375,7 +398,7 @@
 
 <div class="box warn">
   <span class="t">這一區也吃上方的篩選器</span>
-  <p>季度、日別、調查點與搜尋條件會影響這一區的內容；但「車流方向」下拉選單<strong>不影響</strong>它，因為這一區本來就會把每個方向各列一列。另外，日別選「平日＋假日」時，平日與假日會被視為不同的時段各自參與尖峰比較，尖峰時段欄會標示是「平日」還是「假日」的那一個小時。</p>
+  <p>季度、日別、調查點與搜尋條件會影響這一區的內容；但「車流方向」<strong>不影響</strong>它，因為這一區本來就會把每個方向各列一列。另外，日別選「平日＋假日」時，平日與假日會被視為不同的時段各自參與尖峰比較，尖峰時段欄會標示是「平日」還是「假日」的那一個小時。</p>
 </div>
 
 <!-- ══════════ 10 ══════════ -->
@@ -483,13 +506,22 @@
 
 <div class="box info">
   <span class="t">單位會依時段自動變</span>
-  <p><strong>全日</strong>是一整天的加總，單位是 輛/日、PCU/日；<strong>尖峰</strong>是某一個小時的量，單位才是 輛/hr、PCU/hr。日別選「平日＋假日」時全日是兩天的加總，單位另外標示；部分時段調查則標成「輛/調查時段」。這些不是文字修飾，用錯單位報告的數字就會被誤讀。</p>
+  <p><strong>全日</strong>是一整天的加總，單位是 輛/日、PCU/日；<strong>尖峰</strong>是某一個小時的量，單位才是 輛/hr、PCU/hr。部分時段調查則標成「輛/調查時段」。這些不是文字修飾，用錯單位報告的數字就會被誤讀。</p>
+<div class="box warn">
+  <span class="t">「平日＋假日」不會把兩天加起來</span>
+  <p>日別選「平日＋假日」時，明細表會多出一個<strong>日別</strong>欄，同一個調查點分成<strong>兩列</strong>：
+  平日一列、假日一列，每一格都是那一天自己的量，單位仍然是「輛/日」。匯出的 Excel 也是一樣。</p>
+  <p style="margin-top:2mm">一個平日量加上一個假日量，既不是全年平均日交通量、不是任何一天的日交通量，
+  也不是設計小時交通量，<strong>沒有可以引用的意義</strong>；要比較兩天請直接看這兩列。
+  唯一例外是<strong>車種組成</strong>那一頁——它看的是占比，分母用兩天合起來算是有意義的，
+  所以那裡會標「輛・平假日兩天合計」，字樣不同，不會混淆。</p>
+</div>
   <p style="margin-top:2mm">車種占比最多列前五種，其餘併成「其餘 N 種合計 X%」。某個時段沒有資料時會照樣列出並標「此時段無資料」，不會靜靜跳過讓人以為系統漏寫。</p>
 </div>
 
 <div class="box warn">
   <span class="t">草稿是草稿</span>
-  <p>它只整理系統裡已有的數字，不會判斷「這個數字合不合理」。開始手動修改之後系統就不再自動覆蓋（避免改到一半整段被蓋掉），要回到系統版本按 <span class="btn">重新產生</span>。正式引用前請核對原始調查檔與當量係數設定。</p>
+  <p>它只整理系統裡已有的數字，不會判斷「這個數字合不合理」。開始手動修改之後系統就不再自動覆蓋（避免改到一半整段被蓋掉），要回到系統版本按 <span class="btn">產生草稿</span>。正式引用前請核對原始調查檔與當量係數設定。</p>
 </div>
 
 <!-- ══════════ 12 ══════════ -->
@@ -677,8 +709,10 @@
   <p>統計範圍選<strong>單一季度 → 115Q2</strong>；時段只留<strong>全日</strong>；
   路段與方向<strong>都不勾</strong>（＝全部路段的合計列）；
   數字只勾<strong>車輛數、車種組成（輛數與百分比）</strong>；
-  敘述方式選<strong>依路段分段</strong>。按<span class="btn">產生草稿</span>，
-  每個路段就會各成一段，只寫您要的那兩項。</p>
+  敘述方式選<strong>依路段分段</strong>。條件都勾好之後，按<strong>草稿框右上角</strong>的
+  <span class="btn">產生草稿</span>，每個路段就會各成一段，只寫您要的那兩項。</p>
+  <p style="margin-top:2mm">產生鈕就在草稿框旁邊，所以按下去<strong>結果就在眼前</strong>，
+  不必再往回捲。</p>
 </div>
 
 <div class="box warn">
@@ -701,7 +735,7 @@
 <div class="box">
   <span class="t">三個要知道的行為</span>
   <p>・<strong>草稿的數字＝畫面的數字。</strong>取的是「時段車種分析」用的同一組計算與同一組 PCU 係數。<br />
-  ・<strong>可以直接手改。</strong>改過之後不會自動覆蓋；按<span class="btn">重新產生</span>會先跳出確認。<br />
+  ・<strong>可以直接手改。</strong>改過之後不會自動覆蓋；按<span class="btn">產生草稿</span>會先跳出確認。<br />
   ・<strong>條件挑不到資料時會明講</strong>，不會給您一片空白。</p>
 </div>
 

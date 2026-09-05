@@ -11,6 +11,147 @@ import {
   surveyRoadIdFromFileName,
 } from "./road-identity";
 import { appFetch, offlineMode } from "./app-fetch";
+
+/*
+ * 按下按鈕之後，把「剛長出來的結果」帶到看得見的地方。
+ *
+ * 使用者回報（交通服務水準）：「路段管理」按下『預覽修改影響』之後畫面停在原地，
+ * 不知道預覽已經長在下面，會以為程式沒反應。三支都做了同一件事的實測，
+ * 結論草稿產生器也有同樣狀況——「產生草稿」在條件面板的上方，草稿框在最下面。
+ *
+ * 規則刻意訂得保守，因為「畫面亂跳」比「不跳」更惱人：
+ *   ・結果已經整個看得到 → **完全不動**。按了之後結果就在原地的按鈕不受影響。
+ *   ・結果在視窗外       → 才捲動，而且只捲到剛好看得見。
+ *   ・使用者的系統設定要求減少動態效果 → 直接跳過去，不做平滑捲動。
+ *
+ * 只在「按了才會出現結果」的按鈕呼叫；每次輸入都會重畫的地方不要用，
+ * 那會變成打一個字畫面跳一次。
+ */
+/*
+ * 可複選的篩選下拉（調查點、車流方向共用）。
+ *
+ * 為什麼不用 <select multiple>：那個原生控制項在中文環境很難用——
+ * 要按住 Ctrl 才能複選、選了幾個看不出來、也放不下「全選／清除」。
+ * 這裡做成「按鈕＋勾選清單」，和交通服務水準表頭的漏斗是同一種操作。
+ *
+ * 空陣列 = 不設限（全部），**不是全部排除**。這一點在每一個呼叫端都一樣，
+ * 否則使用者把最後一個勾取消掉時，畫面會突然變成空的。
+ */
+function MultiPicker(props: {
+  label: string;
+  allLabel: string;
+  options: [string, string][];
+  value: string[];
+  onChange: (next: string[]) => void;
+  id?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(event.target as Node))
+        setOpen(false);
+    };
+    const esc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  const picked = props.value;
+  const summary =
+    picked.length === 0
+      ? props.allLabel
+      : picked.length === 1
+        ? (props.options.find(([id]) => id === picked[0])?.[1] ?? picked[0])
+        : `已選 ${picked.length} 個`;
+  return (
+    <div className="multi-picker" ref={boxRef}>
+      <button
+        type="button"
+        id={props.id}
+        className={picked.length ? "multi-picker-btn on" : "multi-picker-btn"}
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label={`${props.label}：${summary}`}
+        /* 可選項目數。端對端測試要在不打開面板的情況下數得出來
+           （面板打開時會蓋住其他元素，而測試常常在有視窗開著的狀態下量）。 */
+        data-count={props.options.length}
+      >
+        <span>{summary}</span>
+        <i aria-hidden="true">▾</i>
+      </button>
+      {open && (
+        <div className="multi-picker-panel">
+          <div className="multi-picker-head">
+            <button type="button" onClick={() => props.onChange([])}>
+              {props.allLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => props.onChange(props.options.map(([id]) => id))}
+            >
+              全選
+            </button>
+          </div>
+          <div className="multi-picker-list">
+            {props.options.length ? (
+              props.options.map(([id, name]) => (
+                <label key={id}>
+                  <input
+                    type="checkbox"
+                    checked={picked.includes(id)}
+                    onChange={() =>
+                      props.onChange(
+                        picked.includes(id)
+                          ? picked.filter((x) => x !== id)
+                          : [...picked, id],
+                      )
+                    }
+                  />
+                  <span>{name}</span>
+                </label>
+              ))
+            ) : (
+              <p className="multi-picker-empty">沒有可選的項目</p>
+            )}
+          </div>
+          <div className="multi-picker-foot">
+            一個都不勾＝{props.allLabel}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function revealResult(el: Element | null | undefined) {
+  if (!el || typeof el.getBoundingClientRect !== "function") return;
+  const rect = el.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  const fullyVisible = rect.top >= 0 && rect.bottom <= vh;
+  const fillsViewport = rect.top <= 0 && rect.bottom >= vh;
+  if (fullyVisible || fillsViewport) return;
+  const reduce =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  try {
+    el.scrollIntoView({
+      behavior: reduce ? "auto" : "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  } catch {
+    /* 舊瀏覽器不接受設定物件時，退回最陽春的用法 */
+    el.scrollIntoView();
+  }
+}
+
 /* 版號與更新日期的單一來源，畫面與測試讀同一份 */
 import { SYSTEM_VERSION, SYSTEM_UPDATED_AT } from "./system-release";
 import {
@@ -143,26 +284,22 @@ type User = {
 } | null;
 type DayType = "平日" | "假日";
 type DayMode = DayType | "平日＋假日";
-type Direction = "ALL" | string;
 const DAY_MODES: DayMode[] = ["平日", "假日", "平日＋假日"];
 /**
  * 匯出檔的車輛數／PCU 單位。
  *
  * 兩個維度都要看：
  *   ・調查涵蓋不滿 24 小時 → 那個總量是實測時段的合計，不是全日量
- *   ・日別選「平日＋假日」 → 匯出的是兩天的加總，不是任何一天的量
- * 少看任何一個，匯出檔就會把加總標成單日值。畫面上的 dailyActualUnit
- * 一直是這樣算的，這裡是讓匯出跟畫面用同一套規則。
+ * 「平日＋假日」會拆成各自的單日列，不會把兩天加成一個日交通量。
  */
-function exportActualUnit(day: DayMode, partial: boolean) {
-  if (day === "平日＋假日")
-    return partial ? "輛/平假日實測時段合計" : "輛/平假日合計";
+function exportActualUnit(_day: DayMode, partial: boolean) {
   return partial ? "輛/調查時段" : "輛/日";
 }
-function exportPcuUnit(day: DayMode, partial: boolean) {
-  if (day === "平日＋假日")
-    return partial ? "PCU/平假日實測時段合計" : "PCU/平假日合計";
+function exportPcuUnit(_day: DayMode, partial: boolean) {
   return partial ? "PCU/調查時段" : "PCU/日";
+}
+function dayQualifiedLabel(name: string, rowDay: string, mode: DayMode) {
+  return mode === "平日＋假日" ? `${name}（${rowDay}）` : name;
 }
 type Metric = "actual" | "pcu";
 type TrendMode = "平日＋假日" | DayType;
@@ -215,6 +352,19 @@ type Project = {
 type RoadAlias = { aliasKey: string; aliasName: string; roadId: string };
 type RoadSummary = {
   roadId: string;
+  /*
+   * 這一列是哪一種日別。
+   *
+   * 日別選「平日＋假日」時，同一個調查點會出現**兩列**（平日一列、假日一列），
+   * 而不是把兩天相加成一列。相加出來的數字沒有工程意義：
+   * 它不是 AADT、不是任何一天的日交通量、也不是設計小時交通量。
+   * 實測中山路 115Q1：平日 42,090 輛、假日 32,675 輛，相加是 74,765 輛，
+   * 卻被標成「輛／平假日合計」放在同一格裡。
+   *
+   * 同一個模式下的「尖峰」欄本來就已經是取兩天之中較大的那個、並標明是哪一天
+   * （不是把 2,779.5 與 2,134 相加），所以這裡是把總量補齊成同一種作法。
+   */
+  dayType: string;
   roadName: string;
   motorcycle: number;
   small: number;
@@ -1370,7 +1520,12 @@ export default function DashboardClient({ user }: { user: User }) {
   const [periodDisplay, setPeriodDisplay] =
     useState<PeriodDisplayMode>("quarter");
   const [dayType, setDayType] = useState<DayMode>("平日");
-  const [direction, setDirection] = useState<Direction>("ALL");
+  /* 車流方向。與調查點同理：空陣列＝不設限（全部），不是全部排除。 */
+  const [directions, setDirections] = useState<string[]>([]);
+  const matchesDirection = useCallback(
+    (code: string) => directions.length === 0 || directions.includes(code),
+    [directions],
+  );
   const [intersectionFlowMode, setIntersectionFlowMode] =
     useState<IntersectionFlowMode>("origin");
   // 尖峰時段以「整個調查點」為準（各方向相加＝合計，可與路口整體尖峰的報表對數字），
@@ -1385,7 +1540,24 @@ export default function DashboardClient({ user }: { user: User }) {
     "follow" | IntersectionFlowMode | "both"
   >("follow");
   const [search, setSearch] = useState("");
-  const [roadFilter, setRoadFilter] = useState("ALL");
+  /*
+   * 調查點篩選。空陣列＝不設限（全部），不是全部排除。
+   *
+   * 這個值原本是單一字串，同時扮演**兩個角色**：
+   *   (1) 分析篩選條件
+   *   (2)「目前選定的那一條路段」——開啟「管理名稱」「管理路口幾何」時用它決定
+   *       要管哪一條，合併路段之後還會被改寫成合併後的目標。
+   * 改成可複選之前必須先把這兩件事拆開：角色 (2) 一次只能有一條，
+   * 所以改用 soloRoadId（剛好只勾一條時才有值）。
+   */
+  const [roadFilters, setRoadFilters] = useState<string[]>([]);
+  /** 目前條件下「唯一選定的那一條調查點」；沒有或選了多條時是 null。 */
+  const soloRoadId = roadFilters.length === 1 ? roadFilters[0] : null;
+  /** 這一筆紀錄是否通過調查點篩選。空陣列＝全部通過。 */
+  const matchesRoad = useCallback(
+    (id: string) => roadFilters.length === 0 || roadFilters.includes(id),
+    [roadFilters],
+  );
   const [pcuFactors, setPcuFactors] = useState<PcuFactors>(PCU_FACTORS);
   const [pcuDraft, setPcuDraft] = useState<PcuFactors>(PCU_FACTORS);
   const [turnPcuFactors, setTurnPcuFactors] =
@@ -1414,6 +1586,30 @@ export default function DashboardClient({ user }: { user: User }) {
   const [compositionDirection, setCompositionDirection] = useState("ALL");
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
+  /*
+   * 匯入大量檔案時的逐檔進度。
+   *
+   * 舊版遮罩只寫一句「正在處理資料…」，一動也不動——檔案多的時候
+   * 使用者分不出「還在跑」和「當掉了」。改成同時顯示第幾份、共幾份、
+   * 以及正在讀哪一個檔名。
+   */
+  const [busyProgress, setBusyProgress] = useState("");
+  useEffect(() => {
+    const preventFileNavigation = (event: DragEvent) => {
+      if (!Array.from(event.dataTransfer?.types ?? []).includes("Files")) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest(".drag-zone")) return;
+      event.preventDefault();
+      if (event.type === "dragover" && event.dataTransfer)
+        event.dataTransfer.dropEffect = "none";
+    };
+    window.addEventListener("dragover", preventFileNavigation);
+    window.addEventListener("drop", preventFileNavigation);
+    return () => {
+      window.removeEventListener("dragover", preventFileNavigation);
+      window.removeEventListener("drop", preventFileNavigation);
+    };
+  }, []);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -1823,20 +2019,16 @@ export default function DashboardClient({ user }: { user: User }) {
         </label>
       )}
       {show.road && (
-        <label>
-          路段／路口
-          <select
-            value={roadFilter}
-            onChange={(e) => setRoadFilter(e.target.value)}
-          >
-            <option value="ALL">全部調查點</option>
-            {roadOptions.map(([id, name]) => (
-              <option value={id} key={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="filter-field">
+          <span className="filter-field-label">路段／路口</span>
+          <MultiPicker
+            label="路段／路口"
+            allLabel="全部調查點"
+            options={roadOptions}
+            value={roadFilters}
+            onChange={setRoadFilters}
+          />
+        </div>
       )}
       {show.flow && hasIntersectionRecords && (
         <label>
@@ -1845,7 +2037,8 @@ export default function DashboardClient({ user }: { user: User }) {
             value={intersectionFlowMode}
             onChange={(e) => {
               setIntersectionFlowMode(e.target.value as IntersectionFlowMode);
-              setDirection("ALL");
+              /* 換了視角，方向代碼整組換掉，舊條件留著只會篩不到東西 */
+              setDirections([]);
               setCompositionDirection("ALL");
             }}
           >
@@ -1855,20 +2048,16 @@ export default function DashboardClient({ user }: { user: User }) {
         </label>
       )}
       {show.direction && (
-        <label>
-          車流方向
-          <select
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as Direction)}
-          >
-            <option value="ALL">全部方向</option>
-            {directionOptions.map(([code, name]) => (
-              <option value={code} key={code}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="filter-field">
+          <span className="filter-field-label">車流方向</span>
+          <MultiPicker
+            label="車流方向"
+            allLabel="全部方向"
+            options={directionOptions}
+            value={directions}
+            onChange={setDirections}
+          />
+        </div>
       )}
     </div>
   );
@@ -2152,7 +2341,7 @@ export default function DashboardClient({ user }: { user: User }) {
   const directionOptions = useMemo(() => {
     const names = new Map<string, Set<string>>();
     analysisRecords
-      .filter((record) => roadFilter === "ALL" || record.roadId === roadFilter)
+      .filter((record) => matchesRoad(record.roadId))
       .forEach((record) =>
         names.set(
           record.directionCode,
@@ -2191,25 +2380,33 @@ export default function DashboardClient({ user }: { user: User }) {
     intersectionSettings,
     activeProject,
     intersectionFlowMode,
-    roadFilter,
+    matchesRoad,
   ]);
+  /* 條件的文字描述，KPI 與匯出摘要共用一份，避免兩處各寫各的。 */
+  const directionLabelText =
+    directions.length === 0
+      ? "全部方向"
+      : directions.length === 1
+        ? (directionOptions.find(([code]) => code === directions[0])?.[1] ??
+          directions[0])
+        : `${directions.length} 個方向`;
   const scoped = useMemo(
     () =>
       analysisRecords.filter(
         (r) =>
           r.quarter === quarter &&
           (dayType === "平日＋假日" || r.dayType === dayType) &&
-          (roadFilter === "ALL" || r.roadId === roadFilter) &&
+          matchesRoad(r.roadId) &&
           (r.roadName.includes(search) || r.roadId.includes(search)),
       ),
-    [analysisRecords, quarter, dayType, roadFilter, search],
+    [analysisRecords, quarter, dayType, matchesRoad, search],
   );
   const filtered = useMemo(
     () =>
       scoped.filter(
-        (r) => direction === "ALL" || r.directionCode === direction,
+        (r) => matchesDirection(r.directionCode),
       ),
-    [scoped, direction],
+    [scoped, matchesDirection],
   );
   /**
    * 目前篩選條件下，這批資料實際涵蓋了哪些時段。
@@ -2266,9 +2463,17 @@ export default function DashboardClient({ user }: { user: User }) {
       directionMap: Map<string, DirectionAccumulator>;
     };
     const map = new Map<string, SummaryAccumulator>();
+    /*
+     * 「平日＋假日」時，同一個調查點的平日與假日各成一列，不相加。
+     * 只用 roadId 當鍵就會把兩天併成一列，那正是這次要修掉的事。
+     */
+    const splitByDay = dayType === "平日＋假日";
+    const keyOf = (r: { roadId: string; dayType?: string }) =>
+      splitByDay ? `${r.roadId}|${r.dayType ?? ""}` : r.roadId;
     filtered.forEach((r) => {
-      const x = map.get(r.roadId) ?? {
+      const x = map.get(keyOf(r)) ?? {
         roadId: r.roadId,
+        dayType: splitByDay ? (r.dayType ?? "") : dayType,
         roadName: r.roadName,
         motorcycle: 0,
         small: 0,
@@ -2306,7 +2511,11 @@ export default function DashboardClient({ user }: { user: User }) {
       x.special = x.vehicles.special ?? 0;
       const v = sumVehicles(r),
         p = sumPcu(r, pcuFactors, turnPcuFactors, vehicleClassSettings),
-        peakKey = dayType === "平日＋假日" ? `${r.dayType}|${r.hour}` : r.hour;
+        /*
+         * 分列之後每個累加器只含一種日別，所以鍵用小時就夠，
+         * 尖峰時段的標籤也不會再多出「平日 」這種前綴。
+         */
+        peakKey = r.hour;
       x.total += v;
       x.pcu24 += p;
       x.hp.set(peakKey, (x.hp.get(peakKey) ?? 0) + p);
@@ -2328,8 +2537,16 @@ export default function DashboardClient({ user }: { user: User }) {
         x.b += v;
         x.bPcu += p;
       }
-      map.set(r.roadId, x);
+      map.set(keyOf(r), x);
     });
+    /*
+     * 調查點之間的先後仍照流量大小，但排序基準要用「這個調查點的整體量」，
+     * 否則平日列與假日列會被拆到表格的不同位置，失去對照的意義。
+     * 這只是排序用的中間值，不會出現在畫面或匯出的任何一格。
+     */
+    const roadOrder = new Map<string, number>();
+    for (const x of map.values())
+      roadOrder.set(x.roadId, (roadOrder.get(x.roadId) ?? 0) + x.total);
     return [...map.values()]
       .map((x) => {
         // 尖峰小時的求法要看資料的時間格：
@@ -2365,7 +2582,18 @@ export default function DashboardClient({ user }: { user: User }) {
         const { hp: _hp, directionMap: _directionMap, ...summary } = x;
         return { ...summary, directions };
       })
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) =>
+        splitByDay
+          ? /*
+             * 分成兩列的時候，同一個調查點的平日與假日要相鄰才好對照；
+             * 調查點之間仍照流量由大到小排。
+             */
+            (roadOrder.get(b.roadId) ?? 0) - (roadOrder.get(a.roadId) ?? 0) ||
+            a.roadId.localeCompare(b.roadId) ||
+            String(a.dayType).localeCompare(String(b.dayType), "zh-Hant")
+          : /* 只看一天時維持原本的排法：流量由大到小 */
+            b.total - a.total,
+      );
   }, [
     filtered,
     pcuFactors,
@@ -2409,6 +2637,24 @@ export default function DashboardClient({ user }: { user: User }) {
       ),
     [roadRows],
   );
+  const dailyTotals = useMemo(() => {
+    const byDay = new Map<string, { dayType: string; total: number; pcu24: number }>();
+    roadRows.forEach((row) => {
+      const current = byDay.get(row.dayType) ?? {
+        dayType: row.dayType,
+        total: 0,
+        pcu24: 0,
+      };
+      current.total += row.total;
+      current.pcu24 += row.pcu24;
+      byDay.set(row.dayType, current);
+    });
+    return [...byDay.values()].sort(
+      (a, b) =>
+        ["平日", "假日"].indexOf(a.dayType) -
+        ["平日", "假日"].indexOf(b.dayType),
+    );
+  }, [roadRows]);
   const directionPeaks = useMemo(
     () => ({
       combined: peakOf(
@@ -2464,7 +2710,7 @@ export default function DashboardClient({ user }: { user: User }) {
       .filter(
         (r) =>
           r.quarter === quarter &&
-          (roadFilter === "ALL" || r.roadId === roadFilter) &&
+          matchesRoad(r.roadId) &&
           (r.roadName.includes(search) || r.roadId.includes(search)),
       )
       .forEach((r) => {
@@ -2528,7 +2774,7 @@ export default function DashboardClient({ user }: { user: User }) {
   }, [
     analysisRecords,
     quarter,
-    roadFilter,
+    matchesRoad,
     search,
     pcuFactors,
     turnPcuFactors,
@@ -2655,8 +2901,9 @@ export default function DashboardClient({ user }: { user: User }) {
     }));
   }, [roadManageId, roadManagerRows]);
   useEffect(() => {
-    if (roadFilter !== "ALL" && !roadOptions.some(([id]) => id === roadFilter))
-      setRoadFilter("ALL");
+    /* 勾過的調查點若因為改名、合併或換季而不存在了就剔除，避免畫面莫名變空 */
+    const alive = roadFilters.filter((id) => roadOptions.some(([x]) => x === id));
+    if (alive.length !== roadFilters.length) setRoadFilters(alive);
     if (trendRoad !== "ALL" && !roadOptions.some(([id]) => id === trendRoad))
       setTrendRoad("ALL");
     if (
@@ -2664,11 +2911,11 @@ export default function DashboardClient({ user }: { user: User }) {
       !roadOptions.some(([id]) => id === compositionRoad)
     )
       setCompositionRoad("ALL");
-    if (
-      direction !== "ALL" &&
-      !directionOptions.some(([code]) => code === direction)
-    )
-      setDirection("ALL");
+    /* 勾過的方向若已不存在（換了流量視角、換季）就剔除 */
+    const aliveDirections = directions.filter((code) =>
+      directionOptions.some(([x]) => x === code),
+    );
+    if (aliveDirections.length !== directions.length) setDirections(aliveDirections);
     if (
       compositionDirection !== "ALL" &&
       !directionOptions.some(([code]) => code === compositionDirection)
@@ -2676,11 +2923,11 @@ export default function DashboardClient({ user }: { user: User }) {
       setCompositionDirection("ALL");
   }, [
     roadOptions,
-    roadFilter,
+    roadFilters,
     trendRoad,
     compositionRoad,
     directionOptions,
-    direction,
+    directions,
     compositionDirection,
   ]);
   const trendRows = useMemo(() => {
@@ -3060,12 +3307,7 @@ export default function DashboardClient({ user }: { user: User }) {
     () =>
       projects
         .filter((p) => compareIds.includes(p.id))
-        .map((p) => {
-          const rows = projectRecords(records, p.id).filter(
-            (r) =>
-              r.quarter === quarter &&
-              (dayType === "平日＋假日" || r.dayType === dayType),
-          );
+        .flatMap((p) => {
           /*
            * 每個計畫要用**它自己的** PCU 係數，不是目前開著那個計畫的。
            * 舊寫法一律用 pcuFactors／turnPcuFactors（activeProject 的那一組），
@@ -3075,15 +3317,26 @@ export default function DashboardClient({ user }: { user: User }) {
            */
           const ownPcu = readProjectPcuFactors(p.id);
           const ownTurnPcu = readProjectTurnPcuFactors(p.id);
-          return {
-            ...p,
-            actual: rows.reduce((s, r) => s + sumVehicles(r), 0),
-            pcu: rows.reduce(
-              (s, r) =>
-                s + sumPcu(r, ownPcu, ownTurnPcu, vehicleClassSettings),
-              0,
-            ),
-          };
+          const days: DayType[] =
+            dayType === "平日＋假日" ? ["平日", "假日"] : [dayType];
+          return days.flatMap((selectedDay) => {
+            const rows = projectRecords(records, p.id).filter(
+              (r) => r.quarter === quarter && r.dayType === selectedDay,
+            );
+            if (!rows.length) return [];
+            return [
+              {
+                ...p,
+                dayType: selectedDay,
+                actual: rows.reduce((s, r) => s + sumVehicles(r), 0),
+                pcu: rows.reduce(
+                  (s, r) =>
+                    s + sumPcu(r, ownPcu, ownTurnPcu, vehicleClassSettings),
+                  0,
+                ),
+              },
+            ];
+          });
         }),
     [
       projects,
@@ -3091,8 +3344,6 @@ export default function DashboardClient({ user }: { user: User }) {
       records,
       quarter,
       dayType,
-      pcuFactors,
-      turnPcuFactors,
       vehicleClassSettings,
     ],
   );
@@ -3175,7 +3426,7 @@ export default function DashboardClient({ user }: { user: User }) {
     const inScope = (r: TrafficRecord) =>
       r.quarter === quarter &&
       (dayType === "平日＋假日" || r.dayType === dayType) &&
-      (roadFilter === "ALL" || r.roadId === roadFilter) &&
+      matchesRoad(r.roadId) &&
       (r.roadName.includes(search) || r.roadId.includes(search));
     // 註：search 會一併影響匯出（periodExportRows 也走這個函式）。
     // 匯出中心的畫面有明確標示這件事，見「本次匯出範圍」那一段。
@@ -3256,7 +3507,7 @@ export default function DashboardClient({ user }: { user: User }) {
     activeRecords,
     quarter,
     dayType,
-    roadFilter,
+    matchesRoad,
     search,
     pcuFactors,
     turnPcuFactors,
@@ -3520,22 +3771,14 @@ export default function DashboardClient({ user }: { user: User }) {
    * partial 時一律改標「調查時段」。
    */
   const partialScope = surveyScope.partial;
-  const dailyActualUnit =
-    dayType === "平日＋假日"
-      ? partialScope
-        ? "輛／平假日實測時段合計"
-        : "輛／平假日合計"
-      : partialScope
-        ? "輛／調查時段"
-        : "輛／調查日";
-  const dailyPcuUnit =
-    dayType === "平日＋假日"
-      ? partialScope
-        ? "PCU／平假日實測時段合計"
-        : "PCU／平假日合計"
-      : partialScope
-        ? "PCU／調查時段"
-        : "PCU／日";
+  /*
+   * 「平日＋假日」不再相加，改成每個調查點出兩列（見 RoadSummary.dayType），
+   * 所以每一格都是**單日**的量，單位就跟只看一天的時候一樣。
+   */
+  /* 只有「平日＋假日」才需要多一欄告訴使用者這一列是哪一天 */
+  const showDayColumn = dayType === "平日＋假日";
+  const dailyActualUnit = partialScope ? "輛／調查時段" : "輛／調查日";
+  const dailyPcuUnit = partialScope ? "PCU／調查時段" : "PCU／日";
   /*
    * 歷季趨勢有自己的日別選擇（trendMode），和上方分析範圍的 dayType 是
    * **兩個各自獨立的 state**，預設值還不一樣（dayType 預設「平日」、
@@ -3543,22 +3786,15 @@ export default function DashboardClient({ user }: { user: User }) {
    * 所以它的單位必須依 trendMode 算，用 dailyActualUnit 會在什麼都不動的
    * 預設狀態下就把兩天相加的量標成「輛／調查日」。
    */
-  const trendActualUnit =
-    trendMode === "平日＋假日"
-      ? partialScope
-        ? "輛／平假日實測時段合計"
-        : "輛／平假日合計"
-      : partialScope
-        ? "輛／調查時段"
-        : "輛／調查日";
-  const trendPcuUnit =
-    trendMode === "平日＋假日"
-      ? partialScope
-        ? "PCU／平假日實測時段合計"
-        : "PCU／平假日合計"
-      : partialScope
-        ? "PCU／調查時段"
-        : "PCU／日";
+  /*
+   * 歷季趨勢的「平日＋假日」是**兩條線各自畫**（trendRows 一直把 weekday 與
+   * holiday 分成兩個欄位，被篩掉的那一條給 null 而不是 0），從來沒有相加。
+   * 但單位原本寫「輛／平假日合計」——而 trendMode 的預設值正是「平日＋假日」，
+   * 所以什麼都不動的預設畫面上，兩條單日的線掛著一個「合計」的單位。
+   * 每一個點都是某一天的量，單位就跟只看一天時一樣。
+   */
+  const trendActualUnit = partialScope ? "輛／調查時段" : "輛／調查日";
+  const trendPcuUnit = partialScope ? "PCU／調查時段" : "PCU／日";
   const intersectionFlowLabel =
     intersectionFlowLabelOf(intersectionFlowMode);
   const hasIntersectionRecords = activeRecords.some(
@@ -3966,23 +4202,22 @@ export default function DashboardClient({ user }: { user: User }) {
       quarter,
       dayType,
       roadLabel:
-        roadFilter === "ALL"
+        roadFilters.length === 0
           ? "全部調查點"
-          : (roadOptions.find(([id]) => id === roadFilter)?.[1] ?? roadFilter),
-      directionLabel:
-        direction === "ALL"
-          ? "全部方向"
-          : (directionOptions.find(([code]) => code === direction)?.[1] ??
-            direction),
+          : roadFilters.length === 1
+            ? (roadOptions.find(([id]) => id === roadFilters[0])?.[1] ?? roadFilters[0])
+            : `${roadFilters.length} 個調查點`,
+      directionLabel: directionLabelText,
       flowLabel: hasIntersectionRecords ? intersectionFlowLabel : null,
       coverageNote: surveyScope.partial ? surveyScopeNote : "",
-      roadCount: roadRows.length,
-      intersectionCount: intersectionOnlyRows.length,
+      roadCount: new Set(roadRows.map((row) => row.roadId)).size,
+      intersectionCount: new Set(intersectionOnlyRows.map((row) => row.roadId)).size,
       // 用 filtered 而不是 scoped：scoped 還沒套「車流方向」，
       // 會出現「1 個調查點、144 筆」這種兩個數字基準不同的句子。
       recordCount: filtered.length,
       total: totals.total,
       pcu24: totals.pcu24,
+      dayTotals: dailyTotals,
       /*
        * 車種組成的數字必須跟它自己印出來的標籤同一個來源。
        *
@@ -4016,7 +4251,7 @@ export default function DashboardClient({ user }: { user: User }) {
             }
           : null,
       topRoads: sortedRoads.slice(0, 3).map((row) => ({
-        name: row.roadName,
+        name: dayQualifiedLabel(row.roadName, row.dayType, dayType),
         total: row.total,
         pcu: row.pcu24,
       })),
@@ -4058,7 +4293,7 @@ export default function DashboardClient({ user }: { user: User }) {
       periodHighlights: highlights,
       roadSummary: roadDraftSummary,
       projectsCompare: projectComparisons.map((p) => ({
-        name: p.name,
+        name: dayQualifiedLabel(p.name, p.dayType, dayType),
         total: p.actual,
         pcu: p.pcu,
       })),
@@ -4102,9 +4337,9 @@ export default function DashboardClient({ user }: { user: User }) {
     activeProject,
     quarter,
     dayType,
-    roadFilter,
+    matchesRoad,
     roadOptions,
-    direction,
+    matchesDirection,
     directionOptions,
     hasIntersectionRecords,
     intersectionFlowLabel,
@@ -4114,6 +4349,7 @@ export default function DashboardClient({ user }: { user: User }) {
     intersectionOnlyRows,
     filtered,
     totals,
+    dailyTotals,
     analysisVehicleCatalog,
     directionPeaks,
     dayComparisons,
@@ -4450,7 +4686,18 @@ export default function DashboardClient({ user }: { user: User }) {
       skipped: string[];
       dayFromFileName: boolean;
     }> = [];
+    let parsedCount = 0;
+    /*
+     * 每讀完一份就讓出主執行緒一個「巨集任務」的時間。
+     * 只 await 一個已完成的 Promise 只會讓出微任務，瀏覽器不會重畫，
+     * 進度數字會整批卡到最後才一次跳完。
+     */
+    const breathe = () => new Promise((done) => setTimeout(done, 0));
     for (const file of files) {
+      setBusyProgress(
+        `第 ${parsedCount + 1}／${files.length} 份：${file.name}`,
+      );
+      await breathe();
       /*
        * SheetJS 0.20.3 已包含上游原型污染修正；這裡仍保留匯入前後的原型
        * 指紋檢查，作為解析第三方工作簿時的額外縱深防護。
@@ -4568,6 +4815,9 @@ export default function DashboardClient({ user }: { user: User }) {
         skipped: book.SheetNames.filter((n) => !usedSheets.includes(n)),
         dayFromFileName,
       });
+      parsedCount += 1;
+      setBusyProgress(`已讀完 ${parsedCount}／${files.length} 份`);
+      await breathe();
     }
     return {
       records: resolveDestinationTurns(parsed, activeProject, intersectionSettings),
@@ -4724,6 +4974,7 @@ export default function DashboardClient({ user }: { user: User }) {
       setToast(e instanceof Error ? e.message : "匯入失敗");
     } finally {
       setBusy(false);
+      setBusyProgress("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -4842,6 +5093,7 @@ export default function DashboardClient({ user }: { user: User }) {
       setToast(e instanceof Error ? e.message : "匯入失敗");
     } finally {
       setBusy(false);
+      setBusyProgress("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -5325,7 +5577,8 @@ export default function DashboardClient({ user }: { user: User }) {
   }
   function openRoadManager() {
     const first =
-      roadFilter !== "ALL" ? roadFilter : roadManagerRows[0]?.roadId;
+      /* 剛好只勾一條時就管那一條；沒勾或勾了多條就用清單第一條 */
+      soloRoadId ?? roadManagerRows[0]?.roadId;
     if (!first) return setToast("目前計畫尚無可管理的路段");
     setRoadManageId(first);
     setShowRoadManager(true);
@@ -5454,7 +5707,12 @@ export default function DashboardClient({ user }: { user: User }) {
             : r,
         ),
       );
-      if (roadFilter === source.roadId) setRoadFilter(target.roadId);
+      /* 被合併掉的調查點若正被勾著，改指向合併後的目標（去重） */
+      setRoadFilters((prev) =>
+        prev.includes(source.roadId)
+          ? [...new Set(prev.map((id) => (id === source.roadId ? target.roadId : id)))]
+          : prev,
+      );
       if (compositionRoad === source.roadId) setCompositionRoad(target.roadId);
       if (trendRoad === source.roadId) setTrendRoad(target.roadId);
       setRoadManageId(target.roadId);
@@ -5470,9 +5728,8 @@ export default function DashboardClient({ user }: { user: User }) {
     if (!intersectionManagerRows.length)
       return setToast("目前計畫尚未匯入路口轉向格式資料");
     const first =
-      roadFilter !== "ALL" &&
-      intersectionManagerRows.some((r) => r.roadId === roadFilter)
-        ? roadFilter
+      soloRoadId && intersectionManagerRows.some((r) => r.roadId === soloRoadId)
+        ? soloRoadId
         : intersectionManagerRows[0].roadId;
     setIntersectionManageRoad(first);
     setShowIntersectionManager(true);
@@ -5895,8 +6152,9 @@ export default function DashboardClient({ user }: { user: User }) {
       compareProjectIds: [...compareIds],
       quarter,
       dayType,
-      roadFilter,
-      direction,
+      /* 範本存的是條件值。舊範本存的是單一字串 roadFilter，還原時會相容處理 */
+      roadFilters: [...roadFilters],
+      directions: [...directions],
       metric: dayMetric,
       exportSections: { ...exportSections },
       periodExport: {
@@ -5927,8 +6185,24 @@ export default function DashboardClient({ user }: { user: User }) {
       setQuarter(report.quarter);
     if (DAY_MODES.includes(report.dayType as DayMode))
       setDayType(report.dayType as DayMode);
-    if (typeof report.roadFilter === "string") setRoadFilter(report.roadFilter);
-    if (typeof report.direction === "string") setDirection(report.direction);
+    /*
+     * 調查點條件目前存成陣列（可複選）。
+     * 舊範本存的是單一字串（"ALL" 或一個 roadId），這裡照樣讀得進來，
+     * 否則使用者存過的範本會在升版後靜靜失效。
+     */
+    if (Array.isArray(report.roadFilters))
+      setRoadFilters(
+        report.roadFilters.filter((x: unknown): x is string => typeof x === "string"),
+      );
+    else if (typeof report.roadFilter === "string")
+      setRoadFilters(report.roadFilter === "ALL" ? [] : [report.roadFilter]);
+    /* 方向條件目前存成陣列；舊範本的單一字串照樣讀得進來 */
+    if (Array.isArray(report.directions))
+      setDirections(
+        report.directions.filter((x: unknown): x is string => typeof x === "string"),
+      );
+    else if (typeof report.direction === "string")
+      setDirections(report.direction === "ALL" ? [] : [report.direction]);
     if (report.metric === "actual" || report.metric === "pcu")
       setDayMetric(report.metric);
     setExportSections((previous) => {
@@ -5973,7 +6247,11 @@ export default function DashboardClient({ user }: { user: User }) {
     const sheetPcuUnit = exportPcuUnit(dayType, surveyScope.partial);
     const roadDetails = roadOnlyRows.map((r) => ({
       季度: showQuarter(quarter),
-      日別: dayType,
+      /*
+       * 「平日＋假日」時每個調查點是兩列，日別要寫**這一列自己的**那一天，
+       * 不能寫成「平日＋假日」——那會讓兩列看起來都是兩天的合計。
+       */
+      日別: r.dayType || dayType,
       調查點編號: r.roadId,
       調查點名稱: r.roadName,
       // roadOnlyRows 已經只留下路段（surveyType === "road"），
@@ -5990,7 +6268,8 @@ export default function DashboardClient({ user }: { user: User }) {
     const intersectionDetails = intersectionOnlyRows.flatMap((r) =>
       r.directions.map((d) => ({
         季度: showQuarter(quarter),
-        日別: dayType,
+        /* 與路段格式同理：寫這一列自己的那一天 */
+        日別: r.dayType || dayType,
         流量視角: intersectionFlowLabel,
         路口編號: r.roadId,
         路口名稱: r.roadName,
@@ -6238,20 +6517,15 @@ export default function DashboardClient({ user }: { user: User }) {
       const sheetActualUnit = exportActualUnit(dayType, surveyScope.partial);
       const sheetPcuUnit = exportPcuUnit(dayType, surveyScope.partial);
       /*
-       * 欄位名稱本身也要跟著日別走：「平日＋假日」時這一欄是兩天的加總，
-       * 叫它「全日實際交通量」或「24小時PCU」都是錯的。
+       * 「平日＋假日」已經改成每個調查點出兩列（各自是單日的量），
+       * 所以不再有「平假日合計」這種欄位；欄名只需要看調查涵蓋是否滿 24 小時。
        */
-      const twoDay = dayType === "平日＋假日";
-      const pcu24Label = twoDay
-        ? `平假日合計PCU（${sheetPcuUnit}）`
-        : surveyScope.partial
-          ? `調查時段PCU（${sheetPcuUnit}）`
-          : `24小時PCU（${sheetPcuUnit}）`;
-      const totalLabel = twoDay
-        ? `平假日合計實際交通量（${sheetActualUnit}）`
-        : surveyScope.partial
-          ? `調查時段實際交通量（${sheetActualUnit}）`
-          : `全日實際交通量（${sheetActualUnit}）`;
+      const pcu24Label = surveyScope.partial
+        ? `調查時段PCU（${sheetPcuUnit}）`
+        : `24小時PCU（${sheetPcuUnit}）`;
+      const totalLabel = surveyScope.partial
+        ? `調查時段實際交通量（${sheetActualUnit}）`
+        : `全日實際交通量（${sheetActualUnit}）`;
       const ExcelJS = (await import("exceljs")).default;
       /*
        * exceljs 是動態載入的，型別要在這裡就地宣告；只寫這裡真的會用到的
@@ -6309,9 +6583,9 @@ export default function DashboardClient({ user }: { user: User }) {
       roadOnlyRows.forEach((r) =>
         data.addRow([
           showQuarter(quarter),
-          dayType,
+          r.dayType,
           r.roadId,
-          r.roadName,
+          dayQualifiedLabel(r.roadName, r.dayType, dayType),
           r.a,
           r.b,
           r.aPcu,
@@ -6385,11 +6659,11 @@ export default function DashboardClient({ user }: { user: User }) {
           r.directions.forEach((d) =>
             intersectionData.addRow([
               showQuarter(quarter),
-              dayType,
+              r.dayType,
               intersectionFlowLabel,
               r.roadId,
               r.roadName,
-              d.name,
+              dayQualifiedLabel(`${r.roadName}－${d.name}`, r.dayType, dayType),
               d.actual,
               d.pcu,
               d.peakPcu,
@@ -6857,7 +7131,12 @@ export default function DashboardClient({ user }: { user: User }) {
         pcu24Label,
       ]);
       projectComparisons.forEach((r) =>
-        projectSheet.addRow([r.name, dayType, r.actual, r.pcu]),
+        projectSheet.addRow([
+          dayQualifiedLabel(r.name, r.dayType, dayType),
+          r.dayType,
+          r.actual,
+          r.pcu,
+        ]),
       );
       projectSheet.columns = [
         { width: 38 },
@@ -7266,7 +7545,11 @@ export default function DashboardClient({ user }: { user: User }) {
        */
       const intersectionChartRows = intersectionOnlyRows.flatMap((row) =>
         row.directions.map((direction) => ({
-          name: direction.name,
+          name: dayQualifiedLabel(
+            `${row.roadName}－${direction.name}`,
+            row.dayType,
+            dayType,
+          ),
           actual: direction.actual,
           pcu: direction.pcu,
         })),
@@ -7576,14 +7859,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.42.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.47.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.42.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.47.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -7837,21 +8120,17 @@ export default function DashboardClient({ user }: { user: User }) {
                 <option>平日＋假日</option>
               </select>
             </label>
-            <label>
-              路段／路口
-              <select
+            <div className="filter-field">
+              <span className="filter-field-label">路段／路口</span>
+              <MultiPicker
                 id="roadFilterSelect"
-                value={roadFilter}
-                onChange={(e) => setRoadFilter(e.target.value)}
-              >
-                <option value="ALL">全部調查點</option>
-                {roadOptions.map(([id, name]) => (
-                  <option value={id} key={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                label="路段／路口"
+                allLabel="全部調查點"
+                options={roadOptions}
+                value={roadFilters}
+                onChange={setRoadFilters}
+              />
+            </div>
             {hasIntersectionRecords && (
               <label>
                 路口流量視角
@@ -7861,7 +8140,8 @@ export default function DashboardClient({ user }: { user: User }) {
                     setIntersectionFlowMode(
                       e.target.value as IntersectionFlowMode,
                     );
-                    setDirection("ALL");
+                    /* 換了視角，方向代碼整組換掉，舊條件留著只會篩不到東西 */
+                    setDirections([]);
                     setCompositionDirection("ALL");
                   }}
                 >
@@ -7876,20 +8156,18 @@ export default function DashboardClient({ user }: { user: User }) {
                 </small>
               </label>
             )}
-            <label>
-              車流方向
-              <select
-                value={direction}
-                onChange={(e) => setDirection(e.target.value as Direction)}
-              >
-                <option value="ALL">全部方向</option>
-                {directionOptions.map(([code, name]) => (
-                  <option value={code} key={code}>
-                    {name}（{code}）
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="filter-field">
+              <span className="filter-field-label">車流方向</span>
+              <MultiPicker
+                label="車流方向"
+                allLabel="全部方向"
+                options={directionOptions.map(
+                  ([code, name]) => [code, `${name}（${code}）`] as [string, string],
+                )}
+                value={directions}
+                onChange={setDirections}
+              />
+            </div>
             <label className="search">
               搜尋調查點
               <input
@@ -8005,19 +8283,29 @@ export default function DashboardClient({ user }: { user: User }) {
           <div className="kpi-grid">
             <article className="kpi">
               <span>全日實際交通量</span>
-              <strong>{formatter.format(totals.total)}</strong>
+              <div className="kpi-day-values">
+                {dailyTotals.map((item) => (
+                  <strong key={item.dayType}>
+                    {dayType === "平日＋假日" && <em>{item.dayType}</em>}
+                    {formatter.format(item.total)}
+                  </strong>
+                ))}
+              </div>
               <small>
                 {dailyActualUnit}・{dayType}・
-                {direction === "ALL"
-                  ? "全部方向"
-                  : (directionOptions.find(
-                      ([code]) => code === direction,
-                    )?.[1] ?? direction)}
+                {directionLabelText}
               </small>
             </article>
             <article className="kpi pcu">
               <span>{surveyScope.partial ? "調查時段PCU" : "24小時PCU"}</span>
-              <strong>{decimalFormatter.format(totals.pcu24)}</strong>
+              <div className="kpi-day-values">
+                {dailyTotals.map((item) => (
+                  <strong key={item.dayType}>
+                    {dayType === "平日＋假日" && <em>{item.dayType}</em>}
+                    {decimalFormatter.format(item.pcu24)}
+                  </strong>
+                ))}
+              </div>
               <small>{dailyPcuUnit}・依目前PCU係數</small>
             </article>
             <article className="kpi pcu peak-kpi">
@@ -8069,10 +8357,13 @@ export default function DashboardClient({ user }: { user: User }) {
               {renderBlockFilters({ quarter: true, day: true, road: true, flow: true })}
               <div className="bar-list">
                 {roadRows.map((r) => (
-                  <div className="bar-row" key={r.roadId}>
+                  <div className="bar-row" key={`${r.roadId}|${r.dayType}`}>
                     <div className="bar-label">
                       <strong>{r.roadName}</strong>
-                      <small>{r.roadId}</small>
+                      <small>
+                        {r.roadId}
+                        {showDayColumn ? `・${r.dayType}` : ""}
+                      </small>
                     </div>
                     <div className="bar-pair">
                       <div className="bar-track">
@@ -8168,7 +8459,14 @@ export default function DashboardClient({ user }: { user: User }) {
                   <strong>{formatter.format(compositionTotals.total)}</strong>
                   <small>
                     {compositionMode === "平日＋假日"
-                      ? "輛・平假日合計"
+                      ? /*
+                         * 車種組成面板的重點是**占比**，分母用兩天合起來算是有意義的
+                         * （「這一季調查到的車輛裡機車佔幾成」）。所以這裡刻意保留
+                         * 兩天合計，但一定要把單位講明白，不能標成「輛／調查日」。
+                         * 上方分析範圍的明細表則相反：那裡要的是單日的量，
+                         * 所以「平日＋假日」是分成兩列，不是相加。
+                         */
+                        "輛・平假日兩天合計"
                       : dailyActualUnit}
                   </small>
                 </div>
@@ -8404,12 +8702,15 @@ export default function DashboardClient({ user }: { user: User }) {
             {renderBlockFilters({ quarter: true, day: true })}
             <div className="project-bars">
               {projectComparisons.map((p, i) => (
-                <div key={p.id}>
+                <div key={`${p.id}|${p.dayType}`}>
                   <span className="compare-index">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <strong>{p.name}</strong>
+                    <strong>
+                      {p.name}
+                      {dayType === "平日＋假日" ? `（${p.dayType}）` : ""}
+                    </strong>
                     <small>
                       {p.role === "owner" ? "我的計畫" : "同事分享"}
                     </small>
@@ -8446,6 +8747,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   <thead>
                     <tr>
                       <th>路段</th>
+                      {showDayColumn && <th>日別</th>}
                       {/* 這四欄和右邊的「全日」欄是同一組數字
                           （方向A＋方向B＝全日），單位必須一致，
                           不能一邊寫「輛/日」一邊寫「輛/調查日」。 */}
@@ -8467,11 +8769,12 @@ export default function DashboardClient({ user }: { user: User }) {
                   </thead>
                   <tbody>
                     {roadOnlyRows.map((r) => (
-                      <tr key={r.roadId}>
+                      <tr key={`${r.roadId}|${r.dayType}`}>
                         <td>
                           <strong>{r.roadName}</strong>
                           <small>{r.roadId}</small>
                         </td>
+                        {showDayColumn && <td>{r.dayType || "—"}</td>}
                         <td>{formatter.format(r.a)}</td>
                         <td>{formatter.format(r.b)}</td>
                         <td>{decimalFormatter.format(r.aPcu)}</td>
@@ -8530,6 +8833,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   <thead>
                     <tr>
                       <th>路口</th>
+                      {showDayColumn && <th>日別</th>}
                       {intersectionDirectionCodes.flatMap((code) => [
                         <th key={`${code}-actual`}>
                           {code === "UNMAPPED"
@@ -8562,11 +8866,12 @@ export default function DashboardClient({ user }: { user: User }) {
                   </thead>
                   <tbody>
                     {intersectionOnlyRows.map((r) => (
-                      <tr key={r.roadId}>
+                      <tr key={`${r.roadId}|${r.dayType}`}>
                         <td>
                           <strong>{r.roadName}</strong>
                           <small>{r.roadId}</small>
                         </td>
+                        {showDayColumn && <td>{r.dayType || "—"}</td>}
                         {intersectionDirectionCodes.flatMap((code) => {
                           const d = r.directions.find(
                             (item) => item.code === code,
@@ -8656,21 +8961,17 @@ export default function DashboardClient({ user }: { user: User }) {
                   <option>平日＋假日</option>
                 </select>
               </label>
-              <label>
-                路段／路口
-                <select
+              <div className="filter-field">
+                <span className="filter-field-label">路段／路口</span>
+                <MultiPicker
                   id="periodRoadSelect"
-                  value={roadFilter}
-                  onChange={(e) => setRoadFilter(e.target.value)}
-                >
-                  <option value="ALL">全部調查點</option>
-                  {roadOptions.map(([id, name]) => (
-                    <option value={id} key={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  label="路段／路口"
+                  allLabel="全部調查點"
+                  options={roadOptions}
+                  value={roadFilters}
+                  onChange={setRoadFilters}
+                />
+              </div>
               <small className="period-filter-hint">與最上方篩選器同步</small>
             </div>
             <div className="period-controls">
@@ -8940,7 +9241,17 @@ export default function DashboardClient({ user }: { user: User }) {
         </section>
       </div>
       {toast && <div className="toast">{toast}</div>}
-      {busy && <div className="busy">正在處理資料…</div>}
+      {busy && (
+        <div className="busy">
+          <strong>正在處理資料…</strong>
+          {/*
+           * 進度那一行是使用者回報「上傳大量檔案後以為沒成功」之後補的。
+           * 只寫「正在處理資料…」而且一動也不動時，檔案一多就分不出
+           * 「還在跑」和「當掉了」。
+           */}
+          {busyProgress ? <small>{busyProgress}</small> : null}
+        </div>
+      )}
       {pendingImport && (
         <div className="modal-backdrop">
           <div className="modal workflow-modal">
@@ -9701,17 +10012,16 @@ export default function DashboardClient({ user }: { user: User }) {
               <p className="export-scope-summary">
                 目前將匯出：<b>{showQuarter(quarter)}</b>・<b>{dayType}</b>・
                 <b>
-                  {roadFilter === "ALL"
+                  {roadFilters.length === 0
                     ? "全部調查點"
-                    : (roadOptions.find(([id]) => id === roadFilter)?.[1] ??
-                      roadFilter)}
+                    : roadFilters.length === 1
+                      ? (roadOptions.find(([id]) => id === roadFilters[0])?.[1] ??
+                        roadFilters[0])
+                      : `${roadFilters.length} 個調查點`}
                 </b>
                 ・
                 <b>
-                  {direction === "ALL"
-                    ? "全部方向"
-                    : (directionOptions.find(([code]) => code === direction)?.[1] ??
-                      direction)}
+                  {directionLabelText}
                 </b>
                 {hasIntersectionRecords ? (
                   <>
@@ -11131,6 +11441,9 @@ function ConclusionStudio(props: {
     [rows, condition],
   );
 
+  /* 「產生草稿」在條件面板的上方，草稿框在最下面；按完要把使用者帶過去。 */
+  const draftBoxRef = useRef<HTMLDivElement | null>(null);
+
   const patch = (next: Partial<ConclusionCondition>) =>
     props.setCondition({ ...condition, ...next });
   const toggle = <T,>(list: T[], value: T): T[] =>
@@ -11164,19 +11477,30 @@ function ConclusionStudio(props: {
     );
     props.setEdited(false);
     props.notify("結論草稿已產生。");
+    /*
+     * 唯一的「產生草稿」就在草稿框旁邊，所以正常情況下結果本來就在眼前，
+     * revealResult() 會判斷「已經看得到」而完全不動。保留是為了少數例外
+     * ——視窗特別矮、或草稿變長把框推出畫面外。
+     * 等 React 把新草稿畫完再量位置，否則量到的是舊高度。
+     */
+    requestAnimationFrame(() => revealResult(draftBoxRef.current));
   }
 
   const scope = condition.scope;
 
   return (
     <div className="conclusion-body">
+      {/*
+        * 這裡原本另有一顆「產生草稿」，和草稿框旁邊那一顆呼叫同一個函式。
+        * 使用者指出實際動線用不到它：條件與條件範本都在下方，
+        *「哪怕條件沒變，為了確保資料正確，正常情況下仍會往下滑動確認條件」，
+        * 所以每一條動線最後都停在草稿框旁邊。兩顆同名按鈕反而讓人以為有差別，
+        * 也可能讓新手在還沒勾任何條件時就按下去，拿到一份用預設條件產生的草稿。
+        */}
       <div className="conclusion-head">
         <b className={matched ? "conclusion-count" : "conclusion-count zero"}>
           符合條件 {matched} 列
         </b>
-        <button type="button" className="button primary" onClick={generate}>
-          產生草稿
-        </button>
       </div>
 
       <div className="conclusion-grid">
@@ -11510,12 +11834,12 @@ function ConclusionStudio(props: {
         )}
       </div>
 
-      <div className="conclusion-output">
+      <div className="conclusion-output" ref={draftBoxRef}>
         <div className="conclusion-head">
           <strong>結論草稿</strong>
           <div className="conclusion-actions-row">
-            <button type="button" className="button secondary" onClick={generate}>
-              重新產生
+            <button type="button" className="button primary" onClick={generate}>
+              產生草稿
             </button>
             <button
               type="button"
@@ -11553,7 +11877,7 @@ function ConclusionStudio(props: {
         <textarea
           aria-label="結論草稿"
           value={props.draft}
-          placeholder="設定好上面的條件後，按「產生草稿」。"
+          placeholder="勾選好上面的條件之後，按右上角的「產生草稿」。"
           onChange={(e) => {
             props.setDraft(e.target.value);
             props.setEdited(true);
@@ -11561,7 +11885,7 @@ function ConclusionStudio(props: {
         />
         <p className="conclusion-hint">
           {props.edited
-            ? "您已手動修改過這份草稿；按「重新產生」會先詢問再覆蓋。"
+            ? "您已手動修改過這份草稿；按「產生草稿」會先詢問再覆蓋。"
             : "這段文字可以直接修改，改過之後不會被自動覆蓋。"}
         </p>
       </div>

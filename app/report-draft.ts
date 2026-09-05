@@ -76,6 +76,8 @@ export type ReportDraftContext = {
   recordCount: number;
   total: number;
   pcu24: number;
+  /** 平日＋假日模式下，各日必須分列，不得合併成一個日交通量。 */
+  dayTotals?: { dayType: string; total: number; pcu24: number }[];
   vehicles: { label: string; count: number; share: number }[];
   /** 尖峰小時；unit 由畫面端依實際視窗長度決定（可能不足 60 分鐘）。 */
   peak: { hour: string; pcu: number; unit: string } | null;
@@ -213,10 +215,16 @@ function sectionLines(key: DraftSectionKey, c: ReportDraftContext): string[] {
       return lines;
     }
     case "current": {
-      if (!c.total && !c.pcu24) return [];
-      const lines = [
-        `全日實際交通量合計 ${nf(c.total)} 輛，換算當量交通量 ${nf(c.pcu24, 1)} PCU。`,
-      ];
+      const splitDays = c.dayType === "平日＋假日" ? (c.dayTotals ?? []) : [];
+      if (!c.total && !c.pcu24 && !splitDays.length) return [];
+      const lines = splitDays.length
+        ? splitDays.map(
+            (item) =>
+              `${item.dayType}全日實際交通量 ${nf(item.total)} 輛，換算當量交通量 ${nf(item.pcu24, 1)} PCU。`,
+          )
+        : [
+            `全日實際交通量合計 ${nf(c.total)} 輛，換算當量交通量 ${nf(c.pcu24, 1)} PCU。`,
+          ];
       if (c.topRoads.length)
         lines.push(
           `交通量最高的調查點依序為 ${c.topRoads

@@ -205,6 +205,24 @@ test("平假日比較會算出正負向的變動", () => {
   assert.match(down, /假日較平日減少 20.0%（平假日比較一律同時統計兩種日別/);
 });
 
+test("平日＋假日的整體總結分日敘述，不把兩天偽裝成一個日交通量", () => {
+  const text = buildReportDraft(
+    context({
+      dayType: "平日＋假日",
+      total: 74765,
+      pcu24: 58000,
+      dayTotals: [
+        { dayType: "平日", total: 42090, pcu24: 31160.5 },
+        { dayType: "假日", total: 32675, pcu24: 26839.5 },
+      ],
+    }),
+    ["current"],
+  );
+  assert.match(text, /平日全日實際交通量 42,090 輛/);
+  assert.match(text, /假日全日實際交通量 32,675 輛/);
+  assert.doesNotMatch(text, /全日實際交通量合計 74,765 輛/);
+});
+
 test("部分時段調查的說明會寫進範圍段落", () => {
   const text = buildReportDraft(
     context({ coverageNote: "本筆非 24 小時調查：實際只調查 07:00～09:00，合計 2 小時。" }),
