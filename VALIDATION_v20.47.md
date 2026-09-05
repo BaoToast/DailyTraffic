@@ -52,4 +52,11 @@ v20.47 已補上保護與三項瀏覽器檢查；放置區內維持原匯入行�
 
 ## 發布後證據
 
-GitHub commit、Actions run 與帶版號／雜湊的公開網址核對結果，於發布完成後補入。
+- 功能發布 commit：`3e6a3bd5d9882c20a2cc31dc3a5b918956f11880`。
+- GitHub Actions「建置與測試」run `33941646403`：成功。
+- GitHub Pages「pages build and deployment」run `33941645715`：成功。
+- 公開首頁以快取參數重新讀取後，引用本版主資產 `assets/index-fY1Kqilq.js`；
+  該雜湊資產內含 `v20.47`、分日顯示與拖放防護程式。
+- `manuals/Traffic_Analysis_Beginner_Guide_v20.47.pdf` 與
+  `VALIDATION_v20.47.md` 均回傳 200。
+- v20.46 舊手冊與舊主資產 `assets/index-Bu23c4Qj.js` 均回傳 404。
