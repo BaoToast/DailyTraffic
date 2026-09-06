@@ -242,4 +242,19 @@ IndexedDB 一直是 0 筆——而「不可以翻倍」那一項照樣全綠（0
 
 ## 證據界線
 
-本包尚未推送，因此沒有 GitHub Actions run 編號，也沒有線上網址的核對結果。
+- 功能發布 commit：`347b0ade98b2711344125f423b57aa66e4fc7af0`
+- GitHub Actions「建置與測試」：run
+  [`34007255279`](https://github.com/BaoToast/DailyTraffic/actions/runs/34007255279)，
+  結果 `success`。
+- GitHub Pages：run
+  [`34007254602`](https://github.com/BaoToast/DailyTraffic/actions/runs/34007254602)，
+  結果 `success`。
+- 2026-09-06 以帶版號／雜湊及快取參數的公開網址核對：
+  - `manuals/Traffic_Analysis_Beginner_Guide_v20.49.pdf`：HTTP 200。
+  - `assets/index-DVx-O7O3.js`：HTTP 200，SHA-256
+    `e3554afdc62b3b8cdd9c3bd874cd87fce5ca113dbd0302baf38c086186fc6257`，
+    且內含 `v20.49`。
+  - 網站首頁引用上述 v20.49 主資產。
+  - v20.47 主資產、手冊與驗證報告皆為 HTTP 404，沒有殘留舊版發布檔。
+
+以上線上證據只證明 GitHub Pages 正式發布版本；本輪未建立或發布其他網站。
