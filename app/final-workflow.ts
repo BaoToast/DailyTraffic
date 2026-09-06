@@ -1,4 +1,8 @@
-import { peakFromBuckets, surveyCoverage } from "./partial-day.ts";
+import {
+  peakFromBuckets,
+  surveyCoverage,
+  parseTimeRange,
+} from "./partial-day.ts";
 
 export type ReviewStatus = "草稿" | "待確認" | "已確認" | "定稿";
 
@@ -277,6 +281,61 @@ export function validateImport(
         `系統會照原名稱匯入，不會自動把它們併成同一類。`,
     );
   }
+  /*
+   * 混合時間格：同一組資料裡有些時段是 15 分鐘一格、有些是整點一格。
+   *
+   * rollingPeak（partial-day.ts）用「眾數格長」算出 needed = 60 / 格長，
+   * 然後**數格數**、不是累計分鐘數。眾數是 60 時 needed = 1，等於任何一列
+   * 都被當成一個完整小時；「全日整點＋尖峰時段拆 15 分鐘」這種版型會讓
+   * 尖峰那一小時只取到其中一格。實測：整點 100／15 分鐘格 50 的資料，
+   * 真正的尖峰小時是 07 時的 200，系統卻報 00:00~01:00 的 100。
+   * 總量守恆，所以任何以總量為基礎的檢查都抓不到。
+   *
+   * 這裡**只做偵測與提醒，不改計算**。修正挑選邏輯會變更計算口徑，
+   * 那是使用者要拍板的決定，不是可以順手做掉的事。
+   * 路口轉向已加同一類提醒，這一支補齊；判準（兩成門檻＋至少重複兩次）
+   * 與 g2151f 的 `lib/traffic.ts` 相同。
+   *
+   * 判準要抓「兩種規律的格長」，不是「格長不完全一致」：每一種都要佔
+   * 該組的兩成以上才算一個規律，否則調查中間的休息時段或零星異常格
+   * 會一直誤報（路口轉向那邊實測過，只看『不一致』會誤報 19/55）。
+   */
+  const mixedIntervalGroups: string[] = [];
+  for (const [group, hours] of hoursByGroup) {
+    const lengths = new Map<number, number>();
+    for (const hour of hours) {
+      const range = parseTimeRange(hour);
+      if (!range) continue;
+      const length = range.end - range.start;
+      if (length <= 0) continue;
+      lengths.set(length, (lengths.get(length) ?? 0) + 1);
+    }
+    const total = [...lengths.values()].reduce((sum, n) => sum + n, 0);
+    const regular = [...lengths.entries()]
+      /*
+       * 兩個條件都要：佔兩成以上，而且**至少重複兩次**。
+       *
+       * 少了「至少兩次」會誤報：短時段資料若只漏一列，相鄰間隔可能只有 4 個，
+       * 那一個 30 分鐘的跳號就占 25%，於是全部都是 60 分鐘的資料被標成
+       * 「混用 30／60 分鐘」。實測：06:00~07:00、07:00~08:00、08:00~08:30、
+       * 08:30~09:30 這四列會誤報。一次性的跳號不是「另一種規律」。
+       *
+       * 路口轉向 v2.1.51-final 已採同一組判準；這一支補齊，兩支才真的一致
+       * （本檔原本的註解寫「兩支行為一致」，但當時只有兩成門檻，並不一致）。
+       */
+      .filter(([, count]) => total > 0 && count >= 2 && count / total >= 0.2)
+      .sort((a, b) => a[0] - b[0]);
+    if (regular.length > 1)
+      mixedIntervalGroups.push(
+        `${group}（${regular.map(([len, n]) => `${len} 分鐘 × ${n} 格`).join("、")}）`,
+      );
+  }
+  if (mixedIntervalGroups.length)
+    warnings.push(
+      `下列資料混用了不同長度的時間格：${mixedIntervalGroups.join("；")}。` +
+        `系統推算尖峰小時時是以最常出現的格長為準，該值可能不是真正的一小時流量，` +
+        `請人工核對尖峰時段的數字。（全日總量不受影響。）`,
+    );
   if (duplicateKeys.size)
     warnings.push(`匯入檔內有 ${duplicateKeys.size} 組重複鍵值`);
   if (incompleteGroups.length)
@@ -352,7 +411,7 @@ export type AnomalyAlert = {
   /*
    * 顯示用的名稱。上面的 roadId／direction／vehicle 是鍵值，用來分組與篩選，
    * 不能拿去給人看——使用者替調查點、支線、車種改過名之後，畫面其他地方
-   * 都顯示新名稱，只有異常提醒還印鍵值（13545-01、駛出路口A、custom:大貨車）。
+   * 都顯示新名稱，只有異常提醒還印鍵值（999996-01、駛出路口A、custom:大貨車）。
    * 沒有傳 labels 進來時這三個欄位就等於鍵值，行為與舊版完全相同。
    */
   roadLabel: string;
@@ -579,7 +638,7 @@ export function detectAnomalies(
  *
  * 與舊版的差別只有一處：分隔符號統一成「／」。舊版是
  * `key.replace("|", "／")`——JavaScript 的 replace 只換第一個，所以輸出會變成
- *「13545-01／假日|西行(往水管路)」，前一個分隔是全形斜線、後一個卻還是直線；
+ *「999996-01／假日|西行(往示範管路)」，前一個分隔是全形斜線、後一個卻還是直線；
  * 而車種占比那一類用的是 replaceAll，三段都是斜線。同一份清單出現兩種寫法。
  * 現在一律 replaceAll，數值與判定條件完全沒有改變。
  */
@@ -603,7 +662,7 @@ function alert(
   /*
    * 這一行字會出現在三個地方：畫面的異常提醒表、Excel 的「品質檢核」工作表、
    * 以及報告文字草稿。所以它必須寫使用者看得懂的名稱，不能寫鍵值——
-   * 報告草稿裡冒出 `13545-01／平日／駛出路口A custom:大貨車占比變動`
+   * 報告草稿裡冒出 `999996-01／平日／駛出路口A custom:大貨車占比變動`
    * 是直接會被寫進交付文件的。
    */
   const label = [roadLabel, dayType, directionLabel].join("／");

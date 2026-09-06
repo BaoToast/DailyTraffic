@@ -10,9 +10,43 @@ export function surveyRoadIdFromFileName(fileName: string) {
   return normalizeRoadId(match?.[0] ?? stem);
 }
 
+/*
+ * 檔名開頭那串「案號＋場次＋點位」代號，有兩種寫法：
+ *   有分隔符：999996T7-01-示範建國路.xlsx        → 示範建國路
+ *   無分隔符：999999T1501示範北路示範一路口.xlsx → 示範北路示範一路口
+ *
+ * 這一條專責處理**無分隔符**的寫法。舊版只有上面那條需要分隔符的規則，
+ * 切不到就整條跳過、整個檔名原樣變成路段名稱——實測使用者的 37 份真實檔
+ * 全部沒有分隔符，於是畫面上顯示的是
+ * 「999999T1506示範北路示範二路示範東路（999999T1506示範北路示範二路示範東路）」。
+ *
+ * 影響不只是難看。resolveImportedRoad() 判斷「這個檔是不是既有路段」是**先比
+ * 名稱**（roadNameMatchKey）才比編號的，而代號裡的場次號會逐季遞增
+ * （T15 → T16），名稱跟著變，於是下一季匯入同一條路時名稱與編號都對不上，
+ * 系統會當成另一條新路段、跳出詢問視窗，歷季趨勢斷成兩截。
+ * 實測：999999T1501示範北路… 與 999999T1601示範北路… 的名稱比對鍵不同；
+ * 對照組 999996T7-01-示範建國路 與 999996T8-01-示範建國路 則同為「示範建國路」。
+ *
+ * 三支系統對同一個檔名的判斷要一致：路口轉向 normalizeIntersectionName()
+ * 與交通服務水準 roadFromFile() 早就有剝這段前綴，只有本系統沒有。
+ *
+ * 兩點刻意的取捨：
+ *  ・無分隔符的 T 代號只接受 3 或 4 碼（例如 T601、T1501）。不能使用 `\d{2,}`
+ *    一路貪婪到第一個中文字，否則「T1501186縣道」會連路名開頭的 186 一起剝掉。
+ *    調查點編號本身仍維持原樣不動。
+ *  ・**不剝尾端的平日／假日字樣**。剝掉會讓同一路段的平日檔與假日檔收斂成同一
+ *    個名稱，下次匯入時 nameMatches 會同時命中兩筆而落到詢問視窗，反而更糟；
+ *    而平假日字樣不會逐季改變，留著不影響跨季比對。
+ *  ・案號要求 4 碼以上（真實案號為 5 碼），與路口轉向同一個門檻，避免把
+ *    「台1」「186」這類路名裡的數字誤判成案號。
+ */
+const UNSEPARATED_SURVEY_CODE = /^\s*\d{4,}\s*T\s*S?\s*(?:\d{4}|\d{3})\s*[-_－.]?\s*/i;
+
 export function roadNameFromFileName(fileName: string) {
   const stem = fileName.normalize("NFKC").replace(/\.[^.]+$/, "").trim();
   let name = stem.replace(/^.*?\d+\s*T\s*\d+\s*[-_]\s*\d{1,2}\s*[-_]?\s*/i, "").trim();
+  /* 有分隔符的規則沒剝到東西時，才輪到無分隔符的寫法，避免重複剝一次。 */
+  if (name === stem) name = stem.replace(UNSEPARATED_SURVEY_CODE, "").trim();
   let previous = "";
   while (name && name !== previous) {
     previous = name;
@@ -37,8 +71,20 @@ export function roadNameMatchKey(value: string) {
     .replace(/[\s　，,。．.、:：_]/g, "");
 }
 
+/*
+ * 「這個名稱其實只是代號、不是真的路段名」。
+ *
+ * resolveImportedRoad() 用它決定「名稱比不上、但編號對得上」時可不可以直接
+ * 認定是同一條路段。原本只認得有分隔符的代號（999996-01）；檔名沒有分隔符時
+ * 退回的代號長 999999T1501 這樣，會被誤認成真的取過名字，於是那條救援規則
+ * 對使用者的檔名永遠不成立。
+ */
 export function isFallbackRoadName(value: string) {
-  return /^\d+(?:\s*T\s*\d+)?\s*[-_－]\s*\d{1,2}$/i.test(String(value ?? "").normalize("NFKC").trim());
+  const text = String(value ?? "").normalize("NFKC").trim();
+  return (
+    /^\d+(?:\s*T\s*\d+)?\s*[-_－]\s*\d{1,2}$/i.test(text) ||
+    /^\d{4,}\s*T\s*S?\s*(?:\d{4}|\d{3})$/i.test(text)
+  );
 }
 
 /*

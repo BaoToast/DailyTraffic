@@ -2722,6 +2722,22 @@ export default function DashboardClient({ user }: { user: User }) {
       directionOptions,
     ],
   );
+
+  /*
+   * 尖峰卡片的單位只算一次，抬頭與逐方向共用。
+   *
+   * 舊版抬頭走 cellUnitFor（會依實際時段長度給「PCU/該時段（45 分鐘）」），
+   * 下面逐方向卻寫死「PCU／小時」——尖峰視窗湊不滿或超過 60 分鐘時，
+   * 同一張卡片對同一個數字給兩種單位。單位只能有一個來源。
+   */
+  const peakCardUnit = useMemo(
+    () =>
+      cellUnitFor("pcu", "am", directionPeaks.combined[0]).replace(
+        "PCU/hr",
+        "PCU／小時",
+      ),
+    [directionPeaks],
+  );
   const dayComparisons = useMemo(() => {
     type DayComparisonAccumulator = Omit<
       DayComparison,
@@ -6307,7 +6323,7 @@ export default function DashboardClient({ user }: { user: User }) {
      * 單位要同時看「調查涵蓋」與「日別」。
      *
      * 只看 surveyScope.partial 的話，日別選「平日＋假日」時匯出的是兩天的
-     * 加總，卻會被標成「輛/日」——實測 14013T601 一份檔案匯出 12,838 輛
+     * 加總，卻會被標成「輛/日」——實測 999998T601 一份檔案匯出 12,838 輛
      * 標成全日實際交通量，而那是平日 9,392 加假日 3,446 的合計，
      * 比真正的平日量高了 37%。畫面上的 KPI 早就標「輛／平假日合計」了，
      * 匯出檔卻沒有跟上，同一份檔案裡的另一張工作表也標成「平日＋假日全部時段」，
@@ -7935,14 +7951,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.49.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.53.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.49.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.53.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -8390,17 +8406,20 @@ export default function DashboardClient({ user }: { user: User }) {
                 {decimalFormatter.format(directionPeaks.combined[1])}
               </strong>
               <small>
-                {cellUnitFor("pcu", "am", directionPeaks.combined[0]).replace(
-                  "PCU/hr",
-                  "PCU／小時",
-                )}
-                ・全部方向同一時段 {directionPeaks.combined[0]}
+                {peakCardUnit}・全部方向同一時段 {directionPeaks.combined[0]}
               </small>
               <div className="peak-directions">
                 {directionPeaks.items.map((item) => (
                   <span key={item.code}>
                     <b>{item.name}</b>
-                    {decimalFormatter.format(item.peak[1])} PCU／小時
+                    {/*
+                        單位要跟抬頭同一支算出來的走。舊版這裡寫死「PCU／小時」，
+                        但抬頭是 cellUnitFor 算的；尖峰視窗湊不滿或超過 60 分鐘時
+                        （例如 07:00～07:45、07:00～09:00），抬頭會寫
+                        「PCU/該時段（45 分鐘）」而這裡仍寫「PCU／小時」，
+                        同一張卡片對同一個數字給兩種單位。
+                     */}
+                    {decimalFormatter.format(item.peak[1])} {peakCardUnit}
                     <em>
                       {item.peak[0]}
                       {/* 同一個代碼涵蓋多個調查點時一定要講，否則會被當成
@@ -8412,7 +8431,8 @@ export default function DashboardClient({ user }: { user: User }) {
                 <span>
                   <b>全部方向同時段合計</b>
                   {decimalFormatter.format(directionPeaks.combined[1])}{" "}
-                  PCU／小時<em>{directionPeaks.combined[0]}</em>
+                  {peakCardUnit}
+                  <em>{directionPeaks.combined[0]}</em>
                 </span>
               </div>
             </article>

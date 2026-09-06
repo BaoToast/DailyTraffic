@@ -26,6 +26,31 @@ async function sourceFiles() {
       continue;
     }
     for (const entry of entries)
+      if (/\.(mjs|ts|tsx|js|json)$/.test(entry)) files.push(`${dir}/${entry}`);
+  }
+  files.push("【更新說明】請先讀我.txt");
+  return files;
+}
+
+/**
+ * 給「不得出現實際站號」用的檔案清單——比 sourceFiles() 多一個 app/。
+ *
+ * 為什麼不直接把 app/ 併進 sourceFiles()：上面那支依賴檢查也會用它，而
+ * app/ 會匯入 next 的模組（layout 的型別、headers、navigation），那不是真的
+ * 套件、是 vinext 在建置時
+ * 提供的墊片（package.json 裡本來就不該有 next）。兩支的關注點不同，
+ * 檔案清單也就分開。
+ */
+async function leakScanFiles() {
+  const files = await sourceFiles();
+  for (const dir of ["app"]) {
+    let entries = [];
+    try {
+      entries = await readdir(new URL(dir + "/", root));
+    } catch {
+      continue;
+    }
+    for (const entry of entries)
       if (/\.(mjs|ts|tsx|js)$/.test(entry)) files.push(`${dir}/${entry}`);
   }
   return files;
@@ -258,13 +283,31 @@ test("交付包裡沒有任何試算表檔案（避免真實調查資料被提�
  *
  * 光是刪掉檔案不夠：若測試或註解仍寫著實際站號與調查點名稱，
  * 一樣會把委託案的調查點公開出去。示範資料一律用「示範」開頭的名稱
- * 與 A00T00-01 這種假站號。
+ * 與 A00T00-01（或六碼 99999x 開頭的假案號）這種假站號。
+ *
+ * ── 2026-09-06 補強，起因是這一支自己漏掉的兩個缺口 ──
+ *
+ * 一、**掃描範圍不含 app/。** 規則寫的是「原始碼裡」，實際只掃 tests/ 與
+ *     scripts/。實測補上 app/ 之後，立刻掃出 app/final-workflow.ts、
+ *     app/period-analysis.ts、app/DashboardClient.tsx 的註解裡寫著實際站號。
+ * 二、**形狀只認得「T ＋ 兩碼 ＋ 兩碼」。** 實際檔名還有兩種寫法：
+ *     場次只有一碼（999996T7-01）、以及完全沒有分隔符（999999T1501）。
+ *     兩種都躲得過舊的判斷式，實測倉庫裡本來就有這樣的殘留。
+ *
+ * 示範案號改用六碼 99999x：站號要能被 normalizeRoadId() 正常解析才測得到
+ * 東西，而 A00 開頭不是數字，走不到那條路徑；正式案號形狀只有四或五碼，
+ * 因此不再以寬鬆的前綴豁免任何可能的正式案號。
  */
 test("原始碼裡沒有實際的站號或調查點名稱", async () => {
-  /* 真實站號的形狀：5 碼計畫編號 ＋ T ＋ 兩碼 ＋ 兩碼。示範站號以 A00 開頭。 */
-  const stationPattern = /(?<![A-Za-z0-9])(?!A00)\d{5}T\d{2}-?\d{2}(?![0-9])/;
+  /*
+   * 真實站號的三種形狀都要抓：有分隔符且場次兩碼、有分隔符且場次一碼、
+   * 完全沒有分隔符；另含不帶 T 的正規化結果。六碼示範案號不會命中
+   * 四或五碼正式案號形狀，因此不需要另開豁免缺口。
+   */
+  const stationPattern =
+    /(?<![A-Za-z0-9])\d{4,5}\s*T\s*S?\s*\d{1,4}\s*[-_－]?\s*\d{0,2}(?![0-9])|(?<![A-Za-z0-9])\d{5}-\d{2}(?![0-9])/;
   const offenders = [];
-  for (const file of await sourceFiles()) {
+  for (const file of await leakScanFiles()) {
     const source = await readFile(new URL(file, root), "utf8");
     const match = source.match(stationPattern);
     if (match) offenders.push(`${file} → ${match[0]}`);
@@ -272,8 +315,28 @@ test("原始碼裡沒有實際的站號或調查點名稱", async () => {
   assert.deepEqual(
     offenders,
     [],
-    "原始碼裡出現實際站號；示範資料請改用 A00T00-01 這類假站號",
+    "原始碼裡出現實際站號；示範資料請改用 A00T00-01 或六碼假案號",
   );
+});
+
+test("內建基準資料只保留匿名識別資訊", async () => {
+  const data = JSON.parse(await readFile(new URL("app/traffic-data.json", root), "utf8"));
+  assert.equal(data.project?.id, "demo-project");
+  assert.match(String(data.project?.name ?? ""), /^示範/);
+  assert.match(String(data.project?.owner ?? ""), /^示範/);
+  const roads = Object.entries(data.roads ?? {});
+  assert.ok(roads.length > 0, "內建基準資料不可因匿名化而整批消失");
+  for (const [id, meta] of roads) {
+    assert.match(id, /^A00T00-\d{2}$/);
+    assert.match(String(meta?.name ?? ""), /^示範路段/);
+    assert.match(String(meta?.a ?? ""), /^往示範端點/);
+    assert.match(String(meta?.b ?? ""), /^往示範端點/);
+  }
+  for (const row of data.records ?? []) {
+    assert.match(String(row.roadId ?? ""), /^A00T00-\d{2}$/);
+    assert.match(String(row.roadName ?? ""), /^示範路段/);
+    assert.match(String(row.directionName ?? ""), /^往示範端點/);
+  }
 });
 
 /*

@@ -189,7 +189,7 @@ test("最大最小只比合計列，混單位時不比", () => {
   const rows = [
     row({ roadId: "R-01", roadName: "中山路", periods: { all: cell({ total: 10000 }) } }),
     row({ roadId: "R-02", roadName: "示範南路", periods: { all: cell({ total: 4000 }) } }),
-    row({ roadId: "R-01", scopeCode: "A", scopeName: "方向A", periods: { all: cell({ total: 99999 }) } }),
+    row({ roadId: "R-01", scopeCode: "A", scopeName: "方向A", periods: { all: cell({ total: 999999 }) } }),
   ];
   const text = buildConclusion(
     rows,

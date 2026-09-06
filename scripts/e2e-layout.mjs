@@ -136,7 +136,7 @@ ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 3).join(" / "));
     const option = document.createElement("option");
     option.value = "__LONG__";
     option.textContent =
-      "西行(往水管路)／東行(往正修路)／北上(往圓山路)／南下(往大順路)／東行(往大同路)／西行(往建工路)／北上(往民族路)";
+      "西行(往示範路一)／東行(往示範路二)／北上(往示範路三)／南下(往示範路四)／東行(往示範路五)／西行(往示範路六)／北上(往示範路七)";
     select.appendChild(option);
     select.value = "__LONG__";
     const filters = document.querySelector(".filters");

@@ -121,3 +121,87 @@ test("同一欄的單位，畫面與匯出必須一致", async () => {
     }
   }
 });
+
+/*
+ * 混用時間格要出警告——而且不可以誤報。
+ *
+ * rollingPeak 用「眾數格長」算 needed = 60 / 格長，然後**數格數**、
+ * 不是累計分鐘數。「全日整點＋尖峰拆 15 分鐘」的版型會讓尖峰那一小時
+ * 只取到其中一格：實測整點 100／15 分鐘格 50 的資料，真尖峰是 07 時的 200，
+ * 系統卻報 00:00~01:00 的 100。總量守恆，總量檢查抓不到。
+ *
+ * 本版只加提醒、不改挑選邏輯（改了會變更計算口徑）。
+ * 判準必須是「兩種規律的格長」，不是「格長不完全一致」——後者會把
+ * 調查中間的休息時段一起誤報（路口轉向那邊實測誤報 19/55）。
+ */
+test("混用時間格要出警告，但休息時段與單一格長不可誤報", async () => {
+  const { validateImport } = await import("../app/final-workflow.ts");
+  const pad = (n) => String(n).padStart(2, "0");
+  const row = (hour) => ({
+    projectId: "P", quarter: "115Q1", roadId: "R1", roadName: "測試路段",
+    dayType: "平日", directionCode: "A", directionName: "方向A",
+    hour, motorcycle: 10, small: 10, large: 0, special: 0,
+  });
+  const quarters = (from, to) => {
+    const out = [];
+    for (let h = from; h < to; h += 1)
+      for (let m = 0; m < 60; m += 15)
+        out.push(`${pad(h)}:${pad(m)}~${pad(m === 45 ? h + 1 : h)}:${pad((m + 15) % 60)}`);
+    return out;
+  };
+  const hourly = Array.from({ length: 24 }, (_, h) => `${pad(h)}:00~${pad(h + 1)}:00`);
+  const mixed = Array.from({ length: 24 }, (_, h) =>
+    h === 7 || h === 8 ? quarters(h, h + 1) : [`${pad(h)}:00~${pad(h + 1)}:00`],
+  ).flat();
+  const withBreak = [...quarters(7, 9), ...quarters(17, 19)];
+
+  const warned = (hours) =>
+    (validateImport(hours.map(row), []).warnings ?? []).some((w) =>
+      /混用了不同長度的時間格/.test(w),
+    );
+
+  assert.equal(warned(hourly), false, "24 小時整點格不可誤報");
+  assert.equal(warned(quarters(7, 9)), false, "全部 15 分鐘格不可誤報");
+  assert.equal(warned(withBreak), false, "中間有休息時段不可誤報");
+  assert.equal(warned(mixed), true, "真的混用整點＋15 分鐘格必須出警告");
+
+  /*
+   * 這一項專門釘住「兩成」那個門檻。
+   *
+   * 少了它，把門檻放寬成「只要出現過就算」也會全綠——上面四種情境剛好都
+   * 測不到門檻（本支是以每一格的長度判斷，調查中間的休息時段不會產生
+   * 第二種長度，所以不會踩到）。實測確認過：拿掉門檻，上面四項照樣通過。
+   *
+   * 一份 24 小時整點資料裡混進一格 30 分鐘（例如原始表打錯一格），
+   * 那是單一異常格、不是第二種規律，不該因此對整份資料發警告。
+   */
+  const oneStray = [
+    ...Array.from({ length: 23 }, (_, h) => `${pad(h)}:00~${pad(h + 1)}:00`),
+    "23:00~23:30",
+  ];
+  assert.equal(
+    warned(oneStray),
+    false,
+    "24 格裡只有 1 格長度不同，屬單一異常格，不該當成混用時間格",
+  );
+
+  /*
+   * 這一項釘住「至少重複兩次」，而且是兩成門檻**擋不住**的情形。
+   *
+   * 短時段資料只漏一列時，相鄰格數可能只有 4 個，那一個 30 分鐘的跳號
+   * 就占 25%——只看比例會把全部都是 60 分鐘的資料誤報成混用。
+   * 路口轉向 v2.1.51-final 先加了這個條件，本支原本沒有，
+   * 於是兩支對同一份資料一支報警、一支不報。
+   */
+  const shortWithGap = [
+    "06:00~07:00",
+    "07:00~08:00",
+    "08:00~08:30",
+    "08:30~09:30",
+  ];
+  assert.equal(
+    warned(shortWithGap),
+    false,
+    "短時段只漏一列造成的單次跳號（占 25%）不該報混用時間格",
+  );
+});

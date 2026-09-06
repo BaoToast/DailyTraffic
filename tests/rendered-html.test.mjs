@@ -240,7 +240,7 @@ test("keeps configurable factors, legacy Excel and all editable chart datasets",
     source,
     /if \(!quarters\.includes\(quarter\)\) setQuarter\(quarters\.at\(-1\)/,
   );
-  assert.doesNotMatch(source, /高雄捷運黃線交通調查（我的資料）/);
+  assert.doesNotMatch(source, /privaterelay\.appleid\.com/i);
   assert.doesNotMatch(source, /addImage\(/);
   for (const token of [
     "<c:dLbls>",
@@ -265,25 +265,25 @@ test("keeps configurable factors, legacy Excel and all editable chart datasets",
 });
 
 test("normalizes the same road across quarterly survey batch codes", () => {
-  assert.equal(normalizeRoadId("13545T7-01"), "13545-01");
-  assert.equal(normalizeRoadId("13545T8-01"), "13545-01");
-  assert.equal(surveyRoadIdFromFileName("13545T9-11-中正一路.xls"), "13545-11");
+  assert.equal(normalizeRoadId("999996T7-01"), "999996-01");
+  assert.equal(normalizeRoadId("999996T8-01"), "999996-01");
+  assert.equal(surveyRoadIdFromFileName("999996T9-11-示範甲路.xls"), "999996-11");
   assert.equal(
-    roadNameFromFileName("13545T9-11-中正一路(福德二路~高速公路).xls"),
-    "中正一路(福德二路~高速公路)",
+    roadNameFromFileName("999996T9-11-示範甲路(示範乙路~示範丙路).xls"),
+    "示範甲路(示範乙路~示範丙路)",
   );
   assert.equal(
-    roadNameFromFileName("13545Ｔ1－01－神農路（大同路～水管路）－11308.xls"),
-    "神農路(大同路~水管路)",
+    roadNameFromFileName("999996Ｔ1－01－示範丁路（示範戊路～示範己路）－11308.xls"),
+    "示範丁路(示範戊路~示範己路)",
   );
   assert.equal(
     roadNameFromFileName(
-      "13545T1-01-神農路(大同路~水管路) 2024-08-10 修正版.xls",
+      "999996T1-01-示範丁路(示範戊路~示範己路) 2024-08-10 修正版.xls",
     ),
-    "神農路(大同路~水管路)",
+    "示範丁路(示範戊路~示範己路)",
   );
   assert.equal(
-    roadNameMatchKey(" 神農路（大同路 ～ 水管路） "),
-    roadNameMatchKey("神農路(大同路~水管路)-11308"),
+    roadNameMatchKey(" 示範丁路（示範戊路 ～ 示範己路） "),
+    roadNameMatchKey("示範丁路(示範戊路~示範己路)-11308"),
   );
 });
