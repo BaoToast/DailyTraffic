@@ -114,6 +114,44 @@ export function metricUnitFor(
  * 低估 25%；反過來，以 2 小時為一格的原始檔會得到 120 分鐘的視窗，標成
  * /hr 則是高估一倍。所以要比對「恰好 60 分鐘」，不是「小於 60 分鐘」。
  */
+/**
+ * 一整欄（或畫面上一個欄位標題）該標什麼單位。
+ *
+ * ⚠️ 畫面與匯出**必須共用這一支**。
+ *
+ * 舊版畫面走的是 metricUnitFor(metric, period, { partial: surveyScope.partial })
+ * ——那個 partial 是整批的代表值（任何一個調查點是部分時段，整批就算部分
+ * 時段），拿它標每一格，會把真正做滿 24 小時的調查點標成「輛/調查時段」；
+ * 而匯出與報告草稿走的是 cellUnitFor（看每一列自己的時段標籤），標的是
+ * 「輛/日」。同一個數字，畫面與 Excel 說兩種話。
+ *
+ * 實測 6 種情境有 3 種不一致：
+ *   ・24 小時的調查點（畫面上另有部分時段調查點）→ 畫面「輛/調查時段」／匯出「輛/日」
+ *   ・2 小時一格的尖峰視窗 → 畫面「輛/hr」／匯出「輛/該時段（120 分鐘）」
+ *   ・湊不滿一小時的尖峰視窗 → 畫面「輛/hr」／匯出「輛/該時段（45 分鐘）」
+ * 而真實資料裡本來就同時有 24 小時（11017T1506/1507）與 4 小時（11017T1501）
+ * 的調查點，第一種情境現在就會發生。
+ *
+ * 規則：整欄的時段標籤都一樣就用那個時段的正確單位；長短不一時明講
+ * 「見『分析時段』欄」，而不是挑一個代表值假裝整欄都適用。
+ */
+export function columnUnitFor(
+  metric: MetricKey,
+  period: PeriodKey,
+  hours: string[],
+  options?: { separateDays?: boolean },
+): string {
+  const distinct = Array.from(new Set(hours));
+  if (distinct.length === 1)
+    return cellUnitFor(metric, period, distinct[0], options);
+  const units = Array.from(
+    new Set(distinct.map((hour) => cellUnitFor(metric, period, hour, options))),
+  );
+  if (units.length === 1) return units[0];
+  if (metric === "share") return "%";
+  return `${metric === "pcu" ? "PCU" : "輛"}/各列時段，見「分析時段」欄`;
+}
+
 export function cellUnitFor(
   metric: MetricKey,
   period: PeriodKey,
@@ -716,26 +754,13 @@ export function buildPeriodExportSheets(
    * 欄名要涵蓋整欄，所以先看這一欄的每一列時段是不是都一樣：
    * 都一樣就用那個時段的正確單位；長短不一時就明講要看「分析時段」欄。
    */
-  const headerUnit = (metric: MetricKey, period: PeriodKey) => {
-    const hours = Array.from(
-      new Set(visibleRows.map((row) => row.periods[period]?.hour || "")),
+  const headerUnit = (metric: MetricKey, period: PeriodKey) =>
+    columnUnitFor(
+      metric,
+      period,
+      visibleRows.map((row) => row.periods[period]?.hour || ""),
+      { separateDays: context.separateDays },
     );
-    if (hours.length === 1)
-      return cellUnitFor(metric, period, hours[0], {
-        separateDays: context.separateDays,
-      });
-    const units = Array.from(
-      new Set(
-        hours.map((hour) =>
-          cellUnitFor(metric, period, hour, {
-            separateDays: context.separateDays,
-          }),
-        ),
-      ),
-    );
-    if (units.length === 1) return units[0];
-    return `${metric === "pcu" ? "PCU" : "輛"}/各列時段，見「分析時段」欄`;
-  };
   const metricHeaders = (period: PeriodKey) =>
     metrics.flatMap((metric) =>
       catalog.map(

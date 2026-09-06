@@ -73,3 +73,51 @@ test("百分比一律是「%」，不受時段影響", () => {
   assert.equal(cellUnitFor("share", "all", "24 小時"), "%");
   assert.equal(cellUnitFor("share", "am", "07:00～07:45"), "%");
 });
+
+/*
+ * 畫面與匯出必須對同一欄說同一句話。
+ *
+ * 舊版畫面走 metricUnitFor(metric, period, { partial: surveyScope.partial })
+ * ——那個 partial 是整批的代表值，於是真正做滿 24 小時的調查點，只因為畫面上
+ * 另有部分時段調查點，就被標成「輛/調查時段」，而匯出標「輛/日」。
+ *
+ * 舊版的守門測試只驗 cellUnitFor 這支輔助函式，沒有驗任何一個消費端，
+ * 所以真正還在用整批旗標的畫面路徑完全沒被守住，測試永遠是綠的。
+ * 這一支改成驗「同一組時段標籤，兩邊算出來的欄位單位必須相同」。
+ */
+test("同一欄的單位，畫面與匯出必須一致", async () => {
+  const { columnUnitFor, cellUnitFor } = await import("../app/period-analysis.ts");
+  const cases = [
+    { period: "all", hours: ["24 小時"] },
+    { period: "all", hours: ["實測 2 小時（非 24 小時）"] },
+    { period: "all", hours: ["24 小時", "實測 2 小時（非 24 小時）"] },
+    { period: "am", hours: ["07:00～08:00"] },
+    { period: "am", hours: ["07:00～07:45"] },
+    { period: "peak24", hours: ["18:00～20:00"] },
+    { period: "peak24", hours: ["07:00～08:00", "18:00～20:00"] },
+  ];
+  for (const metric of ["vehicles", "pcu"]) {
+    for (const { period, hours } of cases) {
+      const column = columnUnitFor(metric, period, hours, { separateDays: false });
+      if (hours.length === 1) {
+        /* 單一時段時，欄位單位就該等於該格的單位 */
+        assert.equal(
+          column,
+          cellUnitFor(metric, period, hours[0], { separateDays: false }),
+          `${metric}／${period}／${hours[0]}：欄位單位與該格單位不一致`,
+        );
+      } else {
+        /* 混合時段時，不可以挑一個代表值假裝整欄都適用 */
+        const perCell = new Set(
+          hours.map((hour) => cellUnitFor(metric, period, hour, { separateDays: false })),
+        );
+        if (perCell.size > 1)
+          assert.match(
+            column,
+            /各列時段/,
+            `${metric}／${period}：各列單位不同（${[...perCell].join("、")}），欄名必須指向「分析時段」欄，實得「${column}」`,
+          );
+      }
+    }
+  }
+});

@@ -452,6 +452,96 @@ await page.waitForTimeout(700);
 // 0.42，等於把別的計畫的標準套到這個計畫的數據上。
 const motorcycleBox = () =>
   page.locator('.factor-grid input, .pcu-factors input').first();
+/* ── 只剩路段時，「路口流量視角」要停用並說明 ─────────────────
+ *
+ * 「駛出／駛入」只對路口有意義（車從哪條支線進、從哪條支線出）；
+ * 路段只有方向A／方向B，換視角算出來一模一樣——那是**正確**行為，
+ * computePeriodRows() 也刻意把並列時重複的路段列濾掉了。
+ *
+ * 但畫面上原本沒有講這件事：使用者把篩選縮到只剩一條路段時，
+ * 三種視角切下去數字都不動，看起來像篩選壞掉。使用者實際回報過。
+ * 匯出中心本來就有一行說明，這一區卻沒有，兩邊不一致。
+ *
+ * 這一項放在這一支是因為本檔同時匯入了路段（中山路）與路口（中正路口）
+ * 兩種格式，兩種情境才都成立——只驗其中一種會變成恆真的假檢查。
+ */
+{
+  const pickRoads = async (names) => {
+    await page.click("#roadFilterSelect");
+    await page.waitForTimeout(300);
+    for (const name of names) {
+      await page.evaluate((text) => {
+        const hit = [...document.querySelectorAll(".multi-picker-panel label")].find((l) =>
+          l.textContent.includes(text),
+        );
+        if (hit) hit.querySelector("input").click();
+      }, name);
+      await page.waitForTimeout(250);
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(800);
+  };
+  const clearRoads = async () => {
+    await page.click("#roadFilterSelect");
+    await page.waitForTimeout(300);
+    await page
+      .locator('.multi-picker-panel button:has-text("全部調查點")')
+      .first()
+      .click();
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(800);
+  };
+  const flowState = () =>
+    page.evaluate(() => {
+      const select = document.getElementById("periodFlowViewSelect");
+      const hint = document.getElementById("periodFlowViewHint");
+      const table = [...document.querySelectorAll("table")].find((t) =>
+        t.innerText.includes("分析時段"),
+      );
+      return {
+        found: !!select,
+        disabled: select ? select.disabled : null,
+        scope: hint ? hint.dataset.scope : "",
+        text: hint ? hint.textContent.trim() : "",
+        hasIntersectionRow: table ? /路口（駛/.test(table.innerText) : null,
+      };
+    });
+
+  await clearRoads();
+  const both = await flowState();
+  ok(
+    "前置：結果含路口時，表格看得到路口列，而且「路口流量視角」可以選",
+    both.found && both.hasIntersectionRow === true && both.disabled === false,
+    `含路口列=${both.hasIntersectionRow}、disabled=${both.disabled}、scope=${both.scope}`,
+  );
+
+  await pickRoads(["中山路"]);
+  const roadOnly = await flowState();
+  ok(
+    "前置：只勾路段之後，表格裡確實沒有路口列",
+    roadOnly.hasIntersectionRow === false,
+    `含路口列=${roadOnly.hasIntersectionRow}`,
+  );
+  ok(
+    "只剩路段時，「路口流量視角」要停用",
+    roadOnly.disabled === true,
+    `disabled=${roadOnly.disabled}`,
+  );
+  ok(
+    "而且要說清楚為什麼停用（不是默默變灰）",
+    roadOnly.scope === "road-only" && /只有路段/.test(roadOnly.text),
+    `說明「${roadOnly.text}」`,
+  );
+
+  await clearRoads();
+  const backAgain = await flowState();
+  ok(
+    "篩選放寬回來之後又可以選，說明也換回去",
+    backAgain.disabled === false && backAgain.scope === "has-intersection",
+    `disabled=${backAgain.disabled}、scope=${backAgain.scope}`,
+  );
+}
+
 const readMotorcycle = async () => Number(await motorcycleBox().inputValue());
 const setMotorcycle = async (value) => {
   await motorcycleBox().fill(String(value));

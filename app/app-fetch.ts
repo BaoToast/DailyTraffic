@@ -1,4 +1,5 @@
 import { roadNameMatchKey } from "./road-identity";
+import { trafficIdentity, type TraceableTrafficRecord } from "./final-workflow";
 
 const DB_NAME = "traffic-analysis-github-pages";
 const DB_VERSION = 2;
@@ -8,8 +9,25 @@ export function offlineMode() {
   return window.location.hostname.endsWith("github.io") || window.location.protocol === "file:" || Boolean((window as unknown as { __TRAFFIC_OFFLINE__?: boolean }).__TRAFFIC_OFFLINE__);
 }
 
+/*
+ * 離線儲存的主鍵。
+ *
+ * ⚠️ 這一支**不可以**自己另寫一份實作。
+ *
+ * 它決定「同一筆調查匯第二次時會不會覆蓋既有那筆」；而畫面上的匯入前檢核
+ * 報告（「新增 N 筆／覆蓋 N 筆」）用的是 final-workflow.ts 的 trafficIdentity()。
+ * 兩邊一旦漂移，使用者會看到一份寫著「已覆蓋」的報告，資料卻重複了——
+ * 而且每一筆都合法，總量守恆的檢查抓不到。
+ *
+ * 實測佐證：把這一支改成每次回傳不同的鍵之後，檢核報告仍然顯示
+ * 「覆蓋 288 筆」，實際卻寫進了 576 筆。
+ *
+ * 所以這裡直接轉呼叫同一支函式，讓「報告怎麼算」與「儲存怎麼做」
+ * 永遠是同一份實作。傳進來的是 request body 解出來的原始物件，
+ * 欄位型別由呼叫端保證，這裡只做一次收斂。
+ */
 function recordIdentity(record: Record<string, unknown>) {
-  return [record.projectId, record.quarter, record.roadId, record.dayType, record.directionCode, record.hour].map(value => String(value ?? "")).join("|");
+  return trafficIdentity(record as unknown as TraceableTrafficRecord);
 }
 
 function openDb() {

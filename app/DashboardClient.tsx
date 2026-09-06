@@ -190,7 +190,7 @@ import {
   METRIC_KEYS,
   METRIC_LABELS,
   METRIC_BASE_UNITS,
-  metricUnitFor,
+  columnUnitFor,
   PERIOD_KEYS,
   PERIOD_LABELS,
   hourStartOf,
@@ -1594,6 +1594,31 @@ export default function DashboardClient({ user }: { user: User }) {
    * 以及正在讀哪一個檔名。
    */
   const [busyProgress, setBusyProgress] = useState("");
+  /*
+   * 選檔期間的提示。
+   *
+   * 使用者回報「按下選擇檔案之後畫面什麼都沒有，等很久才跳出結果」。
+   * 實測過原因：change 一送到畫面 0ms 就更新——那段等待完全發生在
+   * 瀏覽器把檔案準備好之前，程式那時候還沒被叫到，
+   * 所以沒辦法「等待中才開始顯示」，只能從按下去的那一刻就先顯示。
+   *
+   * 取消選取時不會有 change，靠視窗重新取得焦點當退路。
+   */
+  const [pickingFiles, setPickingFiles] = useState(false);
+  useEffect(() => {
+    if (!pickingFiles) return undefined;
+    let timer = 0;
+    const onFocus = () => {
+      window.clearTimeout(timer);
+      /* 有選檔時 change 很快就到；等一下再判斷，避免把正常情況誤判成取消 */
+      timer = window.setTimeout(() => setPickingFiles(false), 1200);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [pickingFiles]);
   useEffect(() => {
     const preventFileNavigation = (event: DragEvent) => {
       if (!Array.from(event.dataTransfer?.types ?? []).includes("Files")) return;
@@ -3520,6 +3545,21 @@ export default function DashboardClient({ user }: { user: User }) {
     () => computePeriodRows(periodPeakScope, periodFlowView),
     [computePeriodRows, periodPeakScope, periodFlowView],
   );
+  /*
+   * 目前這一區的結果裡，有沒有「路口格式」的調查點。
+   *
+   * 「駛出／駛入」只對路口有意義（車從哪條支線進、從哪條支線出）；
+   * 路段只有方向A／方向B，換視角算出來一模一樣——這是正確行為，
+   * computePeriodRows() 也刻意把並列時重複的路段列濾掉了。
+   *
+   * 但畫面上沒有講這件事：使用者把篩選縮到只剩一條路段時，
+   * 三種視角切下去數字都不動，看起來就像篩選壞掉。實際回報過。
+   * 匯出中心那邊本來就有一行說明，這一區卻沒有，兩邊不一致。
+   */
+  const periodHasIntersection = useMemo(
+    () => periodRows.some((row) => row.surveyType === "intersection"),
+    [periodRows],
+  );
   /**
    * 匯出用的列：匯出中心可以指定自己的「尖峰時段認定」與「路口流量視角」，
    * 選 follow 才沿用畫面上目前的設定。這樣存成範本之後，匯出結果不會因為
@@ -4693,11 +4733,47 @@ export default function DashboardClient({ user }: { user: User }) {
      * 進度數字會整批卡到最後才一次跳完。
      */
     const breathe = () => new Promise((done) => setTimeout(done, 0));
+    /*
+     * 第一次解析之前，要**確定畫面已經重繪過**。
+     *
+     * setTimeout(0) 只是讓出一個巨集任務，不保證瀏覽器有機會畫。
+     * 實測（交通服務水準，6 份大檔）：狀態停在「已完成 0／6 份」，
+     * 每 20ms 的心跳整段只跳了 1 次——單一檔案解析的過程主執行緒完全被佔住，
+     * 畫面零重繪。使用者因此看不到提示，連作業系統檔案對話框關閉後的殘影
+     * 都會留在畫面上。三支的解析流程一樣，所以一起處理。
+     *
+     * ⚠️ 分頁在背景時 requestAnimationFrame 不會觸發，一定要有時間退路，
+     *    否則匯入會永遠停住。
+     */
+    const paint = () =>
+      new Promise<void>((done) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          done();
+        };
+        const fallback = setTimeout(finish, 250);
+        if (typeof requestAnimationFrame === "function")
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              clearTimeout(fallback);
+              finish();
+            }),
+          );
+      });
+    let firstFile = true;
     for (const file of files) {
       setBusyProgress(
         `第 ${parsedCount + 1}／${files.length} 份：${file.name}`,
       );
-      await breathe();
+      /* 第一份要確定畫面畫出來了才開始，後面幾份沿用較便宜的讓步 */
+      if (firstFile) {
+        firstFile = false;
+        await paint();
+      } else {
+        await breathe();
+      }
       /*
        * SheetJS 0.20.3 已包含上游原型污染修正；這裡仍保留匯入前後的原型
        * 指紋檢查，作為解析第三方工作簿時的額外縱深防護。
@@ -7859,14 +7935,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.47.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.49.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.47.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.49.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -8997,6 +9073,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 <select
                   id="periodFlowViewSelect"
                   value={periodFlowView}
+                  disabled={!periodHasIntersection}
                   onChange={(e) =>
                     setPeriodFlowView(
                       e.target.value as "follow" | IntersectionFlowMode | "both",
@@ -9008,6 +9085,21 @@ export default function DashboardClient({ user }: { user: User }) {
                   <option value="destination">駛入路口（以該支線為終點）</option>
                   <option value="both">駛出＋駛入並列</option>
                 </select>
+                {/*
+                  目前結果只有路段時，這個下拉切了也不會有變化。
+                  與其讓使用者切三次、以為篩選壞掉，不如直接停用並說明。
+                  選過的值刻意**不重設**：等篩選再放寬、結果裡又有路口時，
+                  會回到他原本挑的視角。
+                */}
+                <small
+                  className="period-filter-hint"
+                  id="periodFlowViewHint"
+                  data-scope={periodHasIntersection ? "has-intersection" : "road-only"}
+                >
+                  {periodHasIntersection
+                    ? "只有路口格式的調查點會受這一項影響；路段格式一律是方向 A／方向 B。"
+                    : "本次結果只有路段，駛入／駛出僅適用於路口，所以這一項暫時停用。"}
+                </small>
               </label>
               <label>
                 尖峰時段認定
@@ -9034,10 +9126,12 @@ export default function DashboardClient({ user }: { user: User }) {
                       {METRIC_LABELS[key]}（
                       {periodView === "ALL"
                         ? METRIC_BASE_UNITS[key]
-                        : metricUnitFor(key, periodView, {
-                            separateDays: dayType === "平日＋假日",
-                            partial: surveyScope.partial,
-                          })}
+                      : columnUnitFor(
+                          key,
+                          periodView,
+                          visiblePeriodRows.map((row) => row.periods[periodView]?.hour || ""),
+                          { separateDays: dayType === "平日＋假日" },
+                        )}
                       ）
                     </option>
                   ))}
@@ -9087,7 +9181,7 @@ export default function DashboardClient({ user }: { user: User }) {
                           <small>
                             {periodView === "ALL"
                               ? METRIC_LABELS[periodMetric]
-                              : metricUnitFor(periodMetric, periodView, { separateDays: dayType === "平日＋假日", partial: surveyScope.partial })}
+                              : columnUnitFor(periodMetric, periodView, visiblePeriodRows.map((row) => row.periods[periodView]?.hour || ""), { separateDays: dayType === "平日＋假日" })}
                           </small>
                         </th>
                       ))}
@@ -9096,7 +9190,7 @@ export default function DashboardClient({ user }: { user: User }) {
                         <small>
                           {periodView === "ALL"
                             ? METRIC_LABELS[periodMetric]
-                            : metricUnitFor(periodMetric, periodView, { separateDays: dayType === "平日＋假日", partial: surveyScope.partial })}
+                            : columnUnitFor(periodMetric, periodView, visiblePeriodRows.map((row) => row.periods[periodView]?.hour || ""), { separateDays: dayType === "平日＋假日" })}
                         </small>
                       </th>
                     </tr>
@@ -9134,7 +9228,7 @@ export default function DashboardClient({ user }: { user: User }) {
                                 {/* 時段定義說明改收錄在新手使用手冊，這裡只留單位 */}
                                 {periodMetric === "share"
                                   ? "單位：%"
-                                  : `單位：${metricUnitFor(periodMetric, period, { separateDays: dayType === "平日＋假日", partial: surveyScope.partial })}`}
+                                  : `單位：${columnUnitFor(periodMetric, period, visiblePeriodRows.map((row) => row.periods[period]?.hour || ""), { separateDays: dayType === "平日＋假日" })}`}
                               </small>
                             </td>
                             <td>{cell.hour}</td>
@@ -10655,12 +10749,25 @@ export default function DashboardClient({ user }: { user: User }) {
                 type="file"
                 multiple
                 accept=".xls,.xlsx,.xlsm"
-                onChange={importFiles}
+                onClick={() => setPickingFiles(true)}
+                onChange={(e) => {
+                  setPickingFiles(false);
+                  return importFiles(e);
+                }}
               />
               <strong>拖曳 Excel 檔案到這裡</strong>
               <span>
                 或點一下選擇單筆／多筆檔案；只有相同調查點、日別、方向與時段才會詢問是否覆蓋
               </span>
+              {/*
+                按下去到 change 之間完全是瀏覽器在讀檔，程式插不進去，
+                所以提示只能從按下去那一刻開始顯示。取消時由 focus 那條退路收掉。
+              */}
+              {pickingFiles && (
+                <p className="picking-files-hint" role="status">
+                  正在讀取您選擇的檔案，請稍候…
+                </p>
+              )}
             </div>
             {!activeProject && (
               <p className="help backup-first-hint">

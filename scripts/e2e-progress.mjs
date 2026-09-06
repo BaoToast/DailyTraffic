@@ -186,6 +186,114 @@ const stillBusy = await page.evaluate(
 );
 ok("處理完之後遮罩要收掉，不可以一直掛著", stillBusy === 0, `遮罩 ${stillBusy} 個`);
 
+/* ── 分頁在背景時（rAF 不觸發）匯入不可以卡住 ── */
+/*
+ * 為了讓「正在處理資料」確實被畫出來，第一份檔案解析前改成等兩個動畫影格。
+ * 但分頁被切到背景時 requestAnimationFrame **完全不會觸發**——
+ * 少了時間退路，匯入就會永遠停在那裡。這一項就是釘住那條退路。
+ */
+{
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => {
+    window.requestAnimationFrame = () => 0;
+  });
+  await page.locator('.toolbar button:has-text("匯入資料")').first().click();
+  await page.waitForTimeout(500);
+  await page
+    .locator('.modal-backdrop .modal label:has-text("資料季度") input')
+    .fill("115Q1");
+  await page
+    .locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]')
+    .setInputFiles(batch.slice(0, 1));
+  const finished = await page.evaluate(async () => {
+    const started = performance.now();
+    while (performance.now() - started < 20000) {
+      await new Promise((r) => setTimeout(r, 150));
+      if (!document.querySelector(".busy")) return Math.round(performance.now() - started);
+    }
+    return -1;
+  });
+  ok(
+    "rAF 不觸發時（分頁在背景）匯入仍然會完成，不會永遠卡住",
+    finished >= 0,
+    finished >= 0 ? `${finished}ms 內完成` : "20 秒內遮罩沒有收掉——退路失效了",
+  );
+  for (let i = 0; i < 6 && (await page.locator(".modal-backdrop").count()); i += 1) {
+    const closer = page
+      .locator(
+        '.modal-backdrop button:has-text("確認"), .modal-backdrop button:has-text("套用車種設定"), .modal-backdrop button:has-text("關閉"), .modal-backdrop button:has-text("取消")',
+      )
+      .first();
+    if (!(await closer.count())) break;
+    await closer.click().catch(() => {});
+    await page.waitForTimeout(800);
+  }
+}
+
+/* ── 選檔期間就要看得到提示，不是等到匯入完才出現 ── */
+/*
+ * 使用者回報「按下選擇檔案之後畫面什麼都沒有」。實測 change 一送到畫面
+ * 0ms 就更新——等待完全在瀏覽器那一側，程式還沒被叫到，所以提示只能
+ * 從「按下去」那一刻開始顯示。三段都要驗，缺一段就會變成恆真。
+ */
+{
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(900);
+  await page.locator('.toolbar button:has-text("匯入資料")').first().click();
+  await page.waitForTimeout(500);
+  const beforePick = await page.evaluate(
+    () => document.querySelectorAll(".picking-files-hint").length,
+  );
+  ok("前置：還沒按選擇檔案時，沒有「正在讀取」提示", beforePick === 0);
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  /* 真的 <input> 帶 pointer-events:none，使用者按的是整個虛線框 */
+  await page.locator('.modal-backdrop .drag-zone').first().click();
+  /* 只要等到對話框真的被叫出來就夠了，這一輪要模擬的是「開了但按取消」 */
+  await chooserPromise;
+  await page.waitForTimeout(300);
+  const whilePicking = await page.evaluate(() => {
+    const el = document.querySelector(".picking-files-hint");
+    return el ? el.textContent.trim() : "";
+  });
+  ok(
+    "按下選擇檔案之後，馬上看得到「正在讀取」的提示",
+    /正在讀取/.test(whilePicking),
+    `「${whilePicking}」`,
+  );
+
+  /* 按取消：沒有 change，提示要靠 focus 退路自己收掉 */
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForTimeout(1800);
+  const afterCancel = await page.evaluate(
+    () => document.querySelectorAll(".picking-files-hint").length,
+  );
+  ok("按了取消之後，提示要自己收掉", afterCancel === 0, `提示 ${afterCancel} 個`);
+
+  /* 真的選檔：提示要收掉，而且匯入照常進行 */
+  const chooser2Promise = page.waitForEvent("filechooser");
+  /* 真的 <input> 帶 pointer-events:none，使用者按的是整個虛線框 */
+  await page.locator('.modal-backdrop .drag-zone').first().click();
+  const chooser2 = await chooser2Promise;
+  await chooser2.setFiles(batch.slice(0, 1));
+  await page.waitForTimeout(2500);
+  const afterPick = await page.evaluate(
+    () => document.querySelectorAll(".picking-files-hint").length,
+  );
+  ok("真的選了檔之後，提示也要收掉", afterPick === 0, `提示 ${afterPick} 個`);
+  for (let i = 0; i < 6 && (await page.locator(".modal-backdrop").count()); i += 1) {
+    const closer = page
+      .locator(
+        '.modal-backdrop button:has-text("確認"), .modal-backdrop button:has-text("套用車種設定"), .modal-backdrop button:has-text("關閉"), .modal-backdrop button:has-text("取消")',
+      )
+      .first();
+    if (!(await closer.count())) break;
+    await closer.click().catch(() => {});
+    await page.waitForTimeout(800);
+  }
+}
+
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 2).join(" | "));
 
 console.log(problems.length ? `\n❌ ${problems.length} 項未通過` : "\n✅ 全部通過");
