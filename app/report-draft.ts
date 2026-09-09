@@ -92,6 +92,11 @@ export type ReportDraftContext = {
     unit: string;
     roadLabel: string;
     rows: { quarter: string; value: number }[];
+    /** 平日＋假日必須保留成兩條獨立序列，不得相加成虛構的一日總量。 */
+    series?: {
+      label: string;
+      rows: { quarter: string; value: number }[];
+    }[];
   };
   compositionMode: string;
   periodExport: {
@@ -340,24 +345,37 @@ function sectionLines(key: DraftSectionKey, c: ReportDraftContext): string[] {
       ];
     }
     case "history": {
-      const rows = c.trend.rows;
-      if (rows.length < 1) return [];
+      const series = c.trend.series?.length
+        ? c.trend.series
+        : [{ label: c.trend.mode, rows: c.trend.rows }];
+      if (!series.some((item) => item.rows.length)) return [];
       /*
        * 這一行以前只寫了日別（mode），沒寫「畫的是哪一個指標」也沒有單位——
        * 切換實際交通量／當量交通量時，數字換了但這句話一字不變，
        * 讀者看到「115Q2 13,000.0」無從判斷是車輛數還是當量。
        */
-      const unit = c.trend.unit ? ` ${c.trend.unit}` : "";
-      const head = `歷季趨勢（${c.trend.metricLabel}，依「歷季分析」面板的 ${c.trend.mode}／${c.trend.roadLabel}）：${rows
-        .map((r) => `${r.quarter} ${nf(r.value, 1)}${unit}`)
-        .join("、")}。`;
-      if (rows.length < 2) return [head];
-      const last = rows[rows.length - 1];
-      const previous = rows[rows.length - 2];
-      return [
-        head,
-        `最新一季 ${last.quarter} 較前一季 ${previous.quarter}${changeText(last.value, previous.value, c.trend.unit || "")}。`,
-      ];
+      const formatted = (value: number) => {
+        const text = nf(value, 1);
+        if (text === "—" || !c.trend.unit) return text;
+        return c.trend.unit === "%" ? `${text}%` : `${text} ${c.trend.unit}`;
+      };
+      const head = `歷季趨勢（${c.trend.metricLabel}，依「歷季分析」面板的 ${c.trend.mode}／${c.trend.roadLabel}）：${series
+        .map(
+          (item) =>
+            `${item.label}：${item.rows
+              .map((row) => `${row.quarter} ${formatted(row.value)}`)
+              .join("、")}`,
+        )
+        .join("；")}。`;
+      const changes = series.flatMap((item) => {
+        if (item.rows.length < 2) return [];
+        const last = item.rows[item.rows.length - 1];
+        const previous = item.rows[item.rows.length - 2];
+        return [
+          `${item.label}最新一季 ${last.quarter} 較前一季 ${previous.quarter}，${changeText(last.value, previous.value, c.trend.unit || "")}。`,
+        ];
+      });
+      return [head, ...changes];
     }
     case "projects": {
       if (c.projectsCompare.length < 2) return [];

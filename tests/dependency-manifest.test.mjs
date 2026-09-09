@@ -245,7 +245,8 @@ test("交付包裡沒有任何試算表檔案（避免真實調查資料被提�
   const walk = async (dir) => {
     for (const entry of await readdir(new URL(dir, root), { withFileTypes: true })) {
       /*
-       * `.samples/` 與 `.samples-coverage/` 都是 `npm run samples`／`npm run e2e`
+       * `.samples/`、`.samples-coverage/` 與 `.samples-chart-layout/` 都是
+       * `npm run samples`／`npm run e2e`
        * 當場產生的匿名測試樣本，兩個都在 .gitignore 裡、也不會進交付包，
        * 所以不算數。其餘一律要檢查。
        *
@@ -261,6 +262,8 @@ test("交付包裡沒有任何試算表檔案（避免真實調查資料被提�
           ".wrangler",
           ".samples",
           ".samples-coverage",
+          /* v20.59：e2e-chart-layout.mjs 產生的匿名樣本，同樣不會被提交。 */
+          ".samples-chart-layout",
         ].includes(entry.name)
       )
         continue;

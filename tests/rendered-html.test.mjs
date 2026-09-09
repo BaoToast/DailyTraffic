@@ -240,7 +240,24 @@ test("keeps configurable factors, legacy Excel and all editable chart datasets",
     source,
     /if \(!quarters\.includes\(quarter\)\) setQuarter\(quarters\.at\(-1\)/,
   );
-  assert.doesNotMatch(source, /privaterelay\.appleid\.com/i);
+  /*
+   * 這一行原本是 `assert.doesNotMatch(source, /privaterelay\.appleid\.com/i)`。
+   *
+   * 它是**恆真的假檢查**：整個倉庫（含 v20.52 與 v20.53）從來沒有出現過
+   * 那個字串，DashboardClient.tsx 也不會有理由出現一個 Apple 的隱藏信箱網域，
+   * 所以它不可能失敗，加了等於沒加。而它取代掉的是一項真的檢查——
+   * 「畫面原始碼裡不可以寫死委託案的計畫名稱」。
+   *
+   * 內建示範資料已在 v20.53 匿名化，那個舊字串確實不會再出現；但正確的做法
+   * 是把守門改成盯**現在該守的東西**，不是換成一個永遠不會紅的字串。
+   * 這裡改成：畫面原始碼不可以寫死任何計畫名稱字面值——計畫名稱一律來自
+   * 使用者建立的資料或 traffic-data.json，不該出現在元件裡。
+   *
+   * 實測：把 `const demo = "示範交通量調查";` 種進 DashboardClient.tsx → 紅字；
+   *       移除 → 綠。
+   */
+  assert.doesNotMatch(source, /["'`]示範交通量調查["'`]/);
+  assert.doesNotMatch(source, /["'`]高雄捷運黃線交通調查/);
   assert.doesNotMatch(source, /addImage\(/);
   for (const token of [
     "<c:dLbls>",

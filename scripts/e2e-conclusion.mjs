@@ -192,7 +192,9 @@ const missing = drafted.filter((value) => !tableText.includes(value));
 ok(
   "草稿的全日車輛數都能在時段車種分析表格上找到同一個值",
   missing.length === 0,
-  "找不到：" + missing.join("、") + "｜表格上共 " + periodTable.rows.length + " 列",
+  missing.length
+    ? "找不到：" + missing.join("、") + "｜表格上共 " + periodTable.rows.length + " 列"
+    : "全部對上｜表格上共 " + periodTable.rows.length + " 列",
 );
 
 /* ── 加勾 PCU，草稿要變 ── */

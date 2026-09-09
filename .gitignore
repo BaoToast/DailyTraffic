@@ -41,6 +41,7 @@ yarn-error.log*
 /work/
 /.samples/
 /.samples-coverage/
+/.samples-chart-layout/
 /tsconfig.tsbuildinfo
 /_dtcheck.mjs
 /package-stage-*/

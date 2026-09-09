@@ -357,12 +357,19 @@ await page.locator("#periodAnalysis").screenshot({ path: "/tmp/period-panel.png"
 await page.locator(".pcu-settings").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator(".pcu-settings").screenshot({ path: "/tmp/pcu.png" });
+/*
+ * v20.62 起「路段排名」依使用者的意思**預設收合**（他說幾乎用不到，
+ * 但移除是不可逆的）。收合狀態下 .panel.road-chart 量不到尺寸，
+ * 所以截圖前要先把它展開；圖表區的容器也從 .chart-grid 換成 .chart-stack。
+ */
+await page.locator(".collapsed-panel > summary").first().click();
+await page.waitForTimeout(400);
 await page.locator(".panel.road-chart").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator(".panel.road-chart").screenshot({ path: "/tmp/block.png" });
-await page.locator(".chart-grid").scrollIntoViewIfNeeded();
+await page.locator(".chart-stack").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
-await page.locator(".chart-grid").screenshot({ path: "/tmp/grid.png" });
+await page.locator(".chart-stack").screenshot({ path: "/tmp/grid.png" });
 await page.locator(".panel.table-panel").first().scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator(".panel.table-panel").first().screenshot({ path: "/tmp/table.png" });

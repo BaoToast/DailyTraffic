@@ -147,7 +147,16 @@ test("歷季趨勢的單位不可寫成「合計」——它畫的是兩條各�
    * 而 trendMode 的**預設值就是「平日＋假日」**——所以什麼都不動的預設畫面上，
    * 兩條單日的線掛著一個「合計」的單位。同一批 trendRows 也會進 Excel 折線圖。
    */
-  const block = blockFrom("const trendActualUnit =", "const intersectionFlowLabel");
+  /*
+   * 結束錨點在 v20.59 改成 `const trendMetricName =`。
+   *
+   * 原本錨在 `const intersectionFlowLabel`，而 v20.59 在兩者之間加進了
+   * 講稿與跨計畫趨勢的程式碼，那一段合法地出現「全部路段合計」——
+   * 那是**路段範圍**的名稱（把各路段加起來確實是它的定義），不是單位。
+   * 錨點不改的話這一項會抓到那個字，變成一個看起來像真、實際上抓錯東西
+   * 的紅字。範圍縮到只涵蓋三個單位常數，正好是這一項要守的東西。
+   */
+  const block = blockFrom("const trendActualUnit =", "const trendMetricName =");
   assert.doesNotMatch(block, /合計/, "趨勢圖的單位不可以出現「合計」");
   assert.match(block, /輛／調查日/);
   assert.match(block, /PCU／日/);

@@ -81,6 +81,54 @@ export const DEFAULT_CONDITION: ConclusionCondition = {
   digits: 1,
 };
 
+/**
+ * 把條件裡的「小數位數」夾回安全範圍。
+ *
+ * ── 為什麼一定要有這一支（實測，不是推論）──────────────────────
+ *
+ * 畫面上的下拉只給 0、1、2，所以「使用者操作」這條路本來就安全。
+ * 危險的是**另一條路**：套用舊的條件範本、或還原舊備份時，
+ * `props.setCondition(template.condition)` 是把範本裡的值**原封不動**丟進來的，
+ * 沒有經過任何正規化。範本是 JSON，欄位可能缺、可能是別的型別。
+ *
+ * 用本系統自己的測試資料實測 buildConclusion()，舊範本會造成三種結果：
+ *
+ *   digits = null／undefined → 百分比安靜變成 **0 位**
+ *                              （使用者設定的 1 位被吃掉，畫面上沒有任何提示）
+ *   digits = -1／"abc"       → **丟 RangeError，整個結論草稿掛掉**
+ *   digits = 100             → 印出 100 位小數
+ *
+ * 這個洞是姊妹系統「交通服務水準」在 v2.20.46 被獨立複查抓到的同一類問題。
+ * 當時的成因是一句寫錯的註解：以為 `toFixed(undefined)` 會拋錯，
+ * 所以覺得漏傳一定會被發現——**實際上它不會拋錯，只會安靜輸出 0 位**。
+ * 三支系統是同一個寫法，所以三支都要查；查下來路口轉向本來就有夾範圍
+ *（`normalizeCondition()`，0～4），只有本系統沒有。
+ *
+ * ⚠️ 這裡只夾範圍，**不改變任何數值計算**：0、1、2 三個合法值的輸出
+ *    與修正前逐字相同。
+ */
+export function safeConclusionDigits(value: unknown): number {
+  /*
+   * 先擋型別再轉數字，順序不能反。
+   *
+   * 只用「!== null && !== ''」擋不乾淨——Number() 對好幾種不是數字的東西
+   * 都會給出落在 0～2 裡面的整數：
+   *   Number([])   === 0     ← 空陣列會變成 0 位（實測踩到過）
+   *   Number([2])  === 2
+   *   Number(true) === 1
+   *   Number(" ")  === 0
+   * 所以只接受「數字」與「非空白的字串」這兩種型別，其餘一律回預設值。
+   */
+  const acceptable =
+    typeof value === "number" ||
+    (typeof value === "string" && value.trim() !== "");
+  if (!acceptable) return DEFAULT_CONDITION.digits;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 2
+    ? parsed
+    : DEFAULT_CONDITION.digits;
+}
+
 export type ConclusionTemplate = {
   id: string;
   name: string;
@@ -154,7 +202,17 @@ function whole(value: number | null | undefined) {
   return Math.round(value).toLocaleString("zh-TW");
 }
 
-function pct(value: number | null | undefined, digits = 1) {
+/*
+ * 百分比一律要把「小數位數」帶進來。
+ *
+ * 舊版這個參數有預設值 1，而五個呼叫端**全部都沒有傳**，
+ * 於是百分比永遠是 1 位，使用者把小數位數改成 2 位完全沒有反應。
+ * 更難察覺的是：勾「車輛數（輛）」＋「車種組成（輛數與百分比）」時，
+ * 輸出裡根本沒有任何 num() 產生的數字（車輛數走 whole()），
+ * 等於整個選項一個字都影響不到——使用者實測回報的就是這個情形。
+ * 所以這裡**刻意拿掉預設值**，漏傳就是編譯錯誤，不會再無聲失效。
+ */
+function pct(value: number | null | undefined, digits: number) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return value.toFixed(digits) + "%";
 }
@@ -259,7 +317,8 @@ function describeCell(
 ): string[] {
   const cell = row.periods[period];
   const wants = (key: ConclusionMetricKey) => condition.metrics.includes(key);
-  const digits = condition.digits;
+  /* 這裡也要夾：describeCell 直接吃 condition，不經過 buildConclusion 的那一次。 */
+  const digits = safeConclusionDigits(condition.digits);
   if (!cell || !cell.hasData)
     return [`　　${CONCLUSION_PERIOD_LABELS[period]}：這一列沒有資料。`];
 
@@ -279,7 +338,7 @@ function describeCell(
     lines.push(
       top
         ? `　　　最大宗車種為${top.label}，${whole(top.count)} ${cell.unitCount}` +
-            `（佔 ${pct(cell.total ? (top.count / cell.total) * 100 : null)}）。`
+            `（佔 ${pct(cell.total ? (top.count / cell.total) * 100 : null, digits)}）。`
         : "　　　沒有可判斷最大宗車種的車輛數。",
     );
   }
@@ -293,7 +352,7 @@ function describeCell(
               .map(
                 (item) =>
                   `${item.label} ${whole(item.count)} ${cell.unitCount}` +
-                  `（${pct(cell.total ? (item.count / cell.total) * 100 : null)}）`,
+                  `（${pct(cell.total ? (item.count / cell.total) * 100 : null, digits)}）`,
               )
               .join("、") +
             "。"
@@ -310,7 +369,7 @@ function describeCell(
               .map(
                 (item) =>
                   `${item.label} ${num(item.pcu, digits)} ${cell.unitPcu}` +
-                  `（${pct(cell.pcu ? (item.pcu / cell.pcu) * 100 : null)}）`,
+                  `（${pct(cell.pcu ? (item.pcu / cell.pcu) * 100 : null, digits)}）`,
               )
               .join("、") +
             "。"
@@ -324,6 +383,8 @@ function describeCell(
 function describeGrowth(
   rows: ConclusionRow[],
   periods: PeriodKey[],
+  /* 變動幅度的百分比也要跟著使用者選的小數位數走。 */
+  digits: number,
 ) {
   const lines: string[] = [];
   const groups = new Map<string, ConclusionRow[]>();
@@ -369,7 +430,7 @@ function describeGrowth(
           `變為 ${quarterText(last.quarter)} 的 ${whole(last.cell.total)} ${last.cell.unitCount}，` +
           (change === null
             ? "起始季為 0，變動幅度無法以百分比表示"
-            : `${change >= 0 ? "增加" : "減少"} ${Math.abs(change).toFixed(1)}%`) +
+            : `${change >= 0 ? "增加" : "減少"} ${pct(Math.abs(change), digits)}`) +
           "。",
       );
     }
@@ -418,7 +479,12 @@ function describeExtremes(
 }
 
 /** 同一路段、同一方向、同一季，平日對假日。 */
-function describeDayCompare(rows: ConclusionRow[], periods: PeriodKey[]) {
+function describeDayCompare(
+  rows: ConclusionRow[],
+  periods: PeriodKey[],
+  /* 平假日差異的百分比也要跟著使用者選的小數位數走。 */
+  digits: number,
+) {
   const lines: string[] = [];
   const groups = new Map<string, ConclusionRow[]>();
   for (const row of rows) {
@@ -451,7 +517,7 @@ function describeDayCompare(rows: ConclusionRow[], periods: PeriodKey[]) {
           `假日 ${whole(b.total)} ${b.unitCount}，` +
           (change === null
             ? "平日為 0，無法以百分比表示差異"
-            : `假日較平日${change >= 0 ? "多" : "少"} ${Math.abs(change).toFixed(1)}%`) +
+            : `假日較平日${change >= 0 ? "多" : "少"} ${pct(Math.abs(change), digits)}`) +
           "。",
       );
     }
@@ -472,7 +538,12 @@ export function buildConclusion(
   const periods = condition.periods.length
     ? condition.periods
     : (["all"] as PeriodKey[]);
-  const digits = condition.digits;
+  /*
+   * 位數在這裡夾一次，而不是只在畫面上夾。
+   * 舊範本與舊備份走的是 setCondition(template.condition) 這條路，
+   * 完全不經過畫面的下拉——只夾畫面等於沒夾。詳見 safeConclusionDigits()。
+   */
+  const digits = safeConclusionDigits(condition.digits);
   const wants = (key: ConclusionMetricKey) => condition.metrics.includes(key);
   const out: string[] = [];
 
@@ -533,8 +604,8 @@ export function buildConclusion(
         out.push(`　〔${quarterText(row.quarter)}・${row.dayType}・${rowLabel(row)}〕`);
         for (const period of periods) out.push(...describeCell(row, period, condition));
       }
-      if (wants("growth")) out.push(...describeGrowth(group, periods));
-      if (wants("dayCompare")) out.push(...describeDayCompare(group, periods));
+      if (wants("growth")) out.push(...describeGrowth(group, periods, digits));
+      if (wants("dayCompare")) out.push(...describeDayCompare(group, periods, digits));
     }
   } else if (condition.grouping === "byQuarter") {
     for (const quarter of quarters) {
@@ -546,7 +617,7 @@ export function buildConclusion(
         for (const period of periods) out.push(...describeCell(row, period, condition));
       }
       if (wants("extremes")) out.push(...describeExtremes(group, periods, digits));
-      if (wants("dayCompare")) out.push(...describeDayCompare(group, periods));
+      if (wants("dayCompare")) out.push(...describeDayCompare(group, periods, digits));
     }
   } else {
     heading("整體結果");
@@ -574,7 +645,7 @@ export function buildConclusion(
   }
   if (wants("growth") && condition.grouping !== "byRoad") {
     heading("季度之間的變動");
-    const lines = describeGrowth(body, periods);
+    const lines = describeGrowth(body, periods, digits);
     out.push(
       ...(lines.length
         ? lines
@@ -583,7 +654,7 @@ export function buildConclusion(
   }
   if (wants("dayCompare") && condition.grouping === "overall") {
     heading("平日與假日對比");
-    const lines = describeDayCompare(body, periods);
+    const lines = describeDayCompare(body, periods, digits);
     out.push(
       ...(lines.length
         ? lines

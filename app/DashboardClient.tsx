@@ -11,6 +11,197 @@ import {
   surveyRoadIdFromFileName,
 } from "./road-identity";
 import { appFetch, offlineMode } from "./app-fetch";
+import {
+  type ChartNote,
+  compositionNote,
+  dayCompareNote,
+  hourlyNote,
+  rankNote,
+} from "./chart-notes";
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  圖旁邊的解讀說明
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者的要求：「不管哪個程式，我希望圖旁邊都能有對應的、解讀該張圖
+ * 代表的意義的說明提供給使用者看。」
+ *
+ * 文字本身在 app/chart-notes.ts，是純函式、有單元測試釘住。這裡只負責
+ * 把它畫出來。
+ *
+ * ⚠️ `data-chart-note` 這個屬性是給「匯出的圖片裡不可以有說明文字」的
+ * 守門用的——使用者特別交代過：「檔案匯出不能在圖上留下說明文字」。
+ * 說明是 DOM 的一部分、不是畫布的一部分，所以匯出（canvas / Excel 原生
+ * 圖表）本來就不會帶到它；屬性存在是為了讓測試可以直接證明這件事，
+ * 而不是靠「我看過了」。
+ */
+function boldParts(line: string) {
+  /* chart-notes 用 **粗體** 標出「不可以誤讀」的那一句。 */
+  return line.split("**").map((piece, index) =>
+    index % 2 === 1 ? <strong key={index}>{piece}</strong> : <span key={index}>{piece}</span>,
+  );
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  區段導覽（五大功能區）
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者的要求：「讓使用者一目了然知道資料匯入區、參數設定區、圖表區、
+ * 多計畫比較區等等各大功能區。」
+ *
+ * 這一支是**單一長頁往下捲**的版面，所以分區有兩件事要做：
+ *   ① 每一區前面放一條看得見的分隔標題（ZoneHeading）——不捲也知道
+ *      自己在哪一區。
+ *   ② 頂端一列固定的導覽（.section-nav，position:sticky）——跳過去
+ *      之後導覽還在原位，所以可以再跳到別區。使用者特別問過這一點：
+ *      「跳過去之後，如果我想跳到五，還能按到頂端固定的區段導覽嗎？」
+ *
+ * ⚠️ 捲動目標一定要配 scroll-margin-top，否則標題會被固定的導覽蓋住，
+ * 看起來就像「按了沒反應」。使用者也回報過這個現象。
+ */
+const PAGE_ZONES = [
+  {
+    id: "zone-import",
+    index: "一",
+    short: "匯入",
+    title: "資料匯入",
+    subtitle: "上傳調查資料・資料檢核・多計畫管理",
+  },
+  {
+    id: "zone-settings",
+    index: "二",
+    short: "設定",
+    title: "參數設定",
+    subtitle: "季度／日別／調查點篩選・PCU 當量・車種歸類",
+  },
+  {
+    id: "zone-kpi",
+    index: "三",
+    short: "數字",
+    title: "關鍵數字",
+    subtitle: "全日實際交通量・PCU・尖峰時段",
+  },
+  {
+    id: "zone-charts",
+    index: "四",
+    short: "圖表",
+    title: "圖表與比較",
+    subtitle: "車種組成・24小時型態・歷季分析・同季平假日・路段排名・跨計畫比較",
+  },
+  {
+    id: "zone-output",
+    index: "五",
+    short: "明細",
+    title: "明細與產出",
+    subtitle: "可追溯明細・時段車種分析・結論草稿",
+  },
+] as const;
+
+function ZoneHeading({
+  zone,
+}: {
+  zone: (typeof PAGE_ZONES)[number];
+}) {
+  return (
+    <div className="zone-heading" id={zone.id} data-zone={zone.index}>
+      <b>{zone.index}</b>
+      <div>
+        <strong>{zone.title}</strong>
+        <small>{zone.subtitle}</small>
+      </div>
+    </div>
+  );
+}
+
+function SectionNav() {
+  const [active, setActive] = useState<string>(PAGE_ZONES[0].id as string);
+  useEffect(() => {
+    const onScroll = () => {
+      /*
+       * 用「導覽列下緣」當判斷線：最後一個已經捲到線上方的區段就是
+       * 目前所在的區段。比 IntersectionObserver 好推理，也比較好測——
+       * 這條線的位置就是 CSS 裡的 scroll-margin-top。
+       */
+      const line = 84;
+      let current: string = PAGE_ZONES[0].id;
+      for (const zone of PAGE_ZONES) {
+        const node = document.getElementById(zone.id);
+        if (!node) continue;
+        if (node.getBoundingClientRect().top <= line) current = zone.id;
+      }
+      setActive(current);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+  return (
+    <nav className="section-nav" aria-label="區段導覽">
+      {PAGE_ZONES.map((zone) => (
+        <button
+          key={zone.id}
+          type="button"
+          className={active === zone.id ? "active" : ""}
+          aria-current={active === zone.id ? "true" : undefined}
+          data-goto={zone.id}
+          onClick={() => {
+            const node = document.getElementById(zone.id);
+            const nav = document.querySelector<HTMLElement>(".section-nav");
+            if (!node || !nav) return;
+            /*
+             * scrollIntoView() 只知道 scroll-margin，卻不知道 sticky 導覽列
+             * 在第一區附近仍可能處於「尚未完全黏住」的過渡位置；從頁尾跳回
+             * 第一區時因此可能把標題捲到導覽列底下。直接用目前導覽列的實際
+             * 高度計算位置，五區都能留下相同的可見間距。
+             *
+             * 先同步切換高亮，避免平滑捲動結束時最後一個 scroll event 與
+             * React 重繪互相競速，造成按鈕高亮落後一區。
+             */
+            setActive(zone.id);
+            const top =
+              window.scrollY +
+              node.getBoundingClientRect().top -
+              nav.getBoundingClientRect().height -
+              16;
+            window.scrollTo({
+              top: Math.max(0, top),
+              /*
+               * 從頁尾跨過 sticky 元件的原始位置做平滑回捲時，Chromium 可能
+               * 在黏住狀態解除的一刻中止動畫；第一區因此停在半路。第一區用
+               * 即時定位，其他區仍保留平滑捲動。
+               */
+              behavior:
+                zone.id === PAGE_ZONES[0].id ||
+                window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+                ? "auto"
+                : "smooth",
+            });
+          }}
+        >
+          <b>{zone.index}</b>
+          {zone.short}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function ChartNoteBox({ note }: { note: ChartNote }) {
+  return (
+    <aside className="chart-note" data-chart-note>
+      <h4>{note.title}</h4>
+      {note.lines.map((line, index) => (
+        <p key={index}>{boldParts(line)}</p>
+      ))}
+    </aside>
+  );
+}
 
 /*
  * 按下按鈕之後，把「剛長出來的結果」帶到看得見的地方。
@@ -237,6 +428,12 @@ import {
   normalizeAngle,
   targetField,
   type IntersectionArmSetting,
+  unconfiguredIntersectionRoads,
+  auditArmTurns,
+  deriveArmRoutesFromSurvey,
+  anglesMatchingRoutes,
+  defaultArmAngle,
+  TURN_LABELS,
 } from "./intersection-flow";
 import {
   DRAFT_SECTION_LABELS,
@@ -246,6 +443,22 @@ import {
   type DraftSectionKey,
   type ReportDraftContext,
 } from "./report-draft.ts";
+import {
+  TREND_METRICS,
+  axisTitle,
+  buildCrossProjectScript,
+  buildCrossProjectTrend,
+  buildTrendScript,
+  completeQuarterRange,
+  labelStride,
+  niceAxisMax,
+  showXLabel,
+  trendMetricById,
+  trendMetricLabel,
+  type TrendMetricDef,
+  type TrendScriptSection,
+  type TrendMetricId,
+} from "./trend-script.ts";
 import {
   checkPeriodAgainstDate,
   findSurveyDate,
@@ -869,10 +1082,20 @@ function colName(n: number) {
 function ProfessionalLineChart({
   rows,
   unit,
+  yTitle,
+  canvasRef,
   quarterLabels,
 }: {
   rows: TrendRow[];
   unit: string;
+  /**
+   * 縱軸要寫的整串字：「名稱（單位）」。
+   * 由上層依所選指標算好傳進來——圖表不自己再組一次，
+   * 否則同一張圖的標題、軸名稱與匯出檔名會出現三種寫法。
+   */
+  yTitle: string;
+  /** 讓上層拿得到畫布，才能把它存成 PNG。 */
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
   /**
    * X 軸每一季要印的字。由上層統一算好傳進來（季別或實際調查月份），
    * 圖表不自己再寫一套——同一個季別在下拉選單與 X 軸上必須是同一個字。
@@ -880,7 +1103,8 @@ function ProfessionalLineChart({
    */
   quarterLabels?: Record<string, string>;
 }) {
-  const ref = useRef<HTMLCanvasElement>(null);
+  const own = useRef<HTMLCanvasElement>(null);
+  const ref = canvasRef ?? own;
   // 重畫的觸發條件除了資料以外，還要包含「畫布尺寸改變」。畫布是照實際
   // 尺寸以實體像素重畫的，只綁資料的話，改變視窗大小或切換版面之後畫面
   // 會維持舊解析度被拉伸，線條變糊、座標軸文字也跟著歪掉。
@@ -894,7 +1118,7 @@ function ProfessionalLineChart({
     });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, []);
+  }, [ref]);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
@@ -908,18 +1132,33 @@ function ProfessionalLineChart({
     if (!c) return;
     c.scale(dpr, dpr);
     c.clearRect(0, 0, width, height);
-    const left = 70,
+    /*
+     * 版面：左邊要留給直書的「名稱（單位）」，下面要留給 X 軸標籤、
+     * 橫軸名稱「季度」與圖例。舊版沒有橫軸名稱也沒有圖例（圖例是畫布外
+     * 的 HTML），所以邊界比較窄；沿用舊邊界會讓它們壓在一起。
+     */
+    const left = 78,
       right = 28,
-      top = 28,
-      bottom = 48,
+      top = 30,
+      bottom = 86,
       w = width - left - right,
       h = height - top - bottom;
-    const max = Math.max(
+    /*
+     * 縱軸刻度吸附到好讀的整數。
+     *
+     * 舊版的軸頂**直接就是資料最大值**，四等分之後刻度變成
+     * 42,090／31,568／21,045／10,523／0 這種一排亂數；而且最高的那個點
+     * 會貼著最上面那條格線畫，圓點被切掉一半。niceAxisMax 先決定每一格
+     * 的高度再回推軸頂，所以刻度好讀，而且軸頂一定高於資料最大值。
+     */
+    const dataMax = Math.max(
       1,
       ...rows
         .flatMap((r) => [r.weekday, r.holiday])
         .filter((value): value is number => typeof value === "number" && Number.isFinite(value)),
     );
+    const axis = niceAxisMax(dataMax, 4);
+    const max = axis.max;
     c.font = "11px Microsoft JhengHei, sans-serif";
     c.textAlign = "right";
     c.fillStyle = "#708090";
@@ -931,17 +1170,32 @@ function ProfessionalLineChart({
       c.lineTo(width - right, y);
       c.stroke();
       c.fillText(
-        formatter.format(Math.round((max * (4 - i)) / 4)),
+        (max * (4 - i)) / 4 === 0
+          ? "0"
+          : ((max * (4 - i)) / 4).toLocaleString("zh-TW", {
+              minimumFractionDigits: axis.digits,
+              maximumFractionDigits: axis.digits,
+            }),
         left - 10,
         y + 4,
       );
     }
+    /*
+     * 縱軸要寫**名稱＋單位**，不是只寫單位。
+     *
+     * 舊版只畫 unit（例如「輛/日」），看圖的人不知道那是全日量、尖峰量
+     * 還是某一個車種——而使用者的要求正是「有單位的軸，就要附上名稱和
+     * 單位」。名稱由上層依所選指標算好傳進來。
+     */
     c.save();
-    c.translate(15, top + h / 2);
+    c.translate(16, top + h / 2);
     c.rotate(-Math.PI / 2);
     c.textAlign = "center";
-    c.fillText(unit, 0, 0);
+    c.fillStyle = "#526170";
+    c.font = "bold 11px Microsoft JhengHei, sans-serif";
+    c.fillText(yTitle, 0, 0);
     c.restore();
+    c.font = "11px Microsoft JhengHei, sans-serif";
     const draw = (key: "weekday" | "holiday", color: string) => {
       /* 整條都沒有值就整條不畫（例如被日別篩選掉的那一條）。 */
       const hasAny = rows.some((r) => typeof r[key] === "number");
@@ -984,14 +1238,66 @@ function ProfessionalLineChart({
     draw("holiday", palette.orange);
     c.textAlign = "center";
     c.fillStyle = "#526170";
-    rows.forEach((r, i) =>
+    /*
+     * X 軸標籤要間隔印。
+     *
+     * 舊版每一季都印，季度累積到二十幾季就會擠成一團——而那時候使用者
+     * 已經在簡報現場了。畫布有 measureText，所以這裡是**真的量**字寬，
+     * 不是估的。最後一季一定印：業主最在意「現在到哪了」。
+     */
+    const texts = rows.map((r) => quarterLabels?.[r.quarter] || r.quarter);
+    const stride = labelStride(texts, w, (text) => c.measureText(text).width);
+    rows.forEach((r, i) => {
+      if (!showXLabel(i, rows.length, stride)) return;
       c.fillText(
-        quarterLabels?.[r.quarter] || r.quarter,
+        texts[i],
         left + (rows.length === 1 ? w / 2 : (w * i) / (rows.length - 1)),
-        height - 17,
-      ),
-    );
-  }, [rows, unit, canvasSize, quarterLabels]);
+        height - 60,
+      );
+    });
+    /* 橫軸名稱，不然「113Q1、113Q2…」那一排字沒有標題。 */
+    c.font = "bold 11px Microsoft JhengHei, sans-serif";
+    c.fillStyle = "#526170";
+    c.fillText("季度", left + w / 2, height - 40);
+    /*
+     * 圖例畫在**畫布裡面**。
+     *
+     * 舊版的圖例是畫布外的一段 HTML，所以把這張圖存成圖片、或截圖貼進
+     * 簡報時，圖上完全看不出哪一條是平日、哪一條是假日。圖例是這張圖的
+     * 一部分，不是旁邊的裝飾。
+     */
+    c.font = "11px Microsoft JhengHei, sans-serif";
+    const legend: Array<[string, string]> = [];
+    if (rows.some((r) => typeof r.weekday === "number"))
+      legend.push(["平日", palette.teal]);
+    if (rows.some((r) => typeof r.holiday === "number"))
+      legend.push(["假日", palette.orange]);
+    if (legend.length) {
+      const gap = 92;
+      const startX = left + w / 2 - ((legend.length - 1) * gap) / 2;
+      const legendY = height - 16;
+      legend.forEach(([name, color], i) => {
+        const x = startX + i * gap;
+        c.beginPath();
+        c.moveTo(x - 26, legendY - 4);
+        c.lineTo(x - 8, legendY - 4);
+        c.strokeStyle = color;
+        c.lineWidth = 3;
+        c.stroke();
+        c.beginPath();
+        c.arc(x - 17, legendY - 4, 4, 0, Math.PI * 2);
+        c.fillStyle = "#fff";
+        c.fill();
+        c.strokeStyle = color;
+        c.lineWidth = 2.5;
+        c.stroke();
+        c.fillStyle = "#526170";
+        c.textAlign = "left";
+        c.fillText(name, x - 2, legendY);
+      });
+      c.textAlign = "center";
+    }
+  }, [rows, unit, yTitle, canvasSize, quarterLabels, ref]);
   return (
     <canvas
       ref={ref}
@@ -1000,6 +1306,217 @@ function ProfessionalLineChart({
     />
   );
 }
+/**
+ * 跨計畫歷季趨勢：一個計畫一條線。
+ *
+ * ⚠️ 畫的是**每路段平均**，不是總量——各計畫的路段數本來就不一樣，
+ * 比總量只會證明「路段比較多的計畫比較大」。線尾標出該季實際算得出來的
+ * 路段數 N，讓看的人知道這個平均是幾條路段平均出來的。
+ *
+ * 與單一計畫那張圖一樣，圖例畫在**畫布裡面**——把圖存成圖片或截圖貼進
+ * 簡報時，圖上要看得出哪一條是哪一個計畫。
+ */
+function CrossProjectTrendChart({
+  trend,
+  yTitle,
+  quarterLabels,
+  canvasRef,
+}: {
+  trend: ReturnType<typeof buildCrossProjectTrend>;
+  yTitle: string;
+  quarterLabels?: Record<string, string>;
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+}) {
+  const own = useRef<HTMLCanvasElement>(null);
+  const ref = canvasRef ?? own;
+  const [canvasSize, setCanvasSize] = useState("");
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (box) setCanvasSize(`${Math.round(box.width)}x${Math.round(box.height)}`);
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [ref]);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const box = canvasContentBox(canvas);
+    const dpr = window.devicePixelRatio || 1;
+    const width = box.width;
+    const height = box.height;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    const c = canvas.getContext("2d");
+    if (!c) return;
+    c.scale(dpr, dpr);
+    c.clearRect(0, 0, width, height);
+    const left = 78;
+    const right = 28;
+    const top = 30;
+    const baseColors = [
+      "#2a78d6",
+      "#eb6834",
+      "#1baf7a",
+      "#a76c00",
+      "#6656bd",
+      "#c23b3a",
+    ];
+    /* 超過六個計畫時仍要有可區辨的顏色，不能從第一色重新循環。 */
+    const colorFor = (order: number) =>
+      baseColors[order] ?? `hsl(${(order * 137.508) % 360} 64% 38%)`;
+    c.font = "11px Microsoft JhengHei, sans-serif";
+    const legend = trend.series
+      .map((item, order) => {
+        const last = [...item.points]
+          .reverse()
+          .find((point) => typeof point.value === "number");
+        return last
+          ? {
+              text: `${item.projectName}（N=${last.count}）`,
+              color: colorFor(order),
+            }
+          : null;
+      })
+      .filter((item): item is { text: string; color: string } => Boolean(item));
+    let legendRows = legend.length ? 1 : 0;
+    let measuredX = left;
+    for (const item of legend) {
+      const itemWidth = c.measureText(item.text).width + 44;
+      if (measuredX + itemWidth > width - right && measuredX > left) {
+        legendRows += 1;
+        measuredX = left;
+      }
+      measuredX += itemWidth;
+    }
+    /* 先保留圖例實際需要的列數，避免第二列起被畫到畫布外。 */
+    const bottom = 76 + Math.max(1, legendRows) * 16;
+    const w = width - left - right;
+    const h = height - top - bottom;
+    const values = trend.series.flatMap((item) =>
+      item.points
+        .map((point) => point.value)
+        .filter((value): value is number => typeof value === "number"),
+    );
+    c.font = "11px Microsoft JhengHei, sans-serif";
+    c.textAlign = "right";
+    c.fillStyle = "#708090";
+    c.strokeStyle = "#E3EAEF";
+    /* 佔比有天然上界，一律 0～100；自動縮放會把「12% 到 14%」畫成災難。 */
+    const crossAxis =
+      trend.meta.unit === "%"
+        ? { max: 100, digits: 0 }
+        : niceAxisMax(Math.max(1, ...values), 4);
+    const max = crossAxis.max;
+    for (let i = 0; i <= 4; i += 1) {
+      const y = top + (h * i) / 4;
+      c.beginPath();
+      c.moveTo(left, y);
+      c.lineTo(width - right, y);
+      c.stroke();
+      c.fillText(
+        ((max * (4 - i)) / 4).toLocaleString("zh-TW", {
+          minimumFractionDigits: crossAxis.digits,
+          maximumFractionDigits: crossAxis.digits,
+        }),
+        left - 10,
+        y + 4,
+      );
+    }
+    c.save();
+    c.translate(16, top + h / 2);
+    c.rotate(-Math.PI / 2);
+    c.textAlign = "center";
+    c.fillStyle = "#526170";
+    c.font = "bold 11px Microsoft JhengHei, sans-serif";
+    c.fillText(yTitle, 0, 0);
+    c.restore();
+    const px = (index: number) =>
+      trend.quarters.length === 1
+        ? left + w / 2
+        : left + (w * index) / Math.max(1, trend.quarters.length - 1);
+    const py = (value: number) => top + h - (value / max) * h;
+    trend.series.forEach((item, order) => {
+      const color = colorFor(order);
+      c.beginPath();
+      let started = false;
+      item.points.forEach((point, index) => {
+        /* 缺季要斷線，不是拉一條到 0 的線。 */
+        if (typeof point.value !== "number") {
+          started = false;
+          return;
+        }
+        const x = px(index);
+        const y = py(point.value);
+        if (started) c.lineTo(x, y);
+        else c.moveTo(x, y);
+        started = true;
+      });
+      c.strokeStyle = color;
+      c.lineWidth = 3;
+      c.stroke();
+      item.points.forEach((point, index) => {
+        if (typeof point.value !== "number") return;
+        c.beginPath();
+        c.arc(px(index), py(point.value), 4, 0, Math.PI * 2);
+        c.fillStyle = "#fff";
+        c.fill();
+        c.strokeStyle = color;
+        c.lineWidth = 2.5;
+        c.stroke();
+      });
+    });
+    /* X 軸標籤：畫布量得到字寬，所以是真的量，不是估的。 */
+    c.textAlign = "center";
+    c.fillStyle = "#526170";
+    const texts = trend.quarters.map(
+      (quarter) => quarterLabels?.[quarter] || quarter,
+    );
+    const stride = labelStride(texts, w, (text) => c.measureText(text).width);
+    texts.forEach((text, index) => {
+      if (!showXLabel(index, texts.length, stride)) return;
+      c.fillText(text, px(index), top + h + 26);
+    });
+    c.font = "bold 11px Microsoft JhengHei, sans-serif";
+    c.fillText("季度", left + w / 2, top + h + 46);
+    /* 圖例畫在畫布裡；N 是該計畫最後一季算得出來的路段數。 */
+    c.font = "11px Microsoft JhengHei, sans-serif";
+    if (legend.length) {
+      let x = left;
+      let y = height - 24 - (legendRows - 1) * 16;
+      c.textAlign = "left";
+      for (const item of legend) {
+        const textWidth = c.measureText(item.text).width;
+        /* 放不下就換行，不可以讓計畫名稱互相疊住或衝出畫布。 */
+        if (x + textWidth + 34 > width - right && x > left) {
+          x = left;
+          y += 16;
+        }
+        c.beginPath();
+        c.moveTo(x, y - 4);
+        c.lineTo(x + 18, y - 4);
+        c.strokeStyle = item.color;
+        c.lineWidth = 3;
+        c.stroke();
+        c.fillStyle = "#526170";
+        c.fillText(item.text, x + 24, y);
+        x += textWidth + 44;
+      }
+      c.textAlign = "center";
+    }
+  }, [trend, yTitle, quarterLabels, canvasSize, ref]);
+  return (
+    <canvas
+      ref={ref}
+      className="trend-canvas cross-trend-canvas"
+      aria-label="跨計畫歷季趨勢圖"
+      style={{ height: `${Math.max(340, 300 + trend.series.length * 18)}px` }}
+    />
+  );
+}
+
 function IntersectionGeometryDiagram({
   settings,
   sourceCode,
@@ -1577,7 +2094,15 @@ export default function DashboardClient({ user }: { user: User }) {
     new Map<string, { roadPcu: number; turnPcu: VehicleClassSetting["turnPcu"] }>(),
   );
   const [dayMetric, setDayMetric] = useState<Metric>("actual");
-  const [trendMetric, setTrendMetric] = useState<Metric>("actual");
+  /*
+   * 趨勢圖的指標。v20.59 起不只 actual／pcu 兩種，指標目錄在
+   * app/trend-script.ts（純函式，有單元測試釘住）。
+   * 預設仍是 "actual" ＝ 舊版的那一條線，不動選單時行為與舊版相同。
+   */
+  const [trendMetric, setTrendMetric] = useState<TrendMetricId>("actual");
+  /** 需要選車種的指標（單一車種車輛數／佔比）選到哪一個。 */
+  const [trendVehicle, setTrendVehicle] = useState("");
+  const trendCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [trendMode, setTrendMode] = useState<TrendMode>("平日＋假日");
   const [trendRoad, setTrendRoad] = useState("ALL");
   const [compositionMode, setCompositionMode] =
@@ -1643,6 +2168,23 @@ export default function DashboardClient({ user }: { user: User }) {
   const [showRoadManager, setShowRoadManager] = useState(false);
   const [showIntersectionManager, setShowIntersectionManager] = useState(false);
   const [intersectionManageRoad, setIntersectionManageRoad] = useState("");
+  /*
+   * 由調查表反推出來的支線角度與流向「預填值」。
+   *
+   * ⚠️ 刻意**不寫進 intersectionSettings**：
+   * unconfiguredIntersectionRoads() 是看 intersectionSettings 判斷「這個路口
+   * 設定過了沒有」。預填值若直接寫進去，這個路口立刻算成已設定，
+   * 下一季就不會再問——等於系統自己替使用者做了決定，而使用者根本沒看過。
+   * 使用者的要求是「預填出系統認為正確的值，但也要提醒到那個視窗確認」，
+   * 所以預填只在視窗裡當預設值出現，按下「儲存設定」才會真的存起來。
+   */
+  const [derivedArmPrefill, setDerivedArmPrefill] = useState<
+    IntersectionArmSetting[]
+  >([]);
+  /** 哪些路口的預填值與預設角度不同——要在視窗上明講，請使用者確認。 */
+  const [derivedArmNotice, setDerivedArmNotice] = useState<
+    Record<string, string>
+  >({});
   const [intersectionDiagramSource, setIntersectionDiagramSource] =
     useState("");
   const [intersectionSettings, setIntersectionSettings] = useState<
@@ -1703,7 +2245,12 @@ export default function DashboardClient({ user }: { user: User }) {
     fileWarnings: string[];
   } | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowState>(emptyWorkflowState());
-  const [workflowReady, setWorkflowReady] = useState(false);
+  /*
+   * 不可以只用 boolean 表示「載入完成」。切換計畫的同一輪 effect 裡，
+   * 舊的 true 仍可能被下一個存檔 effect 看見，進而把 A 計畫的 workflow
+   * 寫進 B 計畫。記住實際完成載入的計畫 id，存檔時才能做身分核對。
+   */
+  const [workflowLoadedProject, setWorkflowLoadedProject] = useState("");
   const [showQualityCenter, setShowQualityCenter] = useState(false);
   const [showHistoryCenter, setShowHistoryCenter] = useState(false);
   const [showTemplateCenter, setShowTemplateCenter] = useState(false);
@@ -1851,7 +2398,7 @@ export default function DashboardClient({ user }: { user: User }) {
   }, [activeProject]);
   useEffect(() => {
     let cancelled = false;
-    setWorkflowReady(false);
+    setWorkflowLoadedProject("");
     if (!activeProject) {
       setWorkflow(emptyWorkflowState());
       return;
@@ -1859,7 +2406,7 @@ export default function DashboardClient({ user }: { user: User }) {
     loadWorkflow(activeProject).then((state) => {
       if (!cancelled) {
         setWorkflow(state);
-        setWorkflowReady(true);
+        setWorkflowLoadedProject(activeProject);
       }
     });
     return () => {
@@ -1867,11 +2414,11 @@ export default function DashboardClient({ user }: { user: User }) {
     };
   }, [activeProject]);
   useEffect(() => {
-    if (activeProject && workflowReady)
+    if (activeProject && workflowLoadedProject === activeProject)
       saveWorkflow(activeProject, workflow).catch(() =>
         setToast("品質與版本資料保存失敗"),
       );
-  }, [activeProject, workflow, workflowReady]);
+  }, [activeProject, workflow, workflowLoadedProject]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 3500);
@@ -2089,7 +2636,17 @@ export default function DashboardClient({ user }: { user: User }) {
   /** origin ＝ 從這條支線出發 → 駛出；destination ＝ 開進這條支線 → 駛入 */
   const intersectionFlowLabelOf = (mode: IntersectionFlowMode) =>
     mode === "destination" ? "駛入" : "駛出";
-  const displayDirectionNameFor = (
+  /*
+   * ⚠️ 這兩支要用 useCallback 包起來。
+   *
+   * 它們被好幾個 useMemo 讀到，卻沒有出現在那些 useMemo 的相依陣列裡
+   *（eslint 的 react-hooks/exhaustive-deps 一直在警告）。不包的話每次
+   * render 都是新的函式，加進相依陣列會讓那些 useMemo 每次都重算；
+   * 不加又是「相依漏列」——**漏列的後果是畫面換了設定，記憶體裡那份
+   * 舊的算式還在，匯出去的數字沿用舊值**，而且不會有任何錯誤。
+   * 包起來之後兩邊都成立：加得進相依陣列，也不會每次重算。
+   */
+  const displayDirectionNameFor = useCallback((
     record: TrafficRecord,
     mode: IntersectionFlowMode,
   ) => {
@@ -2105,9 +2662,12 @@ export default function DashboardClient({ user }: { user: User }) {
     const customName = setting?.name?.trim();
     const flowLabel = intersectionFlowLabelOf(mode);
     return `${flowLabel}路口${record.directionCode}${customName && customName !== `路口${record.directionCode}` ? `（${customName}）` : ""}`;
-  };
-  const displayDirectionName = (record: TrafficRecord) =>
-    displayDirectionNameFor(record, intersectionFlowMode);
+  }, [intersectionSettings, activeProject]);
+  const displayDirectionName = useCallback(
+    (record: TrafficRecord) =>
+      displayDirectionNameFor(record, intersectionFlowMode),
+    [displayDirectionNameFor, intersectionFlowMode],
+  );
   const activeRecords = useMemo(
     () =>
       // 目的支線格式的轉向分類在這裡即時計算，
@@ -2138,6 +2698,7 @@ export default function DashboardClient({ user }: { user: User }) {
     intersectionSettings,
     activeProject,
     intersectionFlowMode,
+    displayDirectionName,
   ]);
   const activeVehicleSourceCatalog = useMemo(() => {
     const labels = new Map<string, string>();
@@ -2402,10 +2963,8 @@ export default function DashboardClient({ user }: { user: User }) {
       );
   }, [
     analysisRecords,
-    intersectionSettings,
-    activeProject,
-    intersectionFlowMode,
     matchesRoad,
+    displayDirectionName,
   ]);
   /* 條件的文字描述，KPI 與匯出摘要共用一份，避免兩處各寫各的。 */
   const directionLabelText =
@@ -2625,8 +3184,7 @@ export default function DashboardClient({ user }: { user: User }) {
     turnPcuFactors,
     vehicleClassSettings,
     dayType,
-    intersectionSettings,
-    activeProject,
+    displayDirectionName,
   ]);
   const roadOnlyRows = useMemo(
     () => roadRows.filter((row) => row.surveyType === "road"),
@@ -2898,13 +3456,22 @@ export default function DashboardClient({ user }: { user: User }) {
   );
   const managedArmSettings = useMemo(() => {
     if (!managedIntersection) return [];
+    /*
+     * 真正存過的設定排在前面：buildArmSettings 用 find() 取第一筆，
+     * 所以使用者存過的值一定蓋過反推的預填值，不會被系統覆寫。
+     */
     return buildArmSettings(
       activeProject,
       managedIntersection.roadId,
       managedIntersection.directions.map(([directionCode]) => directionCode),
-      intersectionSettings,
+      [...intersectionSettings, ...derivedArmPrefill],
     );
-  }, [managedIntersection, intersectionSettings, activeProject]);
+  }, [
+    managedIntersection,
+    intersectionSettings,
+    derivedArmPrefill,
+    activeProject,
+  ]);
   useEffect(() => {
     if (!intersectionManagerRows.length) {
       setIntersectionManageRoad("");
@@ -2971,8 +3538,56 @@ export default function DashboardClient({ user }: { user: User }) {
     directions,
     compositionDirection,
   ]);
+  /* ── 趨勢圖的指標、單位、軸名稱與講稿 ───────────────────── */
+  const trendMetricDef: TrendMetricDef = trendMetricById(trendMetric);
+  /**
+   * 可選的車種清單。
+   * 以**趨勢圖範圍內實際出現過的車種**為準（含使用者自訂的），
+   * 不是寫死四大類——調查表可以有電動車、自行車、任何自訂車種。
+   */
+  const trendVehicleOptions = useMemo(() => {
+    const found = new Map<string, string>();
+    for (const record of analysisRecords) {
+      if (trendRoad !== "ALL" && record.roadId !== trendRoad) continue;
+      const labels = rawVehicleLabels(record);
+      for (const key of Object.keys(rawVehicleCounts(record)))
+        if (!found.has(key))
+          found.set(key, labels[key] ?? key.replace(/^custom:/, ""));
+    }
+    return [...found.entries()];
+  }, [analysisRecords, trendRoad]);
+  const activeTrendVehicle = trendVehicleOptions.some(
+    ([key]) => key === trendVehicle,
+  )
+    ? trendVehicle
+    : trendVehicleOptions[0]?.[0] || "";
+  const activeTrendVehicleLabel =
+    trendVehicleOptions.find(([key]) => key === activeTrendVehicle)?.[1] || "";
+
   const trendRows = useMemo(() => {
     const map = new Map<string, TrendRow>();
+    /* 佔比類指標的分子分母（不能把百分比逐筆相加）。 */
+    const share = new Map<
+      string,
+      {
+        weekdayShare: { top: number; bottom: number; has: boolean };
+        holidayShare: { top: number; bottom: number; has: boolean };
+      }
+    >();
+    /*
+     * 尖峰小時類指標要**先把同一季同一日別的紀錄湊在一起**再挑尖峰，
+     * 不能逐筆算。
+     *
+     * ⚠️ 這一點是關鍵：選「全部路段合計」時，把各路段**各自的**尖峰小時
+     * 加起來是一個不存在的數字——A 路段的尖峰在早上 8 點、B 在下午 6 點，
+     * 兩者相加不對應任何一個真實的小時。正確的做法是先把各路段同一小時的
+     * 量加起來，再從中挑最忙的那一小時（＝路網的尖峰小時）。
+     * peakFromBuckets 也會處理 15 分鐘一格的滾動視窗。
+     */
+    const peakBuckets = new Map<
+      string,
+      { weekday: Map<string, number>; holiday: Map<string, number> }
+    >();
     analysisRecords
       .filter((r) => trendRoad === "ALL" || r.roadId === trendRoad)
       .forEach((r) => {
@@ -2985,32 +3600,134 @@ export default function DashboardClient({ user }: { user: User }) {
           weekday: null as number | null,
           holiday: null as number | null,
         };
-        const v =
-          trendMetric === "actual"
-            ? sumVehicles(r)
-            : sumPcu(r, pcuFactors, turnPcuFactors, vehicleClassSettings);
-        if (r.dayType === "平日") x.weekday = (x.weekday ?? 0) + v;
-        else x.holiday = (x.holiday ?? 0) + v;
+        /*
+         * 指標的值。
+         *
+         * ⚠️ 這裡**沒有新增任何交通量算法**：每一種都是呼叫既有、已被測試
+         * 釘住的函式（sumVehicles／sumPcu／rawVehicleCounts）算出來的。
+         * 在趨勢圖裡再實作一次就會有第二個來源，兩套遲早分岔。
+         *
+         * 佔比類指標不能逐筆相加（把百分比加起來沒有意義），所以分子分母
+         * 分開累計，最後再相除——見下面的 share 累計。
+         */
+        const counts = rawVehicleCounts(r);
+        const totalCount = sumVehicles(r);
+        let v: number | null = null;
+        let numerator: number | null = null;
+        if (trendMetric === "actual") v = totalCount;
+        else if (trendMetric === "pcu")
+          v = sumPcu(r, pcuFactors, turnPcuFactors, vehicleClassSettings);
+        else if (trendMetric === "vehicleClass")
+          v = Number(counts[activeTrendVehicle] ?? 0);
+        else if (trendMetric === "vehicleShare") {
+          numerator = Number(counts[activeTrendVehicle] ?? 0);
+          v = totalCount;
+        } else if (trendMetric === "heavyShare") {
+          numerator =
+            Number(counts.large ?? 0) + Number(counts.special ?? 0);
+          v = totalCount;
+        } else if (trendMetric === "peakHour" || trendMetric === "peakHourPcu") {
+          /* 逐小時累計，等這一季收齊了再挑尖峰（見上面的說明）。 */
+          const acc =
+            peakBuckets.get(r.quarter) ?? {
+              weekday: new Map<string, number>(),
+              holiday: new Map<string, number>(),
+            };
+          const bucket = r.dayType === "平日" ? acc.weekday : acc.holiday;
+          const amount =
+            trendMetric === "peakHour"
+              ? totalCount
+              : sumPcu(r, pcuFactors, turnPcuFactors, vehicleClassSettings);
+          bucket.set(r.hour, (bucket.get(r.hour) ?? 0) + amount);
+          peakBuckets.set(r.quarter, acc);
+          v = null;
+        }
+        if (v !== null) {
+          if (numerator === null) {
+            if (r.dayType === "平日") x.weekday = (x.weekday ?? 0) + v;
+            else x.holiday = (x.holiday ?? 0) + v;
+          } else {
+            /* 佔比：分子分母各自累計，最後一起相除。 */
+            const bucket = r.dayType === "平日" ? "weekdayShare" : "holidayShare";
+            const acc = share.get(r.quarter) ?? {
+              weekdayShare: { top: 0, bottom: 0, has: false },
+              holidayShare: { top: 0, bottom: 0, has: false },
+            };
+            acc[bucket].top += numerator;
+            acc[bucket].bottom += v;
+            acc[bucket].has = true;
+            share.set(r.quarter, acc);
+          }
+        }
         map.set(r.quarter, x);
       });
-    return [...map.values()]
-      .sort((a, b) => compareQuarters(a.quarter, b.quarter))
+    /*
+     * 頭尾之間**整季沒有資料**的季度要補成空格。
+     *
+     * 不補的話 X 軸只排有資料的那幾季，113Q1 與 114Q1 會緊鄰成兩格，
+     * 折線看起來像「上一季到這一季」的變化——實際上中間隔了整整一年。
+     * 補出來的空季值一律 null，折線會在那裡斷開。
+     */
+    const ordered = [...map.values()].sort((a, b) =>
+      compareQuarters(a.quarter, b.quarter),
+    );
+    const filled = completeQuarterRange(ordered.map((r) => r.quarter)).map(
+      (quarter) =>
+        map.get(quarter) ?? { quarter, weekday: null, holiday: null },
+    );
+    return filled
       /*
        * 被篩掉的那一條要給 null（不畫），不能給 0。
        * 給 0 的話那條線不會消失，而是變成沿著 X 軸的一條水平直線、每一季
        * 都有一個實心圓點，圖例也還列著——看起來像「這幾季假日交通量真的是
        * 0」。同一批 trendRows 也會進 Excel 的折線圖，錯誤會一起交出去。
        */
-      .map((r) => ({
-        quarter: r.quarter,
-        weekday: trendMode === "假日" ? null : r.weekday,
-        holiday: trendMode === "平日" ? null : r.holiday,
-      }));
+      .map((r) => {
+        /*
+         * 佔比類指標到這裡才相除。
+         *
+         * ⚠️ 分母為 0 時**不可以**回 0%——那會被讀成「這個車種一台都沒有」，
+         * 而事實是「這一季沒有可以當分母的車輛數」。回 null 讓折線斷開。
+         */
+        const acc = share.get(r.quarter);
+        const ratio = (bucket: "weekdayShare" | "holidayShare") => {
+          const item = acc?.[bucket];
+          if (!item || !item.has) return null;
+          return item.bottom ? (item.top / item.bottom) * 100 : null;
+        };
+        const isShare =
+          trendMetric === "vehicleShare" || trendMetric === "heavyShare";
+        const isPeak =
+          trendMetric === "peakHour" || trendMetric === "peakHourPcu";
+        const peak = peakBuckets.get(r.quarter);
+        /* 完全沒有那一種日別的資料時要回 null（斷線），不是 0。 */
+        const peakValue = (bucket?: Map<string, number>) => {
+          if (!bucket || !bucket.size) return null;
+          const best = peakFromBuckets(bucket);
+          return Number.isFinite(best.value) ? best.value : null;
+        };
+        const weekday = isShare
+          ? ratio("weekdayShare")
+          : isPeak
+            ? peakValue(peak?.weekday)
+            : r.weekday;
+        const holiday = isShare
+          ? ratio("holidayShare")
+          : isPeak
+            ? peakValue(peak?.holiday)
+            : r.holiday;
+        return {
+          quarter: r.quarter,
+          weekday: trendMode === "假日" ? null : weekday,
+          holiday: trendMode === "平日" ? null : holiday,
+        };
+      });
   }, [
     analysisRecords,
     trendRoad,
     trendMetric,
     trendMode,
+    activeTrendVehicle,
     pcuFactors,
     turnPcuFactors,
     vehicleClassSettings,
@@ -3133,6 +3850,41 @@ export default function DashboardClient({ user }: { user: User }) {
       })
       .join(",")})`;
   }, [compositionItems, compositionTotals.total]);
+  /*
+   * 圖旁邊的解讀說明。
+   *
+   * ⚠️ 一律**讀畫面上已經算好的那一份資料**（compositionItems、
+   * compositionTotals…），不重算一次。文字與圖分岔的時候，被念出來、
+   * 被抄進報告的是文字——那比圖畫錯還難發現。
+   */
+  const compositionScopeText = useMemo(() => {
+    const road =
+      compositionRoad === "ALL"
+        ? "全部調查點"
+        : (roadOptions.find(([id]) => id === compositionRoad)?.[1] ??
+          compositionRoad);
+    const direction =
+      compositionDirection === "ALL"
+        ? "全部方向"
+        : (directionOptions.find(([code]) => code === compositionDirection)?.[1] ??
+          compositionDirection);
+    return `${compositionMode}・${road}・${direction}`;
+  }, [
+    compositionMode,
+    compositionRoad,
+    compositionDirection,
+    roadOptions,
+    directionOptions,
+  ]);
+  const compositionChartNote = useMemo(
+    () =>
+      compositionNote(
+        compositionItems.map((item) => ({ label: item.label, count: item.count })),
+        compositionTotals.total,
+        compositionScopeText,
+      ),
+    [compositionItems, compositionTotals.total, compositionScopeText],
+  );
   const compositionExportRows = useMemo(() => {
     const modes: CompositionMode[] = ["平日", "假日", "平日＋假日"];
     /* 這裡的名稱就是 SUMIFS 的比對鍵，必須與下拉選單用同一組去重後的標籤。 */
@@ -3344,6 +4096,7 @@ export default function DashboardClient({ user }: { user: User }) {
     vehicleClassSettings,
     analysisVehicleCatalog,
   ]);
+
   const projectComparisons = useMemo(
     () =>
       projects
@@ -3742,6 +4495,7 @@ export default function DashboardClient({ user }: { user: User }) {
     turnPcuFactors,
     vehicleClassSettings,
     periodPeakScope,
+    displayDirectionNameFor,
   ]);
 
   const periodScopeOptions = useMemo(() => {
@@ -3836,6 +4590,113 @@ export default function DashboardClient({ user }: { user: User }) {
   const dailyActualUnit = partialScope ? "輛／調查時段" : "輛／調查日";
   const dailyPcuUnit = partialScope ? "PCU／調查時段" : "PCU／日";
   /*
+   * ── 圖旁邊的解讀說明（24小時型態／同季平假日／路段排名）───────
+   *
+   * 三個共同的規矩：
+   *  ① 只讀畫面上那一份資料（filtered、dayComparisons、roadRows），不重算。
+   *  ② 單位一律用畫面同一組單位變數，不寫死「／日」。
+   *  ③ **平日與假日永遠不相加**——24小時型態是一個日別一段文字，
+   *     同季平假日是並排比較。這是這支程式踩過的最大一個坑。
+   */
+  const blockScopeText = useMemo(() => {
+    const road =
+      roadFilters.length === 0
+        ? "全部調查點"
+        : roadFilters.length === 1
+          ? (roadOptions.find(([id]) => id === roadFilters[0])?.[1] ??
+            roadFilters[0])
+          : `${roadFilters.length} 個調查點`;
+    /* 直接讀 quarterLabels.labels，不呼叫元件內的 quarterLabel()——
+       那會讓相依陣列多掛一個每次都重建的函式，lint 也會不乾淨。 */
+    return `${quarterLabels.labels[quarter] || quarter}・${road}`;
+  }, [quarter, quarterLabels, roadFilters, roadOptions]);
+  const hourlyChartNote = useMemo(() => {
+    const dayTypes: string[] = [];
+    for (const record of filtered)
+      if (record.dayType && !dayTypes.includes(record.dayType))
+        dayTypes.push(record.dayType);
+    const groups = (dayTypes.length ? dayTypes : [""]).map((day) => ({
+      day,
+      points: hourlySeriesOf(
+        filtered.filter((r) => !day || r.dayType === day),
+        pcuFactors,
+        turnPcuFactors,
+        vehicleClassSettings,
+      ),
+    }));
+    const notes = groups.map((group) => ({
+      day: group.day,
+      note: hourlyNote(
+        group.points
+          .filter((point) => point.surveyed && point.actual !== null)
+          .map((point) => ({
+            hour: `${String(point.hour).padStart(2, "0")}:00`,
+            value: point.actual as number,
+          })),
+        "輛",
+        group.day ? `${blockScopeText}・${group.day}` : blockScopeText,
+      ),
+    }));
+    if (notes.length <= 1)
+      return (
+        notes[0]?.note ?? {
+          title: "這張圖在說什麼",
+          lines: ["目前的條件下沒有資料。"],
+        }
+      );
+    /* 兩個日別各講各的，中間放一句提醒，**絕對不把兩天的量加起來**。 */
+    return {
+      title: "這張圖在說什麼",
+      lines: [
+        `圖上有 ${notes.length} 條線，一個日別一條。**兩條線不會相加**——平日與假日是兩種不同的交通狀態，加起來的數字不對應任何一天。`,
+        ...notes.flatMap((entry) => [
+          `【${entry.day}】`,
+          ...entry.note.lines.slice(1),
+        ]),
+      ],
+    } satisfies ChartNote;
+  }, [
+    filtered,
+    pcuFactors,
+    turnPcuFactors,
+    vehicleClassSettings,
+    blockScopeText,
+  ]);
+  const dayCompareChartNote = useMemo(
+    () =>
+      dayCompareNote(
+        dayComparisons.map((row) => ({
+          name: row.roadName,
+          weekday: row.weekdaySurveyed
+            ? dayMetric === "actual"
+              ? row.weekdayActual
+              : row.weekdayPcu
+            : null,
+          holiday: row.holidaySurveyed
+            ? dayMetric === "actual"
+              ? row.holidayActual
+              : row.holidayPcu
+            : null,
+          /* 面板上每一列的單位是各自算的，說明文字要看得到這件事。 */
+          partial:
+            row.weekdayCoverage.partial || row.holidayCoverage.partial,
+        })),
+        dayMetric === "actual" ? dailyActualUnit : dailyPcuUnit,
+      ),
+    [dayComparisons, dayMetric, dailyActualUnit, dailyPcuUnit],
+  );
+  const rankChartNote = useMemo(
+    () =>
+      rankNote(
+        roadRows.map((row) => ({
+          name: row.roadName + (showDayColumn ? `（${row.dayType}）` : ""),
+          value: row.total,
+        })),
+        dailyActualUnit,
+      ),
+    [roadRows, showDayColumn, dailyActualUnit],
+  );
+  /*
    * 歷季趨勢有自己的日別選擇（trendMode），和上方分析範圍的 dayType 是
    * **兩個各自獨立的 state**，預設值還不一樣（dayType 預設「平日」、
    * trendMode 預設「平日＋假日」）。trendRows 走的是 trendMode，
@@ -3849,8 +4710,291 @@ export default function DashboardClient({ user }: { user: User }) {
    * 所以什麼都不動的預設畫面上，兩條單日的線掛著一個「合計」的單位。
    * 每一個點都是某一天的量，單位就跟只看一天時一樣。
    */
+
+
+
+
   const trendActualUnit = partialScope ? "輛／調查時段" : "輛／調查日";
   const trendPcuUnit = partialScope ? "PCU／調查時段" : "PCU／日";
+  /* ── 趨勢圖的單位、軸名稱 ─────────────────────────────── */
+  /** 單位跟著指標走：輛數類用調查涵蓋的單位、PCU 類用 PCU 單位、佔比是 %。 */
+  const trendUnit =
+    trendMetricDef.unit === "%"
+      ? "%"
+      : trendMetricDef.unit === "pcu"
+        ? trendMetricDef.peakBased
+          ? "PCU／小時"
+          : trendPcuUnit
+        : trendMetricDef.peakBased
+          ? "輛／小時"
+          : trendActualUnit;
+  const trendMetricName = trendMetricLabel(
+    trendMetricDef,
+    activeTrendVehicleLabel,
+  );
+  /*
+   * 縱軸要寫「名稱（單位）」。舊版只寫單位，看圖的人不知道那是全日量、
+   * 尖峰量還是某一個車種——而使用者的要求正是「有單位的軸，就要附上
+   * 名稱和單位」。
+   */
+  const trendAxisTitle = axisTitle(trendMetricName, trendUnit);
+
+  /*
+   * 圖表說明（簡報講稿）。
+   *
+   * ⚠️ 只讀 trendRows——就是上面那張圖畫出來的同一份資料。
+   * 圖與講稿分岔的時候，被念出來的是講稿，那比圖畫錯更難發現。
+   */
+  const trendScriptSections: TrendScriptSection[] = useMemo(
+    () =>
+      buildTrendScript(
+        trendRows,
+        {
+          label: trendMetricName,
+          unit: trendUnit,
+          digits: trendMetricDef.digits,
+          meaning: trendMetricDef.meaning,
+        },
+        {
+          scopeText:
+            trendRoad === "ALL"
+              ? "全部路段合計"
+              : roadOptions.find(([id]) => id === trendRoad)?.[1] || "所選路段",
+          dayText: trendMode,
+          quarterLabel: (quarter: string) =>
+            quarterLabels.labels[quarter] || quarter,
+          coverageNote: partialScope
+            ? "本圖有季度的調查並未涵蓋完整 24 小時，單位是「每調查時段」而不是「每日」；跨季比較前請先確認各季的調查涵蓋是否一致。"
+            : undefined,
+        },
+      ),
+    [
+      trendRows,
+      trendMetricName,
+      trendUnit,
+      trendMetricDef,
+      trendRoad,
+      trendMode,
+      roadOptions,
+      quarterLabels,
+      partialScope,
+    ],
+  );
+
+  /**
+   * 把趨勢圖存成兩倍解析度、白底的 PNG。**只有圖，沒有說明文字。**
+   *
+   * 使用者的原話：「下載下來的圖本來就該只有圖，不能有文字，否則貼到簡報上時，
+   * 看到那些應該由簡報者說明的文字展示在上方這樣才奇怪。」說明是講的，
+   * 不是印在投影片上的——所以講稿留在畫面上圖的旁邊，並且可以一鍵複製。
+   *
+   * 白底是必要的：透明底貼到深色投影片上，字會看不見。
+   * 圖例已經畫在畫布裡面，所以這張圖自己就看得懂哪一條是平日、哪一條是假日。
+   */
+  const downloadTrendPng = useCallback(() => {
+    const source = trendCanvasRef.current;
+    if (!source) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(source, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${trendMetricName}_${trendMode}_歷季趨勢.png`.replace(
+        /[\\/:*?"<>|]/g,
+        "_",
+      );
+      document.body.append(link);
+      link.click();
+      /*
+       * ⚠️ 連結要**等一下再移除**，不可以在 click() 之後同步拿掉。
+       * 下載是非同步啟動的，太早把節點移掉，瀏覽器可能來不及讀到
+       * download 屬性，檔案就會存成沒有副檔名的「download」——實測過。
+       * 使用者拿到的會是一個點兩下打不開的檔案。
+       */
+      setTimeout(() => {
+        link.remove();
+        URL.revokeObjectURL(url);
+      }, 1500);
+    }, "image/png");
+  }, [trendMetricName, trendMode]);
+
+  const crossTrendCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** 跨計畫圖的 PNG。同樣只有圖，說明文字在畫面上。 */
+  const downloadCrossTrendPng = useCallback(() => {
+    const source = crossTrendCanvasRef.current;
+    if (!source) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(source, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `跨計畫比較_${trendMetricName}_歷季趨勢.png`.replace(
+        /[\\/:*?"<>|]/g,
+        "_",
+      );
+      document.body.append(link);
+      link.click();
+      /*
+       * ⚠️ 連結要**等一下再移除**，不可以在 click() 之後同步拿掉。
+       * 下載是非同步啟動的，太早把節點移掉，瀏覽器可能來不及讀到
+       * download 屬性，檔案就會存成沒有副檔名的「download」——實測過。
+       * 使用者拿到的會是一個點兩下打不開的檔案。
+       */
+      setTimeout(() => {
+        link.remove();
+        URL.revokeObjectURL(url);
+      }, 1500);
+    }, "image/png");
+  }, [trendMetricName]);
+
+  const copyTrendScript = useCallback(() => {
+    const text = trendScriptSections
+      .map((section) => `【${section.title}】\n${section.lines.join("\n")}`)
+      .join("\n\n");
+    /* 沒有剪貼簿權限時不要靜靜失敗，改成下載成 .txt。 */
+    navigator.clipboard
+      ?.writeText(text)
+      .catch(() => {
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "歷季趨勢圖說明.txt";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      });
+  }, [trendScriptSections]);
+
+  /*
+   * ── 跨計畫歷季趨勢 ────────────────────────────────────────
+   *
+   * 既有的「跨計畫整體比較」是**單一季度**的長條圖；這裡補上歷季的折線，
+   * 才看得出各計畫長期的走向。
+   *
+   * ⚠️ **一律比每路段平均，不比總量。** 每個計畫的路段數量本來就不一樣，
+   * 比總量只會證明「路段比較多的計畫比較大」——那是已知的，不是資訊。
+   * 這條規則寫在 buildCrossProjectTrend 裡（有單元測試釘住），這裡只負責
+   * 把每個計畫每一季的分子、分母與路段數算好交給它。
+   *
+   * 每個計畫一律用**它自己的** PCU 係數，理由同 projectComparisons。
+   */
+  const crossTrend = useMemo(() => {
+    const isShare =
+      trendMetric === "vehicleShare" || trendMetric === "heavyShare";
+    /*
+     * ⚠️ 「平日＋假日」是**同時顯示兩條線**，不是把兩者加起來。
+     *
+     * 把平日與假日的車輛數加總是一個沒有意義的數字——它不對應任何一天，
+     * 也不是任何一種可以拿來報告的量。這是以前踩過的坑，所以這裡刻意
+     * 拆成兩個數列（「計畫名（平日）」「計畫名（假日）」），
+     * 與單一計畫那張圖畫成兩條線是同一個道理。
+     */
+    const dayTypes: DayType[] =
+      trendMode === "平日＋假日" ? ["平日", "假日"] : [trendMode];
+    const inputs = projects
+      .filter((p) => compareIds.includes(p.id))
+      .flatMap((p) => dayTypes.map((selectedDay) => ({ p, selectedDay })))
+      .map(({ p, selectedDay }) => {
+        const ownPcu = readProjectPcuFactors(p.id);
+        const ownTurnPcu = readProjectTurnPcuFactors(p.id);
+        const byQuarter = new Map<
+          string,
+          { total: number; denominator: number; roads: Set<string>; all: Set<string> }
+        >();
+        for (const r of projectRecords(records, p.id)) {
+          if (r.dayType !== selectedDay) continue;
+          const acc =
+            byQuarter.get(r.quarter) ?? {
+              total: 0,
+              denominator: 0,
+              roads: new Set<string>(),
+              all: new Set<string>(),
+            };
+          acc.all.add(r.roadId);
+          const counts = rawVehicleCounts(r);
+          const totalCount = sumVehicles(r);
+          if (trendMetric === "actual") acc.total += totalCount;
+          else if (trendMetric === "pcu")
+            acc.total += sumPcu(r, ownPcu, ownTurnPcu, vehicleClassSettings);
+          else if (trendMetric === "vehicleClass")
+            acc.total += Number(counts[activeTrendVehicle] ?? 0);
+          else if (trendMetric === "vehicleShare") {
+            acc.total += Number(counts[activeTrendVehicle] ?? 0);
+            acc.denominator += totalCount;
+          } else if (trendMetric === "heavyShare") {
+            acc.total += Number(counts.large ?? 0) + Number(counts.special ?? 0);
+            acc.denominator += totalCount;
+          } else {
+            /* 尖峰小時類指標跨計畫比較意義不大，這裡不畫（見畫面上的說明）。 */
+            continue;
+          }
+          acc.roads.add(r.roadId);
+          byQuarter.set(r.quarter, acc);
+        }
+        return {
+          projectId: `${p.id}|${selectedDay}`,
+          /* 同時顯示兩種日別時，名稱要帶出是哪一種，否則兩條線分不出來。 */
+          projectName:
+            dayTypes.length > 1 ? `${p.name}（${selectedDay}）` : p.name,
+          points: [...byQuarter.entries()].map(([quarter, acc]) => ({
+            quarter,
+            total: acc.roads.size ? acc.total : null,
+            denominator: isShare ? acc.denominator : undefined,
+            count: acc.roads.size,
+            size: acc.all.size,
+          })),
+        };
+      })
+      .filter((item) => item.points.length > 0);
+    return buildCrossProjectTrend(
+      inputs,
+      {
+        label: trendMetricName,
+        unit: trendUnit,
+        digits: trendMetricDef.digits,
+        meaning: trendMetricDef.meaning,
+      },
+      compareQuarters,
+    );
+  }, [
+    projects,
+    compareIds,
+    records,
+    trendMetric,
+    trendMode,
+    activeTrendVehicle,
+    vehicleClassSettings,
+    trendMetricName,
+    trendUnit,
+    trendMetricDef,
+  ]);
+  const crossTrendScript = useMemo(
+    () =>
+      buildCrossProjectScript(
+        crossTrend,
+        (quarter: string) => quarterLabels.labels[quarter] || quarter,
+      ),
+    [crossTrend, quarterLabels],
+  );
+
+
+
   const intersectionFlowLabel =
     intersectionFlowLabelOf(intersectionFlowMode);
   const hasIntersectionRecords = activeRecords.some(
@@ -3934,6 +5078,7 @@ export default function DashboardClient({ user }: { user: User }) {
        * intersectionSettings 推出來的，所以支線改名時這個 memo 一樣會重算。
        * 本檔其他 memo（1739、1936、2116）也是同一個取捨。
        */
+      displayDirectionName,
     ],
   );
   const filteredAnomalies = useMemo(
@@ -4138,19 +5283,34 @@ export default function DashboardClient({ user }: { user: User }) {
       (sum, row) => sum + row.holidayActual,
       0,
     );
-    const trendValues = trendRows.map((row) => ({
-      quarter: row.quarter,
-      /*
-       * null 代表讀不到，往下游要保持 null（報告草稿會寫「—」並說明），
-       * 不可以折成 0——折成 0 會讓草稿寫出「較前一季增加 0.0%」。
-       */
-      value:
-        trendMode === "平日"
-          ? (row.weekday ?? Number.NaN)
-          : trendMode === "假日"
-            ? (row.holiday ?? Number.NaN)
-            : (row.weekday ?? 0) + (row.holiday ?? 0),
-    }));
+    /*
+     * 圖上平日與假日是兩條獨立序列，報告也必須使用同一份序列。
+     * 平日＋假日不是同一天，不可把兩條線相加成一個虛構的日交通量。
+     */
+    const trendSeries = [
+      ...(trendMode === "假日"
+        ? []
+        : [
+            {
+              label: "平日",
+              rows: trendRows.map((row) => ({
+                quarter: row.quarter,
+                value: row.weekday ?? Number.NaN,
+              })),
+            },
+          ]),
+      ...(trendMode === "平日"
+        ? []
+        : [
+            {
+              label: "假日",
+              rows: trendRows.map((row) => ({
+                quarter: row.quarter,
+                value: row.holiday ?? Number.NaN,
+              })),
+            },
+          ]),
+    ];
     const periodPeriods = periodExport.periods.map((key) => PERIOD_LABELS[key]);
     // buildPeriodRows 是「每個調查點各有一列 scopeCode === ALL」，
     // 沒有跨調查點的總合計列。只取第一列會寫出單一調查點的數字，卻讀起來
@@ -4311,17 +5471,21 @@ export default function DashboardClient({ user }: { user: User }) {
         total: row.total,
         pcu: row.pcu24,
       })),
-      dayCompare: weekday && holiday ? { weekday, holiday } : null,
+      dayCompare:
+        dayComparisons.some((row) => row.weekdaySurveyed) &&
+        dayComparisons.some((row) => row.holidaySurveyed)
+          ? { weekday, holiday }
+          : null,
       trend: {
         mode: trendMode,
-        metricLabel: trendMetric === "actual" ? "實際交通量" : "當量交通量",
-        /* 一定要用 trendActualUnit／trendPcuUnit（依 trendMode），見上面說明。 */
-        unit: trendMetric === "actual" ? trendActualUnit : trendPcuUnit,
+        metricLabel: trendMetricName,
+        unit: trendUnit,
         roadLabel:
           trendRoad === "ALL"
             ? "全部路段合計"
             : (roadOptions.find(([id]) => id === trendRoad)?.[1] ?? trendRoad),
-        rows: trendValues,
+        rows: trendSeries[0]?.rows ?? [],
+        series: trendSeries,
       },
       compositionMode: [
         compositionMode,
@@ -4393,9 +5557,7 @@ export default function DashboardClient({ user }: { user: User }) {
     activeProject,
     quarter,
     dayType,
-    matchesRoad,
     roadOptions,
-    matchesDirection,
     directionOptions,
     hasIntersectionRecords,
     intersectionFlowLabel,
@@ -4428,6 +5590,10 @@ export default function DashboardClient({ user }: { user: User }) {
     workflow.checkedQuarters,
     anomalyAlerts,
     roadDraftSummary,
+    directionLabelText,
+    roadFilters,
+    trendMetricName,
+    trendUnit,
   ]);
   const generatedDraft = useMemo(
     () => buildReportDraft(reportDraftContext, draftSections),
@@ -4976,6 +6142,54 @@ export default function DashboardClient({ user }: { user: User }) {
         ),
       ];
       /*
+       * 支線數與「沒有這個轉向」的數量做算術核對。
+       *
+       * 一支支線只能去（支線數 − 1）個地方，調查表卻固定印同樣幾個轉向欄，
+       * 兩者的差就是應該畫橫線的數量：三岔每支剛好 1 個、四岔 0 個。
+       * 這是純算術，不依賴任何調查廠商的編號習慣（實測 37 份實檔完全符合）。
+       *
+       * 對不上通常是「該畫橫線的欄位被留成空白」或「表頭欄位被讀錯」。
+       * 以前這種檔案會安靜通過。這裡只示警，不改動任何數值。
+       */
+      const armAuditWarnings = [
+        ...new Set(
+          [
+            ...new Set(
+              parsedSource
+                .filter((record) => record.surveyType === "intersection")
+                .map((record) => record.roadId),
+            ),
+          ].flatMap((roadId) => {
+            const audits = auditArmTurns(parsedSource, roadId);
+            if (audits.length < 3) return [];
+            const mismatched = audits.filter(
+              (audit) => audit.absent.length !== audit.expectedAbsent,
+            );
+            if (!mismatched.length) return [];
+            const roadName =
+              parsedSource.find((record) => record.roadId === roadId)
+                ?.roadName ?? roadId;
+            const detail = mismatched
+              .map(
+                (audit) =>
+                  `路口${audit.directionCode}（應為 ${audit.expectedAbsent} 個，實際 ${audit.absent.length} 個${
+                    audit.absent.length
+                      ? "：" +
+                        audit.absent.map((turn) => TURN_LABELS[turn]).join("、")
+                      : ""
+                  }）`,
+              )
+              .join("；");
+            return [
+              `「${roadName}」是 ${audits.length} 岔路口，每一支支線只能去 ${audits[0].destinationCount} 個地方，` +
+                `所以每支應該剛好有 ${audits[0].expectedAbsent} 個轉向整欄畫橫線（「--」），但數量對不起來：${detail}。` +
+                "可能是該畫橫線的欄位被留成空白，也可能是表頭的「路口編號：」被讀錯而讓欄位算到隔壁支線，請核對原始檔。" +
+                "（這則只是提醒，不會改動任何數值。）",
+            ];
+          }),
+        ),
+      ];
+      /*
        * 形狀檢查不夠：normalizeSurveyPeriod 只在民國 90～200 這個窗口內換算，
        * 超出窗口的四碼年份會原樣通過（例如 2112Q3），於是同一季會存成兩個鍵。
        * 改用共用的 checkSurveyPeriodInput()，並分開講「格式不對」與「超出範圍」。
@@ -5058,6 +6272,7 @@ export default function DashboardClient({ user }: { user: User }) {
               }。日別是資料的身分鍵之一，判錯會讓資料寫到另一個日別、甚至覆蓋既有資料，請確認無誤。`,
           ),
           ...sourceCellWarnings,
+          ...armAuditWarnings,
         ],
       });
       setBusy(false);
@@ -5158,9 +6373,78 @@ export default function DashboardClient({ user }: { user: User }) {
        * 使用者只會看到最上面那個，而 toast 卻叫他去調整車種。
        * 改成先開車種（跟 toast 講的一致），關掉之後再自動開路口幾何。
        */
-      const importedIntersection = parsed.find(
-        (record) => record.surveyType === "intersection",
+      /*
+       * 只有「還沒設定過幾何」的路口才需要跳視窗。
+       *
+       * 舊版是 parsed.find(surveyType === "intersection")：只要這一批裡有
+       * 任何一筆路口資料就無條件打開「多支線角度、轉向圖與流向確認」。
+       * 但角度與流向設定是存成（計畫、路口、支線）三層、**與季度無關**的，
+       * 第一季設好之後每一季都沿用同一份——於是使用者第二季以後每次匯入
+       * 都被這個視窗攔一次，而裡面沒有任何一項需要改（實測回報）。
+       *
+       * 舊寫法還有第二個問題：它只取**第一筆**路口。一次匯入三個新路口時，
+       * 只會問第一個，另外兩個直接套預設角度、不會問也不會提示。
+       * 改成把整批裡沒設定過的路口都算出來，跳第一個、並在訊息裡講清楚
+       * 還有幾個要設定。
+       */
+      const needsSetup = unconfiguredIntersectionRoads(
+        parsed,
+        targetProjectId,
+        intersectionSettings,
       );
+      const firstNeedingSetup = needsSetup[0] ?? "";
+      /*
+       * ── 用調查表的橫線位置反推支線角度與流向，預填進確認視窗 ──
+       *
+       * 為什麼要做（實測）：三岔路口的**預設角度**是 [-90, 0, 180]，
+       * 用它推出來的缺口是「A 沒有直進、B 沒有左轉、C 沒有右轉」；
+       * 但三份真實三岔調查檔寫的是**完全相反的一組**
+       *「A 沒有右轉、B 沒有直進、C 沒有左轉」。
+       * 兩者對不起來的後果是 A 的直進車流沒有目的地、整批被歸到
+       *「未指定駛入路口」——實測某三岔路口 AM 5,831 輛裡有 3,612 輛、
+       * 62% 掉進去（總量守恆，但 OD 歸屬是錯的）。
+       *
+       * 反推只用兩個條件：調查表畫橫線的位置，加上「轉向互為對稱」
+       *（A 直進到 B ⇔ B 直進到 A；A 左轉到 B ⇔ B 右轉到 A）。
+       * 三岔由這兩個條件就解成唯一解；解不出唯一解時一律不預填。
+       *
+       * ⚠️ 預填**不等於**自動套用：視窗照樣會跳出來，使用者按下
+       *    「儲存設定」才會存。這是使用者的明確要求。
+       */
+      const prefill: IntersectionArmSetting[] = [];
+      const prefillNotes: Record<string, string> = {};
+      for (const roadId of needsSetup) {
+        const audits = auditArmTurns(parsed, roadId);
+        const derived = deriveArmRoutesFromSurvey(audits);
+        if (!derived) continue;
+        const angles = anglesMatchingRoutes(derived);
+        const codes = audits.map((audit) => audit.directionCode);
+        codes.forEach((code, index) => {
+          prefill.push({
+            projectId: targetProjectId,
+            roadId,
+            directionCode: code,
+            name: `路口${code}`,
+            angle: angles?.[code] ?? defaultArmAngle(index, codes.length),
+            routes: derived[code] ?? {},
+          });
+        });
+        const missing = audits
+          .filter((audit) => audit.absent.length)
+          .map(
+            (audit) =>
+              `路口${audit.directionCode} 沒有${audit.absent
+                .map((turn) => TURN_LABELS[turn])
+                .join("、")}`,
+          )
+          .join("、");
+        prefillNotes[roadId] =
+          `系統已依這份調查表預填角度與流向：${missing}。` +
+          "這是從調查表畫橫線的位置反推出來的（三岔路口由「轉向互為對稱」可解成唯一解），" +
+          "**不是預設值**——請確認無誤後按「儲存設定」。";
+      }
+      setDerivedArmPrefill(prefill);
+      setDerivedArmNotice(prefillNotes);
       if (vehicleSetup.addedCustom) {
         setVehicleClassDraft(
           vehicleSetup.settings.filter(
@@ -5168,18 +6452,35 @@ export default function DashboardClient({ user }: { user: User }) {
           ),
         );
         setShowVehicleManager(true);
-        setPendingIntersectionRoad(importedIntersection?.roadId ?? "");
-      } else if (importedIntersection) {
-        setIntersectionManageRoad(importedIntersection.roadId);
+        setPendingIntersectionRoad(firstNeedingSetup);
+      } else if (firstNeedingSetup) {
+        setIntersectionManageRoad(firstNeedingSetup);
         setShowIntersectionManager(true);
       }
       const importedMessage = report.replacedRows
         ? `已更新 ${formatter.format(report.replacedRows)} 筆並建立可復原版本`
         : `已追加匯入 ${formatter.format(parsed.length)} 筆並建立可復原版本`;
+      /*
+       * 還有幾個路口沒設定過幾何，要講出來。
+       * 視窗一次只開一個，不講的話使用者不會知道還有別的等著設定。
+       */
+      const pendingIntersectionNote =
+        needsSetup.length > 1
+          ? `；這批還有 ${needsSetup.length} 個路口尚未設定支線角度與流向，設定完第一個之後可在「道路與流向管理」接著設定其餘 ${needsSetup.length - 1} 個`
+          : "";
+      /*
+       * 有預填就一定要講出來。預填了卻不講，使用者會以為那是系統的預設值，
+       * 而預設值本來就與這些檔案矛盾——這正是要修的問題。
+       */
+      const prefillNote = Object.keys(prefillNotes).length
+        ? `；已依調查表的橫線位置預填 ${Object.keys(prefillNotes).length} 個路口的支線角度與流向，請在「多支線角度、轉向圖與流向確認」確認後按「儲存設定」`
+        : "";
       setToast(
-        vehicleSetup.addedCustom
+        (vehicleSetup.addedCustom
           ? `${importedMessage}；新車種「${vehicleSetup.addedLabels.join("、")}」當量係數已預設為 ${NEW_VEHICLE_DEFAULT_PCU}，請於「車種分類與新增當量」調整`
-          : importedMessage,
+          : importedMessage) +
+          pendingIntersectionNote +
+          prefillNote,
       );
     } catch (e) {
       setToast(e instanceof Error ? e.message : "匯入失敗");
@@ -6909,11 +8210,21 @@ export default function DashboardClient({ user }: { user: User }) {
        * 單位改為中性的「輛」「PCU」，各季的平日／假日涵蓋分列於 D、E 欄。
        * 折線圖只引用 A（類別）、B、C 三欄，新增說明欄不會影響圖表。
        */
-      const trendUnit = trendMetric === "actual" ? "輛" : "PCU";
+      /*
+       * 這裡的單位刻意不帶「/日」或「/調查時段」（見上面說明），
+       * 但**必須跟著所選指標走**——舊版寫死只分 actual／pcu 兩種，
+       * v20.59 起指標有六個，佔比類的單位是 %。
+       */
+      const trendUnitLabel =
+        trendMetricDef.unit === "%"
+          ? "%"
+          : trendMetricDef.unit === "pcu"
+            ? "PCU"
+            : "輛";
       tr.addRow([
         "季度",
-        `平日（${trendUnit}）`,
-        `假日（${trendUnit}）`,
+        `平日 ${trendMetricName}（${trendUnitLabel}）`,
+        `假日 ${trendMetricName}（${trendUnitLabel}）`,
         "平日調查涵蓋",
         "假日調查涵蓋",
       ]);
@@ -6932,6 +8243,31 @@ export default function DashboardClient({ user }: { user: User }) {
       );
       tr.columns = [16, 24, 24, 30, 30].map((width) => ({ width }));
       header(tr.getRow(1));
+      /*
+       * 圖表說明放在**自己的工作表**，不印在圖上。
+       *
+       * 使用者的原話：「excel 裡面圖本身就是圖，文字說明可以放在 excel 其他
+       * 欄位」「那些文字是要由簡報者口述的，不該出現在圖下方」。
+       * 所以圖是乾淨的折線圖，話在這一張表裡，要用的人自己複製。
+       *
+       * ⚠️ 這幾句話與畫面上圖旁邊那一段是**同一份**（trendScriptSections），
+       * 不是另外寫一次——寫兩次遲早會分岔，而分岔的時候沒有人會發現。
+       */
+      const ts = wb.addWorksheet("圖表說明", {
+        views: [{ state: "frozen", ySplit: 1 }],
+      });
+      ts.addRow(["段落", "內容"]);
+      ts.addRow([
+        "使用方式",
+        "以下文字是「歷季趨勢」那張圖代表的意義，供簡報時口述。刻意不印在圖上——圖給聽眾看，話由簡報者講。",
+      ]);
+      ts.addRow(["指標", `${trendMetricName}（${trendUnitLabel}）`]);
+      trendScriptSections.forEach((section) =>
+        section.lines.forEach((line) => ts.addRow([section.title, line])),
+      );
+      ts.columns = [18, 110].map((width) => ({ width }));
+      ts.getColumn(2).alignment = { wrapText: true, vertical: "top" };
+      header(ts.getRow(1));
       const currentComp = wb.addWorksheet("目前車種組成", {
         views: [{ state: "frozen", ySplit: 1 }],
       });
@@ -7583,7 +8919,8 @@ export default function DashboardClient({ user }: { user: User }) {
             `路口${intersectionFlowLabel}交通量`,
             "平假日比較",
           ],
-          history: ["歷季趨勢", "歷季全日交通量"],
+          /* v20.59 新增「圖表說明」：它是歷季趨勢那張圖的講稿，歸在同一組。 */
+          history: ["歷季趨勢", "圖表說明", "歷季全日交通量"],
           composition: ["目前車種組成", "歷季車種組成", "歷季組成圖表資料"],
           hourly: ["每小時趨勢"],
           projects: ["跨計畫比較"],
@@ -7936,6 +9273,8 @@ export default function DashboardClient({ user }: { user: User }) {
           </div>
         </aside>
         <section className="content">
+          <SectionNav />
+          <ZoneHeading zone={PAGE_ZONES[0]} />
           <div className="toolbar">
             <div className="project-title">
               <span className={`status-dot status-${currentStatus}`} />
@@ -7951,14 +9290,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.53.pdf"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.63.pdf"
                   download
                 >
                   新手使用手冊 PDF
                 </a>
                 <a
                   className="button secondary manual-download compact"
-                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.53.docx"
+                  href="./manuals/Traffic_Analysis_Beginner_Guide_v20.63.docx"
                   download
                   title="可編輯的 Word 版本"
                 >
@@ -8185,6 +9524,7 @@ export default function DashboardClient({ user }: { user: User }) {
               </button>
             </section>
           )}
+          <ZoneHeading zone={PAGE_ZONES[1]} />
           <div className="filters">
             <label>
               季度
@@ -8372,6 +9712,7 @@ export default function DashboardClient({ user }: { user: User }) {
             數值表；若需可編輯原生數據圖，請下載 .xlsx 並使用 Excel 2007
             以上版本開啟。
           </p>
+          <ZoneHeading zone={PAGE_ZONES[2]} />
           <div className="kpi-grid">
             <article className="kpi">
               <span>全日實際交通量</span>
@@ -8437,63 +9778,22 @@ export default function DashboardClient({ user }: { user: User }) {
               </div>
             </article>
           </div>
-          <div className="chart-grid">
-            <article className="panel road-chart">
-              <div className="panel-title">
-                <div>
-                  <span>路段排名</span>
-                  <h3>
-                    {surveyScope.partial
-                      ? "調查時段實際交通量與PCU"
-                      : "全日實際交通量與24小時PCU"}
-                  </h3>
-                </div>
-                <small>{dailyActualUnit}・{dailyPcuUnit}</small>
-              </div>
-              {renderBlockFilters({ quarter: true, day: true, road: true, flow: true })}
-              <div className="bar-list">
-                {roadRows.map((r) => (
-                  <div className="bar-row" key={`${r.roadId}|${r.dayType}`}>
-                    <div className="bar-label">
-                      <strong>{r.roadName}</strong>
-                      <small>
-                        {r.roadId}
-                        {showDayColumn ? `・${r.dayType}` : ""}
-                      </small>
-                    </div>
-                    <div className="bar-pair">
-                      <div className="bar-track">
-                        <span
-                          style={{ width: `${(r.total / maxRoad) * 100}%` }}
-                        />
-                      </div>
-                      <div className="bar-track pcu-track">
-                        <span
-                          style={{ width: `${(r.pcu24 / maxRoad) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                    <b>
-                      {/* 單位一律跟著 dailyActualUnit／dailyPcuUnit，
-                          部分時段調查時同一張卡片才不會上面標「調查時段」、
-                          下面每一列卻標「輛/日」。 */}
-                      <strong>{formatter.format(r.total)} {dailyActualUnit}</strong>
-                      <small>{decimalFormatter.format(r.pcu24)} {dailyPcuUnit}</small>
-                    </b>
-                  </div>
-                ))}
-              </div>
-              <div className="legend">
-                <span>
-                  <i />
-                  實際交通量（{dailyActualUnit}）
-                </span>
-                <span>
-                  <i className="pcu-legend" />
-                  {surveyScope.partial ? "調查時段PCU" : "24小時PCU"}（{dailyPcuUnit}）
-                </span>
-              </div>
-            </article>
+          {/*
+            * ── 圖表區的順序 ──────────────────────────────────────
+            *
+            * 使用者指定的順序：**車種 → 一天之內 → 跨季 → 整體 → 跨計畫**。
+            * 由「這一季的組成」往外走到「跨計畫」，捲下去的過程本身就是一條
+            * 敘事線，而不是六張圖的清單。
+            *
+            * ⚠️ 舊版把三張圖塞進 .chart-grid 的兩欄裡（路段排名跨兩列、
+            * 車種組成與每小時擠在 0.8fr 的右欄），每小時那張 245px 高的畫布
+            * 在窄欄裡被壓得很扁。改成一張一列、各自佔滿寬度。
+            *
+            * ⚠️ 「路段排名」依使用者的意思**保留但預設收合**——他說幾乎用不到，
+            * 但移除是不可逆的，收合不是。
+            */}
+          <ZoneHeading zone={PAGE_ZONES[3]} />
+          <div className="chart-stack">
             <article className="panel composition">
               <div className="panel-title composition-heading">
                 <div>
@@ -8547,6 +9847,8 @@ export default function DashboardClient({ user }: { user: User }) {
                   ))}
                 </select>
               </div>
+              <div className="chart-with-note">
+                <div className="chart-with-note-main">
               <div
                 className="donut"
                 style={{ background: compositionGradient }}
@@ -8579,6 +9881,9 @@ export default function DashboardClient({ user }: { user: User }) {
                   </div>
                 ))}
               </div>
+                </div>
+                <ChartNoteBox note={compositionChartNote} />
+              </div>
             </article>
             <article className="panel hourly">
               <div className="panel-title">
@@ -8608,24 +9913,146 @@ export default function DashboardClient({ user }: { user: User }) {
                 flow: true,
                 direction: true,
               })}
-              <HourlyCanvas
-                records={filtered}
-                factors={pcuFactors}
-                turnFactors={turnPcuFactors}
-                vehicleSettings={vehicleClassSettings}
-              />
-              <div className="legend chart-legend">
-                <span>
-                  <i />
-                  實際交通量
-                </span>
-                <span>
-                  <i className="pcu-line" />
-                  PCU
-                </span>
+              <div className="chart-with-note">
+                <div className="chart-with-note-main">
+                  <HourlyCanvas
+                    records={filtered}
+                    factors={pcuFactors}
+                    turnFactors={turnPcuFactors}
+                    vehicleSettings={vehicleClassSettings}
+                  />
+                  <div className="legend chart-legend">
+                    <span>
+                      <i />
+                      實際交通量
+                    </span>
+                    <span>
+                      <i className="pcu-line" />
+                      PCU
+                    </span>
+                  </div>
+                </div>
+                <ChartNoteBox note={hourlyChartNote} />
               </div>
             </article>
-          </div>
+          <article className="panel trend-panel">
+            <div className="panel-title">
+              <div>
+                <span>歷季分析</span>
+                <h3>全日交通量平日／假日趨勢</h3>
+              </div>
+              <div className="trend-controls">
+                <select
+                  value={trendRoad}
+                  onChange={(e) => setTrendRoad(e.target.value)}
+                >
+                  <option value="ALL">全部路段合計</option>
+                  {roadOptions.map(([id, name]) => (
+                    <option value={id} key={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={trendMode}
+                  onChange={(e) => setTrendMode(e.target.value as TrendMode)}
+                >
+                  <option>平日＋假日</option>
+                  <option>平日</option>
+                  <option>假日</option>
+                </select>
+                <select
+                  id="trendMetric"
+                  value={trendMetric}
+                  onChange={(e) => {
+                    setTrendMetric(e.target.value as TrendMetricId);
+                    /* 換指標就把上一個指標選到的車種清掉，免得沿用到不相干的鍵。 */
+                    setTrendVehicle("");
+                  }}
+                >
+                  {TREND_METRICS.map((metric) => (
+                    <option value={metric.id} key={metric.id}>
+                      {metric.id === "pcu" && surveyScope.partial
+                        ? "調查時段 PCU"
+                        : metric.label}
+                    </option>
+                  ))}
+                </select>
+                {trendMetricDef.picker === "vehicle" &&
+                  trendVehicleOptions.length > 0 && (
+                    <select
+                      id="trendVehicle"
+                      value={activeTrendVehicle}
+                      onChange={(e) => setTrendVehicle(e.target.value)}
+                    >
+                      {trendVehicleOptions.map(([key, name]) => (
+                        <option value={key} key={key}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+              </div>
+            </div>
+            <ProfessionalLineChart
+              rows={trendRows}
+              /* 這張圖畫的是 trendRows（依 trendMode），單位要跟著它。 */
+              unit={trendUnit}
+              yTitle={trendAxisTitle}
+              canvasRef={trendCanvasRef}
+              quarterLabels={quarterLabels.labels}
+            />
+            {/*
+              * 圖例已經畫在畫布裡面（見 ProfessionalLineChart）。
+              * 舊版的圖例是這裡的一段 HTML，把圖存成圖片或截圖貼進簡報時
+              * 完全看不出哪一條是平日、哪一條是假日——圖例是這張圖的一部分。
+              */}
+            <div className="trend-actions">
+              <button
+                type="button"
+                className="ghost"
+                id="trendDownloadPng"
+                onClick={downloadTrendPng}
+              >
+                下載高解析圖片（PNG）
+                <small>只有圖，不含說明文字</small>
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                id="trendCopyScript"
+                onClick={copyTrendScript}
+              >
+                複製說明文字
+              </button>
+            </div>
+            {/*
+              * ── 圖表說明欄位（簡報講稿）────────────────────────
+              *
+              * 使用者的要求：把圖表放進簡報時，聽眾會想知道這張圖代表什麼
+              * 意義，所以旁邊要有一段可以照著念的說明。
+              *
+              * ⚠️ 這段文字**只讀上面那一份 trendRows**，不回頭重算。
+              * 圖與講稿分岔的時候，被念出來的是講稿——那比圖畫錯更難發現。
+              */}
+            <div className="trend-script" id="trendScript">
+              {trendScriptSections.map((section) => (
+                <div className="trend-script-item" key={section.title}>
+                  <h4>{section.title}</h4>
+                  {section.lines.map((line, index) => (
+                    <p
+                      key={index}
+                      className={
+                        section.title === "要先講清楚的" ? "trend-caveat" : ""
+                      }
+                    >
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </article>
           <article className="panel comparison-panel">
             <div className="panel-title">
               <div>
@@ -8648,6 +10075,8 @@ export default function DashboardClient({ user }: { user: User }) {
               </div>
             </div>
             {renderBlockFilters({ quarter: true, road: true, flow: true, direction: true })}
+            <div className="chart-with-note">
+              <div className="chart-with-note-main">
             <div className="comparison-list">
               {dayComparisons.map((r) => {
                 /*
@@ -8730,61 +10159,77 @@ export default function DashboardClient({ user }: { user: User }) {
                 );
               })}
             </div>
-          </article>
-          <article className="panel trend-panel">
-            <div className="panel-title">
-              <div>
-                <span>歷季分析</span>
-                <h3>全日交通量平日／假日趨勢</h3>
               </div>
-              <div className="trend-controls">
-                <select
-                  value={trendRoad}
-                  onChange={(e) => setTrendRoad(e.target.value)}
-                >
-                  <option value="ALL">全部路段合計</option>
-                  {roadOptions.map(([id, name]) => (
-                    <option value={id} key={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={trendMode}
-                  onChange={(e) => setTrendMode(e.target.value as TrendMode)}
-                >
-                  <option>平日＋假日</option>
-                  <option>平日</option>
-                  <option>假日</option>
-                </select>
-                <select
-                  value={trendMetric}
-                  onChange={(e) => setTrendMetric(e.target.value as Metric)}
-                >
-                  <option value="actual">實際交通量</option>
-                  <option value="pcu">
-                    {surveyScope.partial ? "調查時段PCU" : "24小時PCU"}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <ProfessionalLineChart
-              rows={trendRows}
-              /* 這張圖畫的是 trendRows（依 trendMode），單位要跟著它。 */
-              unit={trendMetric === "actual" ? trendActualUnit : trendPcuUnit}
-              quarterLabels={quarterLabels.labels}
-            />
-            <div className="legend chart-legend">
-              <span>
-                <i />
-                平日
-              </span>
-              <span>
-                <i className="pcu-legend" />
-                假日
-              </span>
+              <ChartNoteBox note={dayCompareChartNote} />
             </div>
           </article>
+            <details className="collapsed-panel">
+              <summary>
+                <b>路段排名</b>
+                <span>這一季哪一個調查點最忙（點開查看）</span>
+              </summary>
+            <article className="panel road-chart">
+              <div className="panel-title">
+                <div>
+                  <span>路段排名</span>
+                  <h3>
+                    {surveyScope.partial
+                      ? "調查時段實際交通量與PCU"
+                      : "全日實際交通量與24小時PCU"}
+                  </h3>
+                </div>
+                <small>{dailyActualUnit}・{dailyPcuUnit}</small>
+              </div>
+              {renderBlockFilters({ quarter: true, day: true, road: true, flow: true })}
+              <div className="chart-with-note">
+                <div className="chart-with-note-main">
+              <div className="bar-list">
+                {roadRows.map((r) => (
+                  <div className="bar-row" key={`${r.roadId}|${r.dayType}`}>
+                    <div className="bar-label">
+                      <strong>{r.roadName}</strong>
+                      <small>
+                        {r.roadId}
+                        {showDayColumn ? `・${r.dayType}` : ""}
+                      </small>
+                    </div>
+                    <div className="bar-pair">
+                      <div className="bar-track">
+                        <span
+                          style={{ width: `${(r.total / maxRoad) * 100}%` }}
+                        />
+                      </div>
+                      <div className="bar-track pcu-track">
+                        <span
+                          style={{ width: `${(r.pcu24 / maxRoad) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <b>
+                      {/* 單位一律跟著 dailyActualUnit／dailyPcuUnit，
+                          部分時段調查時同一張卡片才不會上面標「調查時段」、
+                          下面每一列卻標「輛/日」。 */}
+                      <strong>{formatter.format(r.total)} {dailyActualUnit}</strong>
+                      <small>{decimalFormatter.format(r.pcu24)} {dailyPcuUnit}</small>
+                    </b>
+                  </div>
+                ))}
+              </div>
+              <div className="legend">
+                <span>
+                  <i />
+                  實際交通量（{dailyActualUnit}）
+                </span>
+                <span>
+                  <i className="pcu-legend" />
+                  {surveyScope.partial ? "調查時段PCU" : "24小時PCU"}（{dailyPcuUnit}）
+                </span>
+              </div>
+                </div>
+                <ChartNoteBox note={rankChartNote} />
+              </div>
+            </article>
+            </details>
           <article className="panel compare-panel project-compare">
             <div className="panel-title">
               <div>
@@ -8796,6 +10241,65 @@ export default function DashboardClient({ user }: { user: User }) {
               </small>
             </div>
             {renderBlockFilters({ quarter: true, day: true })}
+            {/*
+              * 跨計畫**歷季**趨勢。上面那組長條圖是單一季度的橫向比較，
+              * 看不出長期走向；這張折線補上那一段。
+              *
+              * ⚠️ 畫的是每路段平均，不是總量——規則在 buildCrossProjectTrend
+              * 裡（有單元測試釘住），這裡只負責畫。
+              */}
+            {crossTrend.series.length >= 2 && crossTrend.quarters.length >= 2 ? (
+              <div className="cross-trend-block">
+                <p className="cross-trend-note">
+                  下圖是<b>{crossTrend.basis}</b>，<b>不是總量</b>
+                  ——各計畫的路段數量本來就不一樣，比總量只會證明「路段比較多的
+                  計畫比較大」。圖例裡的 N 是該計畫最後一季實際算得出來的路段數。
+                  指標與日別跟著上方「歷季分析」的選擇走。
+                </p>
+                <CrossProjectTrendChart
+                  trend={crossTrend}
+                  yTitle={trendAxisTitle}
+                  quarterLabels={quarterLabels.labels}
+                  canvasRef={crossTrendCanvasRef}
+                />
+                <div className="trend-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    id="crossTrendDownloadPng"
+                    onClick={downloadCrossTrendPng}
+                  >
+                    下載高解析圖片（PNG）
+                    <small>只有圖，不含說明文字</small>
+                  </button>
+                </div>
+                <div className="trend-script" id="crossTrendScript">
+                  {crossTrendScript.map((section) => (
+                    <div className="trend-script-item" key={section.title}>
+                      <h4>{section.title}</h4>
+                      {section.lines.map((line, index) => (
+                        <p
+                          key={index}
+                          className={
+                            section.title === "要先講清楚的"
+                              ? "trend-caveat"
+                              : ""
+                          }
+                        >
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="cross-trend-note">
+                跨計畫歷季趨勢需要<b>至少兩個計畫、且各自至少兩季</b>才畫得出來
+                （目前 {crossTrend.series.length} 個計畫、
+                {crossTrend.quarters.length} 季）。請在上方勾選要比較的計畫。
+              </p>
+            )}
             <div className="project-bars">
               {projectComparisons.map((p, i) => (
                 <div key={`${p.id}|${p.dayType}`}>
@@ -8822,6 +10326,8 @@ export default function DashboardClient({ user }: { user: User }) {
               ))}
             </div>
           </article>
+          </div>
+          <ZoneHeading zone={PAGE_ZONES[4]} />
           {!!roadOnlyRows.length && (
             <article className="panel table-panel">
               <div className="panel-title">
@@ -11081,6 +12587,17 @@ export default function DashboardClient({ user }: { user: User }) {
               180°、正北 270° 表示；系統以起點正對面 ±45°
               判定直行，對向一側判定左轉、另一側判定右轉，並可逐筆人工修正。
             </p>
+            {derivedArmNotice[intersectionManageRoad] && (
+              /*
+               * 預填了就一定要在視窗上講出來，而且要講依據。
+               * 只在 toast 講不夠：toast 會消失，而使用者是在這個視窗裡按下
+               *「儲存設定」的——決定的當下就要看得到這是反推值而不是預設值。
+               */
+              <p className="help prefill-note">
+                ⚠{" "}
+                {derivedArmNotice[intersectionManageRoad].replace(/\*\*/g, "")}
+              </p>
+            )}
             <div className="geometry-workspace">
               <div className="arm-settings">
                 {managedArmSettings.map((setting) => (
@@ -11880,6 +13397,13 @@ function ConclusionStudio(props: {
               </label>
             ))}
           </div>
+          {/*
+            這個選項舊版只影響當量交通量（PCU）：使用者勾
+            「車輛數（輛）＋車種組成（輛數與百分比）」時，改它畫面上一個字
+            都不會變（實測回報）。修正後百分比也跟著走；車輛數維持整數，
+            因為「輛」本來就是整數，印成 6,000.00 輛沒有意義。
+            標籤文字不動。
+          */}
           <label className="conclusion-inline">
             小數位數
             <select

@@ -421,6 +421,46 @@ test("歷季趨勢那一行要寫明指標與單位", () => {
   assert.match(text, /115Q1 115,873\.0 輛\/日/);
 });
 
+test("歷季趨勢的平日＋假日要分列，且沿用所選指標與單位", () => {
+  const text = buildReportDraft(
+    context({
+      trend: {
+        mode: "平日＋假日",
+        metricLabel: "大型車比例",
+        unit: "%",
+        roadLabel: "全部路段合計",
+        rows: [
+          { quarter: "115Q1", value: 12.3 },
+          { quarter: "115Q2", value: 13.4 },
+        ],
+        series: [
+          {
+            label: "平日",
+            rows: [
+              { quarter: "115Q1", value: 12.3 },
+              { quarter: "115Q2", value: 13.4 },
+            ],
+          },
+          {
+            label: "假日",
+            rows: [
+              { quarter: "115Q1", value: 8.1 },
+              { quarter: "115Q2", value: Number.NaN },
+            ],
+          },
+        ],
+      },
+    }),
+    ["history"],
+  );
+  assert.match(text, /歷季趨勢（大型車比例，/);
+  assert.match(text, /平日：115Q1 12\.3%、115Q2 13\.4%/);
+  assert.match(text, /假日：115Q1 8\.1%、115Q2 —/);
+  assert.doesNotMatch(text, /20\.4%|21\.5%/, "不可以把兩種日別加總");
+  assert.doesNotMatch(text, /PCU/);
+  assert.doesNotMatch(text, /—%/);
+});
+
 test("平假日比較：平日為 0 時不寫「增加 0.0%」", () => {
   const text = buildReportDraft(
     context({ dayCompare: { weekday: 0, holiday: 5400 } }),

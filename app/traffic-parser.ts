@@ -36,6 +36,19 @@ export type ParsedTrafficRow = {
    * **只作顯示與期別檢查用**——不參與任何加總、分類或鍵值。
    */
   surveyDate?: string;
+  /**
+   * 這一列的每個轉向，儲存格「寫了數字」與「畫了橫線」各幾格。
+   *
+   * 調查表用兩種寫法表達兩件不同的事：
+   *   `0`  ＝ 這個轉向存在，只是這個時段沒有車
+   *   `--` ＝ 這個路口根本沒有這個轉向
+   * `cellCount()` 兩者都算 0（**這一點刻意不改，改了就是動計算**），
+   * 所以只看數值永遠分不出來。
+   *
+   * ⚠️ 只作示警與「預填支線幾何」用，**不參與任何加總**。
+   *    姊妹系統「路口轉向」的 numericCells／placeholderCells 是同一個概念。
+   */
+  turnTally?: Record<TurnKey, { numeric: number; placeholder: number }>;
 };
 
 export type TurnKey = "left" | "through" | "right";
@@ -505,6 +518,26 @@ export function parseTrafficSheetValues(
       const vehicleLabels: VehicleLabels = {};
       const vehicleCounts: VehicleCounts = {};
       const sourceWarnings: string[] = [];
+      /*
+       * 逐轉向記「寫了數字」與「畫了橫線」各幾格。
+       * 數值本身完全不動（`--` 一樣是 0），這份記帳只給示警與預填幾何用。
+       */
+      const turnTally: Record<TurnKey, { numeric: number; placeholder: number }> =
+        {
+          left: { numeric: 0, placeholder: 0 },
+          through: { numeric: 0, placeholder: 0 },
+          right: { numeric: 0, placeholder: 0 },
+        };
+      const tallyCell = (turn: TurnKey, cellIndex: number) => {
+        const raw = row[cellIndex];
+        if (raw === undefined || raw === null) return;
+        const text =
+          raw instanceof Date ? "date" : String(raw).normalize("NFKC").trim();
+        /* 空白格兩邊都不加——它既不是數字也不是橫線。 */
+        if (!text) return;
+        if (/^[-－—–]+$/.test(text)) turnTally[turn].placeholder += 1;
+        else if (normalizeCountValue(raw) !== null) turnTally[turn].numeric += 1;
+      };
       const readCount = (cellIndex: number) => {
         const value = row[cellIndex];
         if (isUnusableCount(value))
@@ -541,14 +574,17 @@ export function parseTrafficSheetValues(
         if (isIntersection) {
           // 同一車種佔了三欄＝那三欄就是左／直／右；只佔一欄的舊格式才
           // 沿用「從這一欄往後切三格」的推測。
-          const turnValues =
+          const turnCells =
             run.indexes.length >= 3
-              ? run.indexes
-                  .slice(0, 3)
-                  .map((cellIndex) => readCount(cellIndex))
+              ? run.indexes.slice(0, 3)
               : row
                   .slice(firstIndex, Math.min(firstIndex + 3, nextColumn))
-                  .map((_cell, offset) => readCount(firstIndex + offset));
+                  .map((_cell, offset) => firstIndex + offset);
+          const turnValues = turnCells.map((cellIndex) => readCount(cellIndex));
+          /* 讀值與記帳走同一組欄位索引，兩邊才不會對不起來。 */
+          (["left", "through", "right"] as TurnKey[]).forEach((turn, order) => {
+            if (turnCells[order] !== undefined) tallyCell(turn, turnCells[order]);
+          });
           turnData[key] = {
             left: turnValues[0] || 0,
             through: turnValues[1] || 0,
@@ -590,6 +626,7 @@ export function parseTrafficSheetValues(
         special: vehicleCounts.special || 0,
         surveyType: isIntersection ? "intersection" : "road",
         turnData: isIntersection ? turnData : undefined,
+        turnTally: isIntersection ? turnTally : undefined,
         vehicleCounts,
         vehicleLabels,
         sourceFileName: source?.fileName,
