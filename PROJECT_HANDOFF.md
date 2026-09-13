@@ -10,7 +10,7 @@
 | 英文／套件識別 | DailyTraffic；`traffic-volume-vehicle-composition` |
 | 用途 | 匯入路段或路口全日交通調查 Excel，進行全日交通量、PCU、尖峰小時、方向／路口流向、車種組成、歷季與跨計畫比較、品質檢查及可編輯 Excel 報表等分析 |
 | 本機資料夾 | `DailyTraffic` |
-| 本機完整路徑（2026-09-13 實際核對） | `D:\Users\95108\Downloads\2026-08-30\files-mentioned-by-the-user-gpt\work-v20.62-review\candidate\DailyTraffic` |
+| 本機完整路徑（2026-09-13 實際核對） | `D:\Users\95108\Documents\Codex\DailyTraffic` |
 | GitHub Repository | `BaoToast/DailyTraffic` |
 | Repository URL／origin | `https://github.com/BaoToast/DailyTraffic.git` |
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
@@ -369,6 +369,19 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - 交付至少包括：最新完整程式 ZIP、GitHub Pages 更新包、驗證／測試說明、SHA-256、給 Claude 的二次複查交接。
 - 完整程式備份宜由已提交 commit 的 `git archive` 產生，以避免本機換行或未追蹤檔污染；必要建置檔（含 `.openai/hosting.json`）不能被排除。
 - 給 Claude 的文件不得上傳正式 Repository，除非它本身是正式公開文件且使用者明確要求。
+
+### 正式工程資料與使用者交付檔案分流規則
+
+1. 正式 Repository、`PROJECT_HANDOFF.md`、Git metadata、正式原始碼、測試、工程交接資料，以及任何新舊 GPT 換代時需要長期保存的工程基準資料，必須保存在正式 Repository／正式工作區及 GitHub；不得把 Downloads 當作唯一或長期保存位置。
+2. 使用者平常會定期整理 Downloads，因此任何需要長期保存、供下一代 GPT 接手、工程追溯、版本控制或作為正式基準的資料，不得只存在 Downloads。
+3. Downloads 定義為「使用者交換／交付區」，不是正式 Repository 或工程基準的長期保存位置。
+4. GPT 每次完成程式修改、複查、修正或發布後，如果依既有工作流程需要交付完整程式包、ZIP、Claude 二次複查包、修改後檔案、修改說明、測試／驗證報告、SHA-256 清單或其他供使用者下載、檢查或轉交 Claude 的成果，仍必須正常提供為使用者可下載的交付檔案，使使用者可在 Downloads 中取得。
+5. 不得因正式 Repository 位於 `Documents\Codex`，而把一般使用者交付成果只留在 Repository 深層資料夾，導致使用者難以取得。
+6. 使用者交付檔案可以存在 Downloads，因其屬可整理的交換成果；但如果其中某項資料同時也是正式工程基準或未來 GPT 接手所必需，正式版本必須另外保存在 Repository 並納入適當的 Git 版本控制，不能只依賴 Downloads 中的副本。
+7. 新舊 GPT 對話換代時，`PROJECT_HANDOFF.md` 仍是正式工程交接基準；應更新同一份 `PROJECT_HANDOFF.md`，不得建立 `PROJECT_HANDOFF_2.md`、`PROJECT_HANDOFF_3.md` 等平行交接文件。
+8. 未來任何 GPT 接手本程式時，都必須維持以下分流，兩者不得混為同一種保存用途：
+   - 正式工程／交接資料 → 正式 Repository + GitHub。
+   - 使用者取得的成果／交換檔 → 可下載交付檔案／Downloads。
 
 ## 13. 已知問題、待確認與暫緩事項
 
