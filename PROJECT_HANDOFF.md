@@ -291,8 +291,9 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 | v20.55–20.60 | 三叉路口、趨勢指標、缺季斷線 | 幾何／轉向覆核；七項趨勢資料流；缺值不可變零 |
 | v20.61–20.62 | 圖表座標、分區排版、圖表說明、對比、工作流程儲存競態 | 說明不得重算；視覺可讀；IndexedDB 共用佇列與 project isolation |
 | v20.63 | 風險導向複查發現持久化、趨勢、報表、圖表與發布守門缺口 | 358 pass／0 fail／1 skipped；持久化寫入完成、缺季、平假日、報表／圖表與 release guard 均須保留 |
+| v20.63 交接驗收 | Repository 另有兩支未納入正式 `npm run e2e` 的舊腳本，已與目前單位文字及 MultiPicker UI 脫節 | 正式掛鉤的 15 支 E2E 腳本仍為 15／15 通過；未掛鉤腳本須另列結果，不得據此宣稱 Repository 內所有 E2E 全部通過 |
 
-最容易復發的問題：Parser 改動只驗新格式、UI 篩選改動未同步 Excel、平假日或缺季被 0 污染、路口 A-G 被硬編四支線、每計畫設定錯用全域值、IndexedDB 寫後立即讀出舊資料、發布根目錄還留舊 hash 資產、畫面版號與手冊／驗證檔名不同。
+最容易復發的問題：Parser 改動只驗新格式、UI 篩選改動未同步 Excel、平假日或缺季被 0 污染、路口 A-G 被硬編四支線、每計畫設定錯用全域值、IndexedDB 寫後立即讀出舊資料、發布根目錄還留舊 hash 資產、畫面版號與手冊／驗證檔名不同，以及 UI 元件或正式單位文字改版後未同步更新未掛鉤的 E2E 腳本。後者會造成 false negative 或使高價值回歸案例在中途停止；複查時必須同時盤點 `package.json` 已掛鉤腳本與 Repository 內其他 `scripts/e2e-*.mjs`。
 
 ## 11. 測試、Build 與最後實際驗證證據
 
@@ -306,10 +307,10 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - `npm run build:pages`：GitHub Pages 建置到 `github-pages/dist`。
 - `npm run e2e`：完整 Playwright／樣本／Pages E2E 流程。
 
-### v20.63／`f77328c` 已實際完成的驗證
+### v20.63／`f77328c` 已實際完成的發布驗證
 
 - 乾淨完整單元／回歸：359 項，358 通過、0 失敗、1 skipped。
-- 完整 E2E：14 個 suites／scenarios、316 checks，全數通過，無 JavaScript error。
+- 完整 E2E：1 支基礎流程加 14 支專項腳本（共 15 支正式掛鉤腳本）、316 checks，全數通過，無 JavaScript error。
 - TypeScript、lint（0 warnings）、production build、Pages build：通過。
 - GitHub Actions「建置與測試」：對 `f77328c` 成功。
 - GitHub Pages deployment：對 `f77328c` 成功。
@@ -317,6 +318,15 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - 詳細證據在 `VALIDATION_v20.63.md` 與發布 commit 中。
 
 上述是 **v20.63 正式程式 commit 的既有實測證據**。建立本交接文件是純文件變更，合理檢查為 Git diff、Markdown／路徑一致性與乾淨 push；不應把沒有重新執行的完整測試說成在交接 commit 又跑一次。
+
+### 2026-09-13 新 GPT 交接驗收的 E2E 現況
+
+- 目前 `package.json` 的正式 `npm run e2e` 依序掛鉤 15 支 Playwright 腳本。交接驗收實際重跑 Pages build 及這 15 支腳本，結果為 **15／15 支成功、0 支失敗，沒有未捕捉 JavaScript 例外**。
+- Repository 內另有 `scripts/e2e-report-draft.mjs` 與 `scripts/e2e-xlsx-repair.mjs` 兩支未被 `npm run e2e` 呼叫的舊腳本。它們不是上述 15／15 的一部分，目前都需要維護。
+- `e2e-report-draft.mjs` 的「時段車種分析合計＝全範圍合計」檢查仍以舊文字格式比對 `PCU、輛`；正式草稿已改為 `PCU/日、輛/日`，使正規表示式抓不到數值而產生 false negative。當次輸出中的整體全日量與時段全日量實際都為 115,873，且兩個調查點的分項合計也一致，未證明正式計算錯誤。
+- `e2e-xlsx-repair.mjs` 第一階段已成功產生 9 張原生圖表，並確認完整匯出檔的 OOXML 結構無問題；第二階段仍把 `#roadFilterSelect` 當成 `<select>` 呼叫 `selectOption()`。目前該元件已改為 MultiPicker `<button>`，腳本因此中止，**「僅路口 Excel」的第二階段 OOXML／圖表驗證未完成**。
+- 正確結論是：**目前正式掛鉤的 E2E 15／15 通過，但 Repository 內另有兩支未掛鉤舊腳本需要維護；目前不能宣稱 Repository 內所有 E2E 全部通過。**
+- 未來 UI 元件、文字或單位格式變更時，除了跑正式 `npm run e2e`，還要確認未掛鉤腳本是否仍有效；未執行到的子情境必須明列「未完成／未驗證」，不能以同一腳本較早階段的通過取代。
 
 ### 依賴安全狀態
 
@@ -368,6 +378,15 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - ExcelJS transitive uuid 的 2 項 moderate production audit 尚無相容上游修正；持續監控，不做破壞性強制替換。
 - DOCX 未在具 LibreOffice 的環境獨立視覺渲染；若未來手冊樣式改動，應在可用環境補做。
 - CSV 能力沒有和兩類真實 Excel 樣本等量的完整證據，新增／變更時需補測。
+- `scripts/e2e-report-draft.mjs` 尚未支援正式草稿的 `PCU/日、輛/日` 單位文字，現況會 false negative；它未納入正式 `npm run e2e`。
+- `scripts/e2e-xlsx-repair.mjs` 尚未支援路段／路口篩選器的 MultiPicker，會在第二階段呼叫 `selectOption()` 時中止；「僅路口 Excel」的 OOXML／圖表子情境尚未完成驗證，且該腳本未納入正式 `npm run e2e`。
+
+### 後續測試維護待辦
+
+1. 更新 `e2e-report-draft.mjs` 的比對規則，使其驗證目前正式的 `PCU/日、輛/日` 文字，同時繼續核對整體、時段與各調查點合計守恆。
+2. 更新 `e2e-xlsx-repair.mjs` 的篩選操作，改以 MultiPicker 的按鈕及選項完成「僅路口」篩選，再重跑第二階段 OOXML、前兩張圖表資料來源及資料點驗證。
+3. 兩支腳本修復並穩定通過後，評估納入 `npm run e2e`，避免未掛鉤的高價值回歸案例再次漂移。
+4. 在上述待辦完成前，測試報告必須分開列出正式掛鉤 15 支與兩支未掛鉤腳本，不得使用「所有 E2E 全部通過」的概括敘述。
 
 ### 待確認
 
@@ -485,8 +504,9 @@ Claude 的範圍描述不是 reviewer 的界線。若 GPT 修改了 Claude 包�
 - 輸入、解析、驗證、儲存、計算、UI、匯出及備份的完整資料流。
 - IndexedDB 競態、重複匯入、身分、歷史重大 regression 與禁止復發事項。
 - 測試命令、v20.63 實際數量、未驗證限制、安全 audit 與部署證據。
+- 正式掛鉤 E2E 15／15 通過，以及兩支未掛鉤舊腳本的 false negative、MultiPicker 相容問題、未完成驗證範圍與後續維護待辦。
 - 完整風險導向規則、Claude／GPT 分工、Pages 發布、備份及下一代對話 gate。
 
 ### 新 GPT 接手後最合理的下一步
 
-只做唯讀驗收：確認目前路徑仍是本文件第 1 節所列 DailyTraffic、`origin` 仍為 `BaoToast/DailyTraffic`、branch／HEAD／正式版本與 Pages 是否一致，完整閱讀本文件後向使用者回報差異。**完成回報後等待使用者明確說「交接確認完成」；在此以前停止，不得開始新功能、修正、commit、push 或發布。**
+只做唯讀驗收：確認目前路徑仍是本文件第 1 節所列 DailyTraffic、`origin` 仍為 `BaoToast/DailyTraffic`、branch／HEAD／正式版本與 Pages 是否一致，完整閱讀本文件後向使用者回報差異；並以本文件第 11、13 節記錄的兩支未掛鉤 E2E 待辦作為後續測試維護基準。**完成回報後等待使用者明確說「交接確認完成」；在此以前停止，不得開始新功能、修正、commit、push 或發布。**
