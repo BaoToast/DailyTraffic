@@ -43,6 +43,12 @@
 - **依賴稽核**：production 為 0 high／0 critical（2 moderate）；全依賴為
   1 low／8 moderate／16 high，均位於開發／建置工具鏈，列為後續 dependency 維護，
   不在本次功能修正中擴大升級。
+- **發布證據**：正式程式 release commit
+  `da4d6505cff50d14c46572673dd78eb0bd8a9d00` 已推送到 `BaoToast/DailyTraffic` `main`；
+  GitHub Actions `建置與測試` run 35476224593 與 `pages build and deployment` run
+  35476224285 均成功。線上首頁引用 v20.80 新資產，主 JS 線上／本機 SHA-256 同為
+  `75C7AC942C80FCB62191BA361E9154B877F52B4F654B01B7F165C01855BFF001`；
+  v20.80 手冊與本報告 HTTP 200，v20.63 舊 JS／CSS／PDF／DOCX 專屬 URL 均為 404。
 
 ---
 

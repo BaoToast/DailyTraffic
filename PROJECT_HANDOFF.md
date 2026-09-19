@@ -17,7 +17,7 @@
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
 | 本次 v20.80 發布前基準 | `c75385e9f516402d7e82f32def32b552b9113a3f`；此前正式程式版為 `f77328c42131452bccdd3ef5da125da5ab8b9bf8`（v20.63） |
-| 正式版本 | `v20.80`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-19；正式 release commit 以本次發布紀錄及 `git log` 為準 |
+| 正式版本 | `v20.80`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-19；正式程式 release commit `da4d6505cff50d14c46572673dd78eb0bd8a9d00` |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線
@@ -343,7 +343,17 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
   `npm run build:pages`；建置腳本已補上輸出資料夾不存在時的建立流程。
 - 真實公司五份路段＋五份路口附件未包含在本次交付，故不能宣稱 GPT 已獨立重跑該項；
   Parser 未來若再改，仍需使用者提供去識別樣本補驗。
-- 詳細證據在 `VALIDATION_v20.80.md`；GitHub Actions、Pages 與線上 hash 在 push 後再依本節發布規則核對。
+- 詳細證據在 `VALIDATION_v20.80.md`。正式程式 release commit：
+  `da4d6505cff50d14c46572673dd78eb0bd8a9d00`。
+- GitHub Actions `建置與測試` run
+  [35476224593](https://github.com/BaoToast/DailyTraffic/actions/runs/35476224593) 成功；
+  `pages build and deployment` run
+  [35476224285](https://github.com/BaoToast/DailyTraffic/actions/runs/35476224285) 成功。
+- 線上首頁已引用 `index-CJsqwzrF.js?v=20.80` 與 `index-Dd-m58HU.css?v=20.80`；
+  主 JS 線上／本機 SHA-256 均為
+  `75C7AC942C80FCB62191BA361E9154B877F52B4F654B01B7F165C01855BFF001`。
+- v20.80 手冊與驗證報告線上均為 HTTP 200；v20.63 的舊 JS、CSS、PDF 與 DOCX
+  專屬 URL 均為 HTTP 404，未與新版混放。
 
 ### v20.63／`f77328c` 歷史發布證據
 
