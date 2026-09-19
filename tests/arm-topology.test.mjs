@@ -4,7 +4,7 @@
  * ── 為什麼要有這一支（實測出來的問題）─────────────────────────
  *
  * 三岔路口的**預設角度** defaultArmAngle(index, 3) 是 [-90, 0, 180]。
- * 用這組角度跑 bestMovementTarget()，缺口會落在
+ * 用這組角度跑 turnTargets()，缺口會落在
  *「A 沒有直進、B 沒有左轉、C 沒有右轉」。
  *
  * 但三份實際三岔調查檔寫的是**完全相反的一組**（測試只保留匿名結構）：
@@ -24,7 +24,7 @@
  *
  * ⚠️ 假通過陷阱：
  *  一、只驗「反推得到某個結果」不夠——回傳一個固定字典也會過。
- *      所以第三項要實際跑 bestMovementTarget()，驗**行為**而不是資料長相。
+ *      所以第三項要實際跑 turnTargets()，驗**行為**而不是資料長相。
  *  二、只驗三岔會過的話，可能寫成「無論如何都反推」。四岔沒有任何橫線時
  *      調查表提供不了額外資訊，解不只一組，一定要回 null。
  *  三、整欄空白不可以被當成「這個轉向存在」的證據——那是沒填，不是有。
@@ -36,7 +36,7 @@ import {
   deriveArmRoutesFromSurvey,
   anglesMatchingRoutes,
   buildArmSettings,
-  bestMovementTarget,
+  turnTargets,
   defaultArmAngle,
 } from "../app/intersection-flow.ts";
 
@@ -67,9 +67,14 @@ const realThreeArm = [
   arm("C", { absent: "left" }),
 ];
 
+/*
+ * ⚠️ 2026-09-13：bestMovementTarget() 已移除（它在多個候選裡會默默挑一支），
+ *   改用 turnTargets()——回傳「這個轉向對到哪幾支」。
+ *   「缺口」的定義不變：一支都沒對到。
+ */
 function missingTargets(settings) {
   return settings.flatMap((setting) =>
-    TURNS.filter((turn) => !bestMovementTarget(setting, settings, turn)).map(
+    TURNS.filter((turn) => turnTargets(setting, settings, turn).length === 0).map(
       (turn) => `${setting.directionCode}/${turn}`,
     ),
   );

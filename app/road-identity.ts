@@ -61,6 +61,35 @@ export function roadNameFromFileName(fileName: string) {
   return name || surveyRoadIdFromFileName(fileName);
 }
 
+/**
+ * **使用者自己打進去的名稱**，比對前的正規化鍵。
+ *
+ * 只吸收「排版差異」，不吸收「內容差異」：
+ *   ・吸收：半形／全形空格（含**字串中間**的）、全形英數字與全形標點、
+ *     全形／半形括號、各種破折號、逗號句號頓號冒號底線
+ *   ・**不吸收：大小寫**——「路口A」與「路口a」視為不同的名稱
+ *
+ * 使用者 2026-09-11 的分界：空格與全半形是**排版雜訊**（他自己看不出差別），
+ * 大小寫是**內容**（看得出來）。所以只對前者做收斂。
+ *
+ * ⚠️ 適用範圍：使用者可以自由輸入、而且**他看不出兩個字串哪裡不一樣**的欄位
+ *   （範本名稱、支線名稱…）。
+ *   **系統自動解析出來的識別字不走這一支**——例如 roadNameMatchKey()
+ *   處理的是從檔名剝出來的路段名稱，那裡的規則（含轉小寫）是另一回事，
+ *   依使用者 2026-09-11 的指示維持原樣。
+ *
+ * ⚠️ 不可以只做 trim()：問題出在**字串中間**的空格，trim 碰不到。
+ *   姊妹系統（路口轉向）lib/conclusion.ts 的 typedNameKey() 是同一份實作。
+ */
+export function typedNameKey(value: string): string {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[（]/g, "(")
+    .replace(/[）]/g, ")")
+    .replace(/[～~—–－-]/g, "~")
+    .replace(/[\s\u3000，,。．.、:：_]/g, "");
+}
+
 export function roadNameMatchKey(value: string) {
   return roadNameFromFileName(value)
     .normalize("NFKC")
@@ -103,6 +132,25 @@ export const DIRECTION_PLACEHOLDER = { A: "方向A", B: "方向B" } as const;
 export function isRealDirectionName(name: string | undefined, code: "A" | "B") {
   const normalized = String(name ?? "").normalize("NFKC").trim();
   return !!normalized && normalized !== DIRECTION_PLACEHOLDER[code];
+}
+
+/**
+ * 路口支線名稱：「有沒有真的取過名字」。
+ *
+ * 和 isRealDirectionName() 同一件事，只是佔位值是 `路口A`～`路口G`。
+ *
+ * ⚠️ 一定要**去掉字串中間的空白**，不能只做 trim()。
+ *   姊妹系統（路口轉向）2026-09-11 實測到：自動命名產生的是
+ *   `"路口 " + code`（「路口」與代碼之間有半形空格），使用者手打的是
+ *   「路口A」，於是系統把兩個看起來一模一樣的名字當成兩件事。
+ *   這裡的症狀是方向標籤變成「駛出路口A（路口 A）」——括號裡重複一次
+ *   看起來一樣的名字。
+ */
+export function isRealArmName(name: string | undefined, code: string) {
+  const normalized = String(name ?? "")
+    .normalize("NFKC")
+    .replace(/[\s\u3000]/g, "");
+  return !!normalized && normalized !== `路口${code}`;
 }
 
 /**

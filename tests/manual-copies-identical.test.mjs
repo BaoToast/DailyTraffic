@@ -21,7 +21,7 @@
  *
  * ── 檢查方式 ──
  *
- * 掃出包裡所有符合本版檔名的手冊（.pdf 與 .docx），
+ * 掃出包裡所有符合本版檔名的手冊（自 2026-09-11 起只有 .pdf），
  * 逐一比對 SHA-256。只要有兩份不一樣就紅字，並印出各自的雜湊與位置。
  *
  * 注意：PDF 內嵌產生時間，所以「同樣的 HTML 產生兩次」也會得到不同位元組。
@@ -62,10 +62,8 @@ test("包裡每一份手冊副本都必須來自同一次產生", () => {
    *「找不到本版手冊」而不是「手冊沒同步」——訊息會把人帶往錯的方向。
    * basename() 而不是自己 split("/")：Windows 的路徑分隔是反斜線。
    */
-  const base = `Traffic_Analysis_Beginner_Guide_${SYSTEM_VERSION}`;
-  const files = walk(ROOT).filter((f) =>
-    [`${base}.pdf`, `${base}.docx`].includes(basename(f)),
-  );
+  const base = `全日交通流量程式手冊_${SYSTEM_VERSION}`;
+  const files = walk(ROOT).filter((f) => basename(f) === `${base}.pdf`);
   assert.ok(
     files.length > 0,
     "包裡找不到任何本版手冊——升版時可能忘了重新產生，或檔名對不上。",
@@ -74,14 +72,20 @@ test("包裡每一份手冊副本都必須來自同一次產生", () => {
   const byHash = new Map();
   for (const f of files) {
     const hash = createHash("sha256").update(readFileSync(f)).digest("hex");
-    const kind = f.endsWith(".pdf") ? "pdf" : "docx";
-    const key = kind + ":" + hash;
+    const key = "pdf:" + hash;
     if (!byHash.has(key)) byHash.set(key, []);
     byHash.get(key).push(relative(ROOT, f));
   }
 
-  /* 同一種副檔名只能有一個雜湊。 */
-  for (const kind of ["pdf", "docx"]) {
+  /*
+   * 同一種副檔名只能有一個雜湊。
+   *
+   * ⚠️ 2026-09-11 起只剩 PDF（使用者：「新手手冊只需要做 PDF 檔就好」），
+   *   .docx 的產生器與檔案都已移除，所以這個迴圈只剩一種。
+   *   保留迴圈的形狀是刻意的：哪天又多一種格式，加進這個陣列就好，
+   *   不必重新想一次比對邏輯。
+   */
+  for (const kind of ["pdf"]) {
     const groups = [...byHash.entries()].filter(([k]) => k.startsWith(kind + ":"));
     assert.ok(groups.length > 0, `包裡缺少本版 ${kind} 手冊。`);
     if (groups.length <= 1) continue;

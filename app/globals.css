@@ -16,25 +16,109 @@
  * ★ 圖表畫布與 Excel 匯出用的青色是 JS 裡的 #148C8C 字面值，不受這裡影響
  *   （scripts/e2e-chart-layout.mjs 用嚴格的青色判定畫布像素，仍然成立）。
  */
-:root{--navy:#17324d;--teal:#0c6f70;--orange:#e58a2b;--ink:#203142;--muted:#55677a;--line:#dce5ec;--wash:#f3f7f9;--white:#fff;--shadow:0 12px 35px rgba(23,50,77,.08)}
-*{box-sizing:border-box}html{background:#edf3f6}body{margin:0;color:var(--ink);font-family:"Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;background:linear-gradient(180deg,#f9fbfc 0,#eef4f6 100%);min-width:320px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}.app-shell{min-height:100vh}.topbar{height:114px;padding:22px 34px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;background:var(--navy);border-bottom:4px solid var(--teal)}.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;color:#66d1cb}.topbar h1{margin:2px 0 0;font-size:27px;letter-spacing:.03em}.topbar p{margin:4px 0 0;color:#c4d4df;font-size:12px}.user-chip{display:flex;align-items:center;gap:10px;padding:9px 13px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.05)}.user-chip .avatar{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:var(--teal);font-weight:900}.user-chip strong,.user-chip small{display:block}.user-chip strong{font-size:13px}.user-chip small{font-size:10px;color:#bdcbd6;margin-top:2px}.workspace{display:grid;grid-template-columns:245px minmax(0,1fr);max-width:1720px;margin:auto;min-height:calc(100vh - 114px)}.sidebar{padding:24px 18px;border-right:1px solid var(--line);background:#f9fbfc}.sidebar-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.sidebar-heading div{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--navy)}.sidebar-heading strong{padding:2px 7px;border-radius:10px;color:var(--teal);background:#dff2f1}.icon-button{width:31px;height:31px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-size:20px;line-height:1}.project-list{display:grid;gap:7px}.project-card{width:100%;padding:10px;border:1px solid transparent;border-radius:10px;display:grid;grid-template-columns:34px 1fr;gap:9px;text-align:left;background:transparent;color:var(--ink)}.project-card:hover{background:#fff}.project-card.active{border-color:#9bd2cf;background:#fff;box-shadow:0 5px 16px rgba(23,50,77,.07)}.project-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;color:#fff;background:var(--teal);font-weight:900}.project-card strong,.project-card small{display:block}.project-card strong{font-size:12px;line-height:1.35}.project-card small{margin-top:3px;color:var(--muted);font-size:9px}.side-section{margin-top:26px;padding-top:19px;border-top:1px solid var(--line)}.side-label{display:block;margin-bottom:9px;font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--muted)}.check-row{display:flex;gap:8px;align-items:flex-start;padding:6px 3px;font-size:11px;line-height:1.4}.check-row input{accent-color:var(--teal);margin-top:2px}.side-note{margin-top:22px;padding:14px;border-radius:10px;background:var(--navy);color:#fff}.side-note strong{font-size:11px}.side-note p{font-size:9px;line-height:1.65;color:#c3d2dc;margin:5px 0 0}.content{padding:24px 28px 50px;min-width:0}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:18px}.project-title{display:flex;align-items:center;gap:10px}.status-dot{width:8px;height:32px;border-radius:4px;background:var(--teal)}.project-title small{font-size:9px;color:var(--muted)}.project-title h2{font-size:18px;margin:1px 0 0;color:var(--navy)}.actions{display:flex;gap:7px;align-items:center}.button{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);font-size:11px;font-weight:800}.button.primary{background:var(--teal);border-color:var(--teal);color:#fff}.button.primary:hover{background:#0a5c5d}.button.secondary{background:#fff;color:var(--navy)}.export-menu{display:flex}.export-menu .primary{border-radius:8px 0 0 8px}.button.split{border-left:1px solid rgba(255,255,255,.3);border-radius:0 8px 8px 0;background:#0c6f70;color:#fff}.filters{display:flex;align-items:end;gap:9px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}.filters label,.modal label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.filters select,.filters input,.modal input,.modal select{height:34px;padding:0 10px;border:1px solid #cad6df;border-radius:7px;background:#fff;color:var(--ink);font-size:11px;outline:none}.filters select:focus,.filters input:focus,.modal input:focus,.modal select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(20,140,140,.1)}.filters .search{min-width:220px}.compare-count{margin-left:auto;padding:8px 11px;border-radius:7px;background:#e6f4f3;color:#0c6f70;font-size:10px;font-weight:900}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-top:14px}.kpi{min-height:118px;padding:17px 18px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow);position:relative;overflow:hidden}.kpi:before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:var(--teal)}.kpi.warning:before{background:var(--orange)}.kpi span{display:block;font-size:10px;font-weight:800;color:var(--muted)}.kpi strong{display:block;margin-top:8px;color:var(--navy);font-size:28px;letter-spacing:-.03em}.kpi strong.text-value{font-size:16px;line-height:1.5;min-height:43px}.kpi small{display:block;margin-top:4px;font-size:9px;color:var(--muted)}.chart-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:12px;margin-top:12px}.panel{border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}.panel-title{display:flex;justify-content:space-between;align-items:start;padding:16px 18px 12px}.panel-title span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal)}.panel-title h3{font-size:15px;color:var(--navy);margin:3px 0 0}.panel-title>small{font-size:9px;color:var(--muted);margin-top:5px}.road-chart{grid-row:span 2}.bar-list{padding:0 18px 6px}.bar-row{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(180px,2.2fr) 58px;align-items:center;gap:12px;min-height:42px;border-top:1px solid #edf1f4}.bar-label strong,.bar-label small{display:block}.bar-label strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar-label small{font-size:8px;color:var(--muted);margin-top:2px}.bar-track{height:12px;border-radius:7px;background:#edf2f5;position:relative;overflow:visible}.bar-track span{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--teal),#40aaa5)}.bar-track i{position:absolute;top:-4px;width:2px;height:20px;background:var(--orange);border-radius:1px}.bar-row>b{text-align:right;font-size:10px;color:var(--navy)}.legend{display:flex;gap:17px;padding:9px 18px 15px;border-top:1px solid #edf1f4;font-size:8px;color:var(--muted)}.legend span{display:flex;align-items:center;gap:5px}.legend i{width:12px;height:5px;border-radius:3px;background:var(--teal)}.legend i.divider{width:2px;height:10px;background:var(--orange)}.composition{padding-bottom:15px}.donut{width:180px;height:180px;border-radius:50%;margin:2px auto 15px;display:grid;place-items:center}.donut>div{width:102px;height:102px;border-radius:50%;display:grid;place-content:center;text-align:center;background:#fff;box-shadow:0 0 0 1px #edf1f4}.donut strong{font-size:19px;color:var(--navy)}.donut small{font-size:8px;color:var(--muted)}.composition-list{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;padding:0 18px}.composition-list>div{display:grid;grid-template-columns:1fr auto;gap:2px;padding:8px;border-radius:7px;background:#f6f9fa}.composition-list span{font-size:9px;display:flex;align-items:center;gap:5px}.composition-list i{width:7px;height:7px;border-radius:2px;background:var(--teal)}.composition-list i.orange{background:var(--orange)}.composition-list i.blue{background:#5b8db8}.composition-list i.pale{background:#d8e7f1}.composition-list strong{font-size:10px;color:var(--navy)}.composition-list small{grid-column:1/-1;font-size:8px;color:var(--muted)}.hourly-canvas{width:100%;height:245px;display:block;padding:0 12px 10px}.compare-panel{min-height:288px}.compare-list{padding:0 18px}.compare-list>div{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:center;padding:11px 0;border-top:1px solid #edf1f4}.compare-index{font-size:9px;color:var(--teal);font-weight:900}.compare-list strong,.compare-list small{display:block}.compare-list strong{font-size:10px}.compare-list small{font-size:8px;color:var(--muted);margin-top:2px}.compare-list b{font-size:10px;color:var(--navy)}.text-button{margin:8px 18px 16px;padding:0;border:0;background:none;color:var(--teal);font-size:9px;font-weight:900}.table-panel{margin-top:12px}.table-wrap{overflow:auto;padding:0 18px 18px}.table-wrap table{width:100%;border-collapse:collapse;font-size:9px;white-space:nowrap}.table-wrap th{padding:9px 8px;text-align:right;color:#fff;background:var(--teal);font-weight:800}.table-wrap th:first-child{text-align:left;border-radius:7px 0 0 0}.table-wrap th:last-child{border-radius:0 7px 0 0}.table-wrap td{padding:9px 8px;text-align:right;border-bottom:1px solid #e8eef2}.table-wrap td:first-child{text-align:left;min-width:235px}.table-wrap td strong,.table-wrap td small{display:block}.table-wrap td small{font-size:7px;color:var(--muted);margin-top:2px}.table-wrap tbody tr:hover{background:#f5faf9}.toast{position:fixed;right:24px;bottom:24px;z-index:50;max-width:380px;padding:13px 17px;border-radius:9px;background:var(--navy);color:#fff;box-shadow:0 15px 40px rgba(0,0,0,.18);font-size:11px}.busy{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(23,50,77,.3);backdrop-filter:blur(2px);color:#fff;font-weight:900}.busy strong{display:block;font-size:15px;text-align:center}.busy small{display:block;margin-top:8px;font-size:11px;font-weight:600;color:#dbe7ef;text-align:center;max-width:min(560px,86vw);overflow-wrap:anywhere}.modal-backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;background:rgba(14,32,49,.58);backdrop-filter:blur(5px)}.modal{width:min(480px,100%);padding:22px;border-radius:14px;background:#fff;box-shadow:0 25px 70px rgba(0,0,0,.24);display:grid;gap:15px}.modal>div>span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal)}.modal h3{margin:3px 0 0;color:var(--navy);font-size:18px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal footer{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.help{margin:0;color:var(--muted);font-size:9px;line-height:1.6}.upload-zone{padding:20px;border:1.5px dashed #9abec7;border-radius:10px;background:#f5fafb;text-align:center;cursor:pointer}.upload-zone input{height:auto;border:0;padding:0;margin:auto}.upload-zone span{font-weight:400;margin-top:8px}.modal select{width:100%}
-.topbar{height:128px;padding:18px 34px 16px}.topbar p{margin:3px 0 5px}.version-badge{display:inline-flex;align-items:center;padding:3px 8px;border:1px solid rgba(102,209,203,.35);border-radius:999px;background:rgba(20,140,140,.18);color:#9fe4df;font-size:9px;font-weight:800;letter-spacing:.03em}.workspace{min-height:calc(100vh - 128px)}
+:root{
+  /*
+   * ── 側欄底色是「這是哪一支程式」的辨識色 ─────────────────────
+   * 使用者 2026-09-10：「三個程式側欄的顏色不要一樣，讓使用者很直覺的
+   * 發現，顏色不同是否開錯程式了，但要注意的是文字不要被背景色遮掩」。
+   *   全日交通量　＝ 深森綠　#0f3d31（色相 164°）
+   *   路口轉向　　＝ 深紫　　#3a2350（色相 271°）
+   *   交通服務水準＝ 深海軍藍 #17354d（色相 210°，維持它原本的顏色）
+   * 三個都是深色、明度接近，所以同一組亮色文字在三支上都讀得到；
+   * 對比由 tests/sidebar-contrast.test.mjs 把關，不要憑感覺改。
+   */
+  --side:#0f3d31;
+  --side-ink:#eaf4fa;
+  --side-ink-strong:#ffffff;
+  --navy:#17324d;--teal:#0c6f70;--orange:#e58a2b;--ink:#203142;--muted:#55677a;--line:#dce5ec;--wash:#f3f7f9;--white:#fff;--shadow:0 12px 35px rgba(23,50,77,.08)}
+*{box-sizing:border-box}html{background:#edf3f6}body{margin:0;color:var(--ink);font-family:"Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;background:linear-gradient(180deg,#f9fbfc 0,#eef4f6 100%);min-width:320px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}.app-shell{min-height:100vh}.workspace{display:grid;grid-template-columns:248px minmax(0,1fr);max-width:1720px;margin:auto;min-height:100vh}.sidebar{padding:22px 18px;border-right:0;background:var(--side);color:#fff;position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;display:flex;flex-direction:column}/* 導覽在計畫清單之後，上方留一條分隔線把兩塊分開。 */.side-nav{display:grid;gap:3px;margin:16px 0 18px;padding-top:15px;border-top:1px solid rgba(255,255,255,.16);flex:none}.side-nav-group{display:grid;gap:1px}/* ⚠️ 五個歸類底下的項目**一律展開**，不是只展開目前這一頁。使用者 2026-09-10：「目前只有歸類，但看不出歸類下面有什麼資料」——收起來就等於沒解決那句話。側欄本身可捲動，列滿也不會擠掉計畫清單。 */.side-nav-items{display:grid;gap:1px;padding:2px 0 8px 10px;margin-left:16px;border-left:1px solid rgba(255,255,255,.22)}.side-nav-group:has(button.active) .side-nav-items{border-left-color:var(--teal)}.side-nav .side-nav-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:none;color:#dcecf3;text-align:left;padding:7px 11px;border-radius:6px;font-size:12px;line-height:1.5}.side-nav-item:hover{background:rgba(255,255,255,.13);color:#fff}.side-nav-item i{font-style:normal;font-size:10px;color:#8fd6d0}
+/*
+ * ── 側欄字級：分類標題 16px、項目 12px ──────────────────────────
+ *
+ * 使用者 2026-09-15（附圖）：「你說全日交通量側欄字級 16／14……
+ *   但我看左側欄位怎感覺不像 16／14，感覺兩個文字一樣大?」
+ *
+ * 他是對的：16 對 14 只差 2px，在深色底上幾乎分不出來，
+ * 而且項目那一層的字色比較亮，看起來反而更大。
+ *
+ * 這一支的側欄**結構上只有兩層**（分類標題 → 項目），而它的項目
+ * 在功能上等同另外兩支的**小分頁**（點下去捲到本頁的某一塊），
+ * 所以對齊成另外兩支的最小一層：**12px**。
+ * 三支的最小一層現在都是 12px，層級差也從 2px 拉開到 4px。
+ *
+ * ⚠️ 不要改成「把分類標題放大」：側欄寬度固定，標題一大就換行，
+ *   而且與「主工具列要簡潔、不佔版面」是同一個道理。
+ *
+ * ⚠️⚠️ 選擇器一定要寫成 `.side-nav .side-nav-item`（0,2,0）。
+ *
+ *   只寫 `.side-nav-item`（0,1,0）會被上面那條 `.side-nav button`（0,1,1）
+ *   的 font-size 壓過去——**實測 computed 值是 16px**。
+ *   也就是說原本寫著 14px 的那一行**從來沒有生效過**，兩層一直都是 16px。
+ *   使用者說「感覺兩個文字一樣大」不是感覺，是真的一樣大。
+ *
+ *   這與姊妹專案「路口轉向」踩過的是同一個雷（`.sidebar nav button`
+ *   壓過 `.nav-section`）——三支都要用夠具體的選擇器。
+ */
+/* ⚠️「⤓」＝按下當場下載檔案，和「▸」＝開視窗再決定，要一眼分得出來。 */
+/*
+ * ⚠️ 選擇器要寫成 `.side-nav-item i.side-nav-mark`，不可以只寫 `.side-nav-mark`。
+ *   上面 34 行那條 `.side-nav-item i{font-size:10px;color:#8fd6d0}` 的
+ *   優先權是 (0,1,1)，單寫 `.side-nav-mark` 只有 (0,1,0)——會被壓過去，
+ *   結果「直接下載」那顆和一般的「▸」長得一模一樣，等於這個記號白做。
+ *   （使用者 2026-09-11 回報兩個記號都看不到，這是其中一層原因。）
+ */
+.side-nav-item i.side-nav-mark{font-style:normal;font-size:11px;line-height:1;color:#bfeae6}
+.side-nav-item i.side-nav-mark-download{font-size:14px;font-weight:900;color:#ffd7a1}.side-nav-item:focus-visible{outline:2px solid #7fe3dd;outline-offset:1px}.side-nav button{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--side-ink);text-align:left;padding:12px 15px;border-radius:7px;font-size:16px;line-height:1.35}.side-nav button b{display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:6px;background:rgba(255,255,255,.13);color:#bfe8e5;font-size:12px;font-weight:800}.side-nav button span{min-width:0;overflow-wrap:anywhere}.side-nav button:hover{background:rgba(255,255,255,.12);color:#fff}.side-nav button.active{background:rgba(255,255,255,.15);color:var(--side-ink-strong);font-weight:800;box-shadow:inset 3px 0 var(--teal)}.side-nav button.active b{background:var(--teal);color:#fff}.side-nav button:focus-visible{outline:2px solid #7fe3dd;outline-offset:2px}.sidebar-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.sidebar-heading div{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:800;color:#eaf4fa}.sidebar-heading strong{padding:2px 7px;border-radius:10px;color:#0b3c3d;background:#8fe0da;font-size:12px}.icon-button{width:31px;height:31px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-size:20px;line-height:1}.project-list{display:grid;gap:7px}.project-card{width:100%;min-width:0;padding:10px;border:1px solid transparent;border-radius:10px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;text-align:left;background:rgba(255,255,255,.06);color:#eaf4fa}.project-card:hover{background:rgba(255,255,255,.14)}.project-card.active{border-color:var(--teal);background:rgba(255,255,255,.17);box-shadow:inset 3px 0 var(--teal)}.project-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;color:#fff;background:var(--teal);font-weight:900}.project-card>span{min-width:0}.project-card strong,.project-card small{display:block;min-width:0}.project-card strong{font-size:13px;line-height:1.35;white-space:normal;overflow-wrap:anywhere;text-wrap:balance;color:#fff}.project-code{display:block;margin-top:3px;font-style:normal;font-size:11px;font-weight:700;letter-spacing:.02em;color:#9fe4df;overflow-wrap:anywhere}.project-card small{overflow-wrap:anywhere}.project-card small{margin-top:3px;color:#c2d6e0;font-size:10px}.side-section{margin-top:26px;padding-top:19px;border-top:1px solid var(--line)}.side-label{display:block;margin-bottom:9px;font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--muted)}.check-row{display:flex;gap:8px;align-items:flex-start;padding:6px 3px;font-size:11px;line-height:1.4}.check-row input{accent-color:var(--teal);margin-top:2px}.side-note{margin-top:auto;padding:13px 14px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);color:#fff}.side-note strong{font-size:12px}.side-note p{font-size:11px;line-height:1.65;color:#cfe0ea;margin:5px 0 0}.content{padding:24px 28px 50px;min-width:0}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:18px}.project-title{display:flex;align-items:center;gap:10px}.status-dot{width:8px;height:32px;border-radius:4px;background:var(--teal)}.project-title small{font-size:9px;color:var(--muted)}.project-title h2{font-size:18px;margin:1px 0 0;color:var(--navy)}.actions{display:flex;gap:7px;align-items:center}.button{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);font-size:11px;font-weight:800}.button.primary{background:var(--teal);border-color:var(--teal);color:#fff}.button.primary:hover{background:#0a5c5d}.button.secondary{background:#fff;color:var(--navy)}.export-menu{display:flex}.export-menu .primary{border-radius:8px 0 0 8px}.button.split{border-left:1px solid rgba(255,255,255,.3);border-radius:0 8px 8px 0;background:#0c6f70;color:#fff}.filters{display:flex;align-items:end;gap:9px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}.filters label,.modal label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.filters select,.filters input,.modal input,.modal select{height:34px;padding:0 10px;border:1px solid #cad6df;border-radius:7px;background:#fff;color:var(--ink);font-size:11px;outline:none}.filters select:focus,.filters input:focus,.modal input:focus,.modal select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(20,140,140,.1)}.filters .search{min-width:220px}.compare-count{margin-left:auto;padding:8px 11px;border-radius:7px;background:#e6f4f3;color:#0c6f70;font-size:10px;font-weight:900}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-top:14px}.kpi{min-height:118px;padding:17px 18px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow);position:relative;overflow:hidden}.kpi:before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:var(--teal)}.kpi.warning:before{background:var(--orange)}.kpi span{display:block;font-size:10px;font-weight:800;color:var(--muted)}.kpi strong{display:block;margin-top:8px;color:var(--navy);font-size:28px;letter-spacing:-.03em}.kpi strong.text-value{font-size:16px;line-height:1.5;min-height:43px}.kpi small{display:block;margin-top:4px;font-size:9px;color:var(--muted)}.chart-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr);gap:12px;margin-top:12px}.panel{border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}.panel-title{display:flex;justify-content:space-between;align-items:start;padding:16px 18px 12px}.panel-title span{font-size:10.5px;font-weight:900;letter-spacing:.06em;color:var(--teal)}.panel-title h3{font-size:15px;color:var(--navy);margin:3px 0 0}.panel-title>small{font-size:9px;color:var(--muted);margin-top:5px}.road-chart{grid-row:span 2}.bar-list{padding:0 18px 6px}.bar-row{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(180px,2.2fr) 58px;align-items:center;gap:12px;min-height:42px;border-top:1px solid #edf1f4}.bar-label strong,.bar-label small{display:block}.bar-label strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar-label small{font-size:8px;color:var(--muted);margin-top:2px}.bar-track{height:12px;border-radius:7px;background:#edf2f5;position:relative;overflow:visible}.bar-track span{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--teal),#40aaa5)}.bar-track i{position:absolute;top:-4px;width:2px;height:20px;background:var(--orange);border-radius:1px}.bar-row>b{text-align:right;font-size:10px;color:var(--navy)}.legend{display:flex;gap:17px;padding:9px 18px 15px;border-top:1px solid #edf1f4;font-size:8px;color:var(--muted)}.legend span{display:flex;align-items:center;gap:5px}.legend i{width:12px;height:5px;border-radius:3px;background:var(--teal)}.legend i.divider{width:2px;height:10px;background:var(--orange)}.composition{padding-bottom:15px}.donut{width:180px;height:180px;border-radius:50%;margin:2px auto 15px;display:grid;place-items:center}.donut>div{width:102px;height:102px;border-radius:50%;display:grid;place-content:center;text-align:center;background:#fff;box-shadow:0 0 0 1px #edf1f4}.donut strong{font-size:19px;color:var(--navy)}.donut small{font-size:8px;color:var(--muted)}.composition-list{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;padding:0 18px}.composition-list>div{display:grid;grid-template-columns:1fr auto;gap:2px;padding:8px;border-radius:7px;background:#f6f9fa}.composition-list span{font-size:9px;display:flex;align-items:center;gap:5px}.composition-list i{width:7px;height:7px;border-radius:2px;background:var(--teal)}.composition-list i.orange{background:var(--orange)}.composition-list i.blue{background:#5b8db8}.composition-list i.pale{background:#d8e7f1}.composition-list strong{font-size:10px;color:var(--navy)}.composition-list small{grid-column:1/-1;font-size:8px;color:var(--muted)}.hourly-canvas{width:100%;height:245px;display:block;padding:0 12px 10px}.compare-panel{min-height:288px}.compare-list{padding:0 18px}.compare-list>div{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:center;padding:11px 0;border-top:1px solid #edf1f4}.compare-index{font-size:9px;color:var(--teal);font-weight:900}.compare-list strong,.compare-list small{display:block}.compare-list strong{font-size:10px}.compare-list small{font-size:8px;color:var(--muted);margin-top:2px}.compare-list b{font-size:10px;color:var(--navy)}.text-button{margin:8px 18px 16px;padding:0;border:0;background:none;color:var(--teal);font-size:9px;font-weight:900}.table-panel{margin-top:12px}.table-wrap{overflow:auto;padding:0 18px 18px}.table-wrap table{width:100%;border-collapse:collapse;font-size:9px;white-space:nowrap}.table-wrap th{padding:9px 8px;text-align:right;color:#fff;background:var(--teal);font-weight:800}.table-wrap th:first-child{text-align:left;border-radius:7px 0 0 0}.table-wrap th:last-child{border-radius:0 7px 0 0}.table-wrap td{padding:9px 8px;text-align:right;border-bottom:1px solid #e8eef2}.table-wrap td:first-child{text-align:left;min-width:235px}.table-wrap td strong,.table-wrap td small{display:block}.table-wrap td small{font-size:7px;color:var(--muted);margin-top:2px}.table-wrap tbody tr:hover{background:#f5faf9}.toast{position:fixed;right:24px;bottom:24px;z-index:50;max-width:380px;padding:13px 17px;border-radius:9px;background:var(--navy);color:#fff;box-shadow:0 15px 40px rgba(0,0,0,.18);font-size:11px}.busy{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(23,50,77,.3);backdrop-filter:blur(2px);color:#fff;font-weight:900}.busy strong{display:block;font-size:15px;text-align:center}.busy small{display:block;margin-top:8px;font-size:11px;font-weight:600;color:#dbe7ef;text-align:center;max-width:min(560px,86vw);overflow-wrap:anywhere}.modal-backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;background:rgba(14,32,49,.58);backdrop-filter:blur(5px)}.modal{width:min(480px,100%);padding:22px;border-radius:14px;background:#fff;box-shadow:0 25px 70px rgba(0,0,0,.24);display:grid;gap:15px}.modal>div>span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal)}.modal h3{margin:3px 0 0;color:var(--navy);font-size:18px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/*
+ * ⚠️ 兩欄的欄位要**各自靠上**，不可以讓格線把它們拉滿整列。
+ *
+ * 使用者 2026-09-12：「新建計畫，業主欄位跑掉，有點偏下，沒有與旁邊對齊」。
+ * 成因：.modal label 自己是 display:grid，而「計畫編號」底下多一行字數說明、
+ * 「業主」沒有——兩欄在 .two-col 裡被拉成一樣高之後，列高被平均分掉，
+ * 少一行的那一欄輸入框就被撐高、看起來往下掉。
+ *
+ * align-content:start 讓每一列保持自然高度並靠上對齊，
+ * 兩欄的輸入框上緣就會落在同一條線上。
+ * 這不是「補一行說明文字」能解決的——那只是讓兩欄剛好一樣高，
+ * 下次有人加一行字又會歪掉。
+ */
+.modal .two-col > label{align-content:start}.modal footer{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.help{margin:0;color:var(--muted);font-size:9px;line-height:1.6}.upload-zone{padding:20px;border:1.5px dashed #9abec7;border-radius:10px;background:#f5fafb;text-align:center;cursor:pointer}.upload-zone input{height:auto;border:0;padding:0;margin:auto}.upload-zone span{font-weight:400;margin-top:8px}.modal select{width:100%}
+.workspace{min-height:100vh}
 .road-manager-launch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;padding:10px 14px;border:1px solid #cfe2e5;border-radius:10px;background:linear-gradient(90deg,#eef8f7,#fff)}.road-manager-launch strong,.road-manager-launch small{display:block}.road-manager-launch strong{font-size:11px;color:var(--navy)}.road-manager-launch small{margin-top:2px;font-size:9px;color:var(--muted)}.road-manager-modal{width:min(680px,100%);max-height:92vh;overflow:auto}.road-impact{display:flex;justify-content:space-between;gap:12px;padding:9px 11px;border-radius:8px;background:#edf6f6;color:var(--teal);font-size:10px}.alias-list{display:grid;gap:3px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:9px}.alias-list strong{color:var(--navy)}.alias-list span{color:var(--muted);line-height:1.5}.merge-box{padding:13px;border:1px solid #f0d7bb;border-radius:10px;background:#fff8ef}.merge-box>strong{font-size:11px;color:#9a5b17}.merge-box p{margin:4px 0 9px;color:#8a6a46;font-size:9px;line-height:1.55}.merge-box>div{display:flex;gap:8px}.merge-box select{flex:1;height:36px;padding:0 9px;border:1px solid #ddc6ad;border-radius:7px;background:#fff}.button.danger{border-color:#e2b7b7;background:#fff4f4;color:#a33}.button.danger:hover{background:#fce3e3}
-.drag-zone{display:grid;gap:7px;min-height:132px;place-content:center;transition:.18s ease;border-width:2px}.drag-zone input{position:absolute;width:1px!important;height:1px!important;opacity:0;pointer-events:none}.drag-zone strong{font-size:14px;color:var(--navy)}.picking-files-hint{margin:10px 0 0;padding:7px 12px;border-radius:8px;background:#e6f4f3;color:#0c6f70;font-size:11px;font-weight:800}.drag-zone.drag-active{border-color:var(--teal);background:#e5f6f4;transform:scale(1.01);box-shadow:0 0 0 4px rgba(20,140,140,.12)}.manager-launch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.intersection-launch{border-left:4px solid var(--orange)}.vehicle-launch{border-left:4px solid #5b8db8}.turn-factor-modal,.intersection-manager-modal,.vehicle-class-modal{width:min(1180px,100%);max-height:94vh;overflow:auto}.turn-factor-table,.vehicle-class-table{overflow:auto}.turn-factor-table table,.vehicle-class-table table{width:100%;border-collapse:collapse}.turn-factor-table th,.turn-factor-table td,.vehicle-class-table th,.vehicle-class-table td{padding:8px;border:1px solid #dfe8ed;text-align:center}.turn-factor-table thead th,.vehicle-class-table thead th{color:#fff;background:var(--teal)}.turn-factor-table tbody th,.vehicle-class-table tbody th{background:#f2f7f8;color:var(--navy)}.turn-factor-table input,.vehicle-class-table input,.vehicle-class-table select{width:100%;min-width:86px;text-align:center}.vehicle-class-table table{min-width:920px}.vehicle-class-table td:first-child{min-width:150px;text-align:left}.vehicle-class-table td:nth-child(2){min-width:240px}.vehicle-class-table input:disabled{background:#edf2f4;color:#7d8f98}.geometry-workspace{display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,1.15fr);gap:16px;align-items:start}.arm-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:500px;overflow:auto}.arm-settings section{display:grid;grid-template-columns:1fr;gap:8px;padding:13px;border:1px solid var(--line);border-radius:10px;background:#f7fafb}.arm-settings section>strong{color:var(--teal);font-size:13px}.arm-settings small{display:block;color:#678091;margin-top:3px}.geometry-preview{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdfd}.intersection-geometry-diagram{display:block;width:100%;max-height:460px;margin:auto}.geometry-junction{fill:#eef4f5;stroke:#17324d;stroke-width:2}.geometry-arm{stroke:#9bb0bd;stroke-width:24;stroke-linecap:round}.geometry-arm.selected{stroke:#f0b66e}.geometry-arm-code{fill:#fff;stroke:#148c8c;stroke-width:3}.geometry-code{font-size:14px;font-weight:800;fill:#17324d}.geometry-label{font-size:11px;font-weight:700;fill:#17324d}.geometry-center{font-size:14px;font-weight:800;fill:#17324d}.geometry-center-sub{font-size:9px;fill:#587080}.route-mapping{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:14px;background:#f8fbfb}.route-mapping h4{margin:0 0 4px;color:var(--navy)}.route-mapping>p{margin:0 0 10px;color:#607789;font-size:12px}.route-mapping details{border-top:1px solid #dbe6ea;padding:8px 0}.route-mapping summary{cursor:pointer;font-weight:700;color:var(--teal)}.route-mapping table{min-width:560px}.route-mapping th,.route-mapping td{padding:7px 10px}.route-mapping select{min-width:100px}.intersection-table th{background:#11777a}.intersection-table td:first-child{min-width:220px}
+/*
+ * ── 匯入檔案的拖曳區（使用者 2026-09-14）──────────────────────────
+ *
+ * 「匯入檔案可匯入的區域，可以再大一點，方便使用者拖曳檔案進入匯入區」
+ *
+ * ⚠️ 原本 min-height:132px。拖曳是「抓著檔案在空中瞄準」的動作，
+ *   目標越小越容易掉在視窗外——掉在外面的後果是**瀏覽器直接開啟那個檔案**，
+ *   使用者辛苦填好的季度與設定就沒了。所以這一塊值得給它大一點。
+ *   加到 220px（約 1.7 倍），左右仍然滿版。
+ */
+.drag-zone{display:grid;gap:10px;min-height:220px;place-content:center;transition:.18s ease;border-width:2px;padding:26px 18px}.drag-zone input{position:absolute;width:1px!important;height:1px!important;opacity:0;pointer-events:none}.drag-zone strong{font-size:14px;color:var(--navy)}.picking-files-hint{margin:10px 0 0;padding:7px 12px;border-radius:8px;background:#e6f4f3;color:#0c6f70;font-size:11px;font-weight:800}.drag-zone.drag-active{border-color:var(--teal);background:#e5f6f4;transform:scale(1.01);box-shadow:0 0 0 4px rgba(20,140,140,.12)}.manager-launch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.intersection-launch{border-left:4px solid var(--orange)}.vehicle-launch{border-left:4px solid #5b8db8}.turn-factor-modal,.intersection-manager-modal,.vehicle-class-modal{width:min(1180px,100%);max-height:94vh;overflow:auto}.turn-factor-table,.vehicle-class-table{overflow:auto}.turn-factor-table table,.vehicle-class-table table{width:100%;border-collapse:collapse}.turn-factor-table th,.turn-factor-table td,.vehicle-class-table th,.vehicle-class-table td{padding:8px;border:1px solid #dfe8ed;text-align:center}.turn-factor-table thead th,.vehicle-class-table thead th{color:#fff;background:var(--teal)}.turn-factor-table tbody th,.vehicle-class-table tbody th{background:#f2f7f8;color:var(--navy)}.turn-factor-table input,.vehicle-class-table input,.vehicle-class-table select{width:100%;min-width:86px;text-align:center}.vehicle-class-table table{min-width:920px}.vehicle-class-table td:first-child{min-width:150px;text-align:left}.vehicle-class-table td:nth-child(2){min-width:240px}.vehicle-class-table input:disabled{background:#edf2f4;color:#7d8f98}.geometry-workspace{display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,1.15fr);gap:16px;align-items:start}.arm-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:500px;overflow:auto}.arm-settings section{display:grid;grid-template-columns:1fr;gap:8px;padding:13px;border:1px solid var(--line);border-radius:10px;background:#f7fafb}.arm-settings section>strong{color:var(--teal);font-size:13px}.arm-settings small{display:block;color:#617989;margin-top:3px}.geometry-preview{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdfd}.intersection-geometry-diagram{display:block;width:100%;max-height:460px;margin:auto}.geometry-junction{fill:#eef4f5;stroke:#17324d;stroke-width:2}.geometry-arm{stroke:#9bb0bd;stroke-width:24;stroke-linecap:round}.geometry-arm.selected{stroke:#f0b66e}.geometry-arm-code{fill:#fff;stroke:#148c8c;stroke-width:3}.geometry-code{font-size:14px;font-weight:800;fill:#17324d}.geometry-label{font-size:11px;font-weight:700;fill:#17324d}.geometry-center{font-size:14px;font-weight:800;fill:#17324d}.geometry-legend-text{font-size:10px;font-weight:700;fill:#3c5666}.route-mapping{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:14px;background:#f8fbfb}.route-mapping h4{margin:0 0 4px;color:var(--navy)}.route-mapping>p{margin:0 0 10px;color:#607789;font-size:12px}.route-mapping details{border-top:1px solid #dbe6ea;padding:8px 0}.route-mapping summary{cursor:pointer;font-weight:700;color:var(--teal)}.route-mapping table{min-width:560px}.route-mapping th,.route-mapping td{padding:7px 10px}.route-mapping select{min-width:100px}.intersection-table th{background:#11777a}.intersection-table td:first-child{min-width:220px}
 @media(max-width:760px){.manager-launch-grid,.arm-settings,.geometry-workspace{grid-template-columns:1fr}.intersection-manager-modal{max-height:94vh;overflow:auto}.intersection-geometry-diagram{max-height:360px}}
 @media(max-width:1100px){.workspace{grid-template-columns:205px 1fr}.content{padding:20px 18px}.toolbar{align-items:flex-start}.actions{flex-wrap:wrap;justify-content:flex-end}.kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.road-chart{grid-row:auto}.filters{flex-wrap:wrap}.compare-count{margin-left:0}}
-@media(max-width:760px){.topbar{height:auto;padding:18px;align-items:flex-start;gap:14px}.topbar h1{font-size:21px}.topbar p{display:none}.user-chip small{display:none}.workspace{display:block}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:14px}.project-list{display:flex;overflow:auto}.project-card{min-width:220px}.side-section,.side-note{display:none}.content{padding:15px 12px 35px}.toolbar{display:block}.actions{margin-top:12px;justify-content:flex-start}.filters{display:grid;grid-template-columns:1fr 1fr}.filters .search{min-width:0;grid-column:1/-1}.compare-count{grid-column:1/-1}.kpi-grid{grid-template-columns:1fr 1fr}.kpi{min-height:105px;padding:14px}.kpi strong{font-size:22px}.chart-grid{display:block}.panel{margin-top:10px}.bar-row{grid-template-columns:minmax(110px,1fr) 1.5fr 50px;gap:7px}.composition-list{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}}
-@media(max-width:460px){.topbar{display:block}.user-chip{margin-top:12px}.kpi-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.filters .search,.compare-count{grid-column:auto}.actions .button{padding:0 9px;font-size:9px}.bar-row{grid-template-columns:110px 1fr 45px}.bar-label strong{font-size:9px}}
+@media(max-width:760px){.workspace{display:block}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:14px}.project-list{display:flex;overflow:auto}.project-card{min-width:220px}.side-section,.side-note{display:none}.content{padding:15px 12px 35px}.toolbar{display:block}.actions{margin-top:12px;justify-content:flex-start}.filters{display:grid;grid-template-columns:1fr 1fr}.filters .search{min-width:0;grid-column:1/-1}.compare-count{grid-column:1/-1}.kpi-grid{grid-template-columns:1fr 1fr}.kpi{min-height:105px;padding:14px}.kpi strong{font-size:22px}.chart-grid{display:block}.panel{margin-top:10px}.bar-row{grid-template-columns:minmax(110px,1fr) 1.5fr 50px;gap:7px}.composition-list{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}}
+@media(max-width:460px){.kpi-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.filters .search,.compare-count{grid-column:auto}.actions .button{padding:0 9px;font-size:9px}.bar-row{grid-template-columns:110px 1fr 45px}.bar-label strong{font-size:9px}}
 .manual-menu{display:flex}.manual-download{display:inline-flex;align-items:center;text-decoration:none;border-color:#8dc9c6!important;color:#0c6f70!important}.manual-download:hover{background:#e9f7f6}.manual-download:first-child{border-radius:8px 0 0 8px}.manual-download.compact{border-left:0;border-radius:0 8px 8px 0;padding-inline:10px}
 
-.mapping-warning{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding:11px 14px;border:1px solid #efc38f;border-left:4px solid var(--orange);border-radius:10px;background:#fff8ee;color:#7d4b16}.mapping-warning strong,.mapping-warning span{display:block}.mapping-warning strong{font-size:11px}.mapping-warning span{margin-top:3px;font-size:9px;line-height:1.5}.destination-mapping{background:#fffaf4;border-color:#efd8bd}.destination-mapping .table-wrap{padding:0}.destination-mapping td:first-child{min-width:150px}.destination-mapping select{min-width:160px}.destination-mapping td small{display:block;margin-top:2px;color:var(--muted);font-size:8px}
-@media(max-width:760px){.mapping-warning{align-items:flex-start;flex-direction:column}.destination-mapping select{min-width:135px}}
+.mapping-warning{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding:11px 14px;border:1px solid #efc38f;border-left:4px solid var(--orange);border-radius:10px;background:#fff8ee;color:#7d4b16}.mapping-warning strong,.mapping-warning span{display:block}.mapping-warning strong{font-size:11px}.mapping-warning span{margin-top:3px;font-size:9px;line-height:1.5}
+@media(max-width:760px){.mapping-warning{align-items:flex-start;flex-direction:column}}
 
 /* Traffic and PCU analysis */
 .kpi-grid{grid-template-columns:repeat(4,1fr)}
 .kpi.pcu:before{background:var(--orange)}
 .kpi small{line-height:1.45}
-.kpi-day-values{display:grid;gap:2px}.kpi-day-values strong{margin-top:5px}.kpi-day-values em{display:inline-block;min-width:34px;margin-right:7px;font-size:10px;font-style:normal;letter-spacing:0;color:var(--teal)}
+.kpi-day-values{display:grid;gap:2px}.kpi-day-values strong{margin-top:5px}.kpi-day-values em{display:inline-block;min-width:34px;margin-right:7px;font-size:10px;font-style:normal;letter-spacing:0;color:var(--teal)}.peak-hour-note{display:block;margin-top:2px}
+/*
+ * 季度區間拉開時，前兩張 KPI 卡逐季分行（使用者 2026-09-15 裁示）。
+ *
+ * ⚠️ 逐季時每一行前面多一個「115Q1・平日」的標籤，比單季那一行長很多，
+ *   所以數字要縮一級、行距放寬，否則四季 × 兩種日別 ＝ 八行會擠成一團。
+ * ⚠️ 卡片高度**不要寫死**：季數是使用者決定的，寫死就一定會有人看不到最後一行。
+ */
+.kpi-by-quarter strong{font-size:19px;line-height:1.35;margin-top:7px}
+.kpi-by-quarter em{min-width:0;color:var(--muted);font-weight:700}
 .bar-row{grid-template-columns:minmax(150px,1.2fr) minmax(180px,2.2fr) 92px;min-height:52px}
 .bar-pair{display:grid;gap:4px}
 .bar-pair .bar-track{height:10px;overflow:hidden}
@@ -93,6 +177,85 @@
 .trend-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .trend-controls select{height:31px;max-width:230px;padding:0 9px;border:1px solid #ccd9e1;border-radius:7px;background:#fff;color:var(--ink);font-size:9px}
 .trend-canvas{display:block;width:100%;height:300px;padding:0 16px}
+/*
+ * ── 圖上的數值標籤（少量直接標、量多滑鼠移上去）──────────────
+ *
+ * ⚠️ 標籤是**畫布上方的一層 HTML**，不是畫在畫布裡。
+ *   畫在畫布裡的話，PNG 匯出（canvas.toDataURL）一定會把它印出去，
+ *   而使用者要的是「匯出的圖統一為乾淨版」。放在 HTML 層，
+ *   畫布本身從頭到尾就是淨空版，匯出不必做任何額外處理。
+ *
+ * ⚠️ pointer-events: none 不可以拿掉：標籤會擋住底下的資料點，
+ *   滑鼠一移到標籤上就等於離開了點，標籤消失→又出現，閃爍到不能看。
+ */
+.trend-canvas-wrap{position:relative}
+.chart-value-layer{position:absolute;inset:0;pointer-events:none}
+.chart-value-layer .point-value{position:absolute;transform:translate(-50%,-150%);white-space:nowrap;font-size:10px;font-weight:800;line-height:1;letter-spacing:.02em;color:var(--ink)}
+/* 最左／最右那一季的標籤改成貼齊該側，否則會有一半跑到繪圖區外面被切掉。 */
+/*
+ * ⚠️ 靠左／靠右那一個要往內縮，而且要縮得夠多。
+ *
+ * 第一版縮 3px：雖然沒有真的疊到（縱軸刻度右緣在繪圖區左緣減 10px，
+ * 標籤左緣在加 3px，中間有 13px），但使用者 2026-09-11 回報
+ * 「趨勢圖圖上左側 平日假日的數字有和Y軸重疊的疑慮」——
+ * 兩組都是大字數字、又在同一條水平帶上，13px 看起來就是快貼到了。
+ *
+ * 改成 12px，離縱軸刻度有 22px，一眼看得出是兩組不同的東西。
+ * e2e-point-hover 量的是「標籤左緣與**縱軸刻度文字右緣**的距離」，
+ * 不是與繪圖區邊界的距離——後者量不到使用者看到的那件事。
+ */
+.chart-value-layer .point-value[data-anchor="start"]{transform:translate(12px,-150%)}
+.chart-value-layer .point-value[data-anchor="end"]{transform:translate(calc(-100% - 12px),-150%)}
+/* 滑鼠停住的那一個要看得出來是「被指到的那一個」：加白色描邊墊底。 */
+.chart-value-layer .point-value-hover{font-size:11px;padding:2px 5px;border-radius:6px;background:#fff;box-shadow:0 2px 8px rgba(23,50,77,.18);transform:translate(-50%,-160%)}
+/*
+ * ── 歷季趨勢圖：捲說明講稿時把圖釘住 ───────────────────────────
+ *
+ * 使用者 2026-09-10：「當滾到看說明時，該圖片都能保持可見。」
+ * 三支程式做同一件事，做法相同（路口轉向見它自己的 globals.css）。
+ *
+ * ⚠️ 釘住的是「標題＋選擇器＋圖」這一塊，**講稿不釘**——那本來就是要捲的。
+ * ⚠️ 釘住區必須**放得進視窗**：容器一比視窗高，sticky 只保證上緣貼住，
+ *    被切掉的一定是最上面那幾行，也就是標題與單位。所以圖高跟著 vh 縮。
+ * ⚠️ **不需要「取消固定」按鈕**：sticky 只在包含區塊（.trend-panel）裡
+ *    黏住，捲出這一塊就自動放開。
+ * ⚠️ 螢幕不夠高時不啟用——釘住只會把講稿擠到看不見，比不釘更糟。
+ */
+/*
+ * ── 門檻從 720px 降到 660px（2026-09-11）──────────────────────
+ *
+ * 使用者回報：「全日交通量的圖，也不會隨著我往下滑動看說明時保持可見。」
+ *
+ * ⚠️ **功能沒有壞**，是這道門檻訂得太高，把很常見的一種螢幕擋在外面：
+ *   1920×1080 ＋ Windows 顯示縮放 **125%**（1080p 螢幕的出廠預設）
+ *   → CSS 像素 1536×864，再扣掉分頁列／網址列／書籤列／工作列
+ *   → 可視高度約 **712 CSS px**，剛好落在舊門檻 720 之下。
+ *   使用者看到的就是「別人說有這功能，我這邊沒有」。
+ *
+ * ⚠️ 不可以整個拿掉：真正矮的視窗（例如 600px）釘住之後講稿只剩兩三行，
+ *   那才是「比不釘更糟」的那種情況。
+ *
+ * 路口轉向同一天做了同樣的調整（它的門檻寫在自己的 globals.css）。
+ */
+@media (min-height: 660px){
+  /*
+   * ⚠️ `top` **不可以寫死**。
+   *
+   *   原本是 8px，那是**主工具列還沒加進來之前**算的。主工具列
+   *   2026-09-15 起常駐在上方（`.filters{position:sticky;top:0}`），
+   *   所以這張圖捲動時上緣會被它切掉——與使用者先前回報的
+   *   「標題文字消失」是同一個症狀。
+   *
+   *   而且寫死一個新數字也一樣錯：主工具列**可以收合**（收合約 44px、
+   *   展開 95～110px），視窗窄時欄位換行還會再長高。
+   *   所以改用 --sticky-top，它跟著實際量到的高度走。
+   *
+   * ⚠️ 這一支的 .topbar **不是 sticky**（捲走就沒了），
+   *   所以只要扣主工具列，不必扣 topbar——與另外兩支不同，別照抄。
+   */
+  .trend-pinned{position:sticky;top:var(--sticky-top);z-index:2;background:#fff;border-radius:11px}
+  .trend-pinned .trend-canvas{height:min(34vh,300px)}
+}
 .project-bars{padding:0 18px 17px}
 .project-bars>div{display:grid;grid-template-columns:28px minmax(180px,.8fr) minmax(240px,1.8fr) 180px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid #e8eef2}
 .project-bars strong,.project-bars small{display:block}.project-bars strong{font-size:10px}.project-bars small{margin-top:3px;font-size:8px;color:var(--muted)}
@@ -102,18 +265,76 @@
 @media(max-width:1000px){.comparison-row{grid-template-columns:1fr}.delta{justify-self:end}.project-bars>div{grid-template-columns:28px 1fr}.project-track{grid-column:2/-1}.project-bars b{grid-column:2/-1;text-align:left}.trend-controls{justify-content:flex-start}}
 @media(max-width:620px){.comparison-bars>span{grid-template-columns:28px 1fr}.comparison-bars strong{grid-column:2;text-align:left}.trend-controls{display:grid;grid-template-columns:1fr}.trend-controls select{max-width:none}.panel-title{display:block}.segmented{margin-top:10px;width:max-content}.composition-controls{grid-template-columns:1fr}}
 
-.pcu-settings{display:grid;grid-template-columns:minmax(220px,1fr) minmax(430px,1.7fr) auto;align-items:end;gap:16px;margin-top:12px;padding:14px 16px;border:1px solid #cbdde2;border-left:4px solid var(--orange);border-radius:11px;background:#fff;box-shadow:var(--shadow)}
-.pcu-settings>div:first-child span,.pcu-settings>div:first-child strong{display:block}.pcu-settings>div:first-child span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--orange)}.pcu-settings>div:first-child strong{margin-top:4px;font-size:12px;color:var(--navy)}
+/*
+ * ⚠️ grid-template-areas 是**必要的**，不是排版偏好。
+ *
+ * 這一區原本只有三個子元素（說明／係數欄位／按鈕），剛好對上三欄。
+ * v20.64 加進「套用範圍」的挑選器與摘要之後變成五個，自動排版把它們
+ * 塞成：說明｜挑選器｜係數欄位 ／ 按鈕｜摘要——**按鈕跑到說明文字底下、
+ * 離它要套用的欄位最遠**（2026-09-11 實測：.factor-actions 在 x=296，
+ * .factor-grid 在 x=978，中間隔了 682px）。
+ * 用具名區塊把順序釘死：說明→套用範圍→係數欄位→按鈕→摘要，
+ * 跟 .factor-scope-state 裡「下方欄位顯示的是它現在生效的值」對得上。
+ */
+.pcu-settings{display:grid;grid-template-columns:minmax(220px,1fr) minmax(430px,1.7fr) auto;grid-template-areas:"info scope scope" "fields fields actions";align-items:end;gap:16px;margin-top:12px;padding:14px 16px;border:1px solid #cbdde2;border-left:4px solid var(--orange);border-radius:11px;background:#fff;box-shadow:var(--shadow)}
+.pcu-settings>div:first-child{grid-area:info}.factor-scope-picker{grid-area:scope}.factor-grid{grid-area:fields}.factor-actions{grid-area:actions}.factor-scope-summary{grid-column:1/-1}
+.pcu-settings>div:first-child span,.pcu-settings>div:first-child strong{display:block}/* ⚠️ 這裡刻意**不設 color**：--orange（#e58a2b）在白底上只有 2.62:1，當文字色讀不到。
+   真正生效的顏色在下方的 .pcu-settings>div:first-child span{color:#a9600f}（4.81:1）。
+   兩處都寫的話，前面這一行是死宣告，卻會讓人以為文字是橘色的。 */
+.pcu-settings>div:first-child span{font-size:9px;font-weight:900;letter-spacing:.08em}.pcu-settings>div:first-child strong{margin-top:4px;font-size:12px;color:var(--navy)}
 .factor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.factor-grid label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.factor-grid input{width:100%;height:34px;padding:0 9px;border:1px solid #cad6df;border-radius:7px;color:var(--navy);font-weight:800}.factor-grid input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(229,138,43,.12)}
-.factor-actions{display:flex;gap:7px}.excel-compat-note{margin:8px 2px 0;color:#6b7c88;font-size:9px;line-height:1.5}.panel-actions{display:grid;justify-items:end;gap:5px}.panel-actions small{font-size:9px;color:var(--muted)}.panel-export{height:27px;padding:0 9px;border:1px solid #9bc9c7;border-radius:6px;background:#f2fbfa;color:#0c7070;font-size:8px;font-weight:900}.panel-export:hover{background:#dff3f1}
+.factor-actions{display:flex;gap:7px}
+/*
+ * ── 係數的「套用範圍」（依季別 × 路段覆寫）─────────────────────
+ *
+ * 使用者 2026-09-11：「參數設定 套用季別 全季別 和套用路段 也全面是白色的，
+ * 與背景色相融，完全沒發現這裡可以設定 季別/路段。」
+ *
+ * ⚠️ 原因不是顏色挑錯，是**這五個 class 從頭到尾沒有寫過任何一條規則**。
+ *   2026-09-11 實測：.factor-scope-picker 的 <select> 算出來是
+ *   border-width: 0px、background: rgba(0,0,0,0)——因為 Tailwind preflight
+ *   會把所有元素的框線歸零、底色設透明。**沒有規則不等於用瀏覽器預設**，
+ *   在這個專案裡等於「隱形」。這一類錯誤不會噴任何訊息，
+ *   畫面上就只是一行沒有邊框的字，所以只能靠**逐一比對 JSX 用到的 class
+ *   與 CSS 寫過的 class**（tests/class-coverage.test.mjs）來擋。
+ *
+ * 這一組樣式沿用路口轉向 g2164 的同名規則，只把尺寸換成本程式的字級。
+ */
+.factor-scope-picker{display:flex;gap:12px;flex-wrap:wrap;align-items:end;padding:10px 12px;border:1px solid #d7e3e8;border-radius:9px;background:var(--wash)}
+.factor-scope-picker label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted);min-width:0}
+.factor-scope-picker select{height:32px;max-width:min(280px,60vw);padding:0 10px;border:1px solid #cad6df;border-radius:7px;background:#fff;color:var(--ink);font-size:11px;font-weight:700}
+.factor-scope-picker select:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(229,138,43,.12)}
+.factor-scope-picker select:disabled{background:#eef2f5;color:var(--muted)}
+.factor-scope-state{flex:1 1 100%;margin:2px 0 0;font-size:10px;line-height:1.6;color:var(--muted)}
+.factor-scope-summary{margin-top:4px;padding-top:11px;border-top:1px solid var(--line)}
+.factor-scope-summary>strong{font-size:11px;color:var(--navy)}
+.factor-scope-summary p{margin:6px 0 0;font-size:10px;line-height:1.6;color:var(--muted)}
+.factor-scope-summary ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:7px}
+.factor-scope-summary li{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:7px 9px;border:1px solid #e0eaec;border-radius:9px;background:#f8fafb;font-size:10px;color:var(--ink)}
+.factor-scope-summary li>span{font-weight:800;color:var(--navy)}
+.factor-scope-summary li>small{flex:1 1 220px;color:var(--muted)}
+/* ⚠️ 衝突區要看得出來是警告，但不可以紅到讓人以為壞掉了——重疊是合法設定。 */
+.factor-scope-conflict{margin-top:11px;padding:9px 11px;border:1px solid #e8c98a;border-left:4px solid #d99a19;border-radius:9px;background:#fdf7ea}
+.factor-scope-conflict>strong{font-size:10px;color:#7a5405}
+.factor-scope-conflict li{background:#fff;border-color:#f0dcb4}
+/*
+ * ── 搜尋框下面那一行「符合 N 個調查點」─────────────────────────
+ * 使用者 2026-09-11：「紅框處的搜索功能似乎就沒用了，我輸入什麼路段名稱
+ * 似乎都沒看到任何成果」——實際是搜尋與上面的「路段／路口」是 AND，
+ * 交集為空時畫面一聲都不吭。0 筆要**看得出來是 0 筆**。
+ */
+.search-hint{display:block;margin-top:4px;font-size:9px;font-weight:800;line-height:1.5;color:var(--teal)}
+.search-hint-empty{color:#a4471b}
+.excel-compat-note{margin:8px 2px 0;color:#687884;font-size:9px;line-height:1.5}.panel-actions{display:grid;justify-items:end;gap:5px}.panel-actions small{font-size:9px;color:var(--muted)}.panel-export{height:27px;padding:0 9px;border:1px solid #9bc9c7;border-radius:6px;background:#f2fbfa;color:#0c7070;font-size:8px;font-weight:900}.panel-export:hover{background:#dff3f1}
 /* PCU 設定區三欄的最小寬度合計約 887px，加上左側 245px 的側欄，整頁要
    1160px 才塞得下。單欄化的斷點原本設在 1100px，於是 1101～1155px 之間
    整頁會出現水平捲軸（實測 1101px 時溢出 59px）。把斷點提高到 1250px。 */
-@media(max-width:1250px){.pcu-settings{grid-template-columns:1fr}.factor-actions{justify-content:flex-start}}
+/* 單欄時把具名區塊關掉，五個子元素就照 HTML 順序由上往下排（順序本來就對）。 */
+@media(max-width:1250px){.pcu-settings{grid-template-columns:1fr;grid-template-areas:none}.factor-actions{justify-content:flex-start;flex-wrap:wrap}}
 @media(max-width:620px){.factor-grid{grid-template-columns:1fr 1fr}.pcu-settings{padding:13px}.panel-actions{justify-items:start;margin-top:8px}}
 
 .button.danger{margin-right:auto;border-color:#e7b3ae;background:#fff5f4;color:#a83b32}.button.danger:hover{background:#ffe6e3}.backup-zone{border-color:#b8c5d2;background:#f7f9fb}.actions{flex-wrap:wrap;justify-content:flex-end}
-.quality-strip{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:10px;align-items:center;margin:12px 0;padding:12px 14px;border:1px solid #cfe2e5;border-radius:11px;background:#fff;box-shadow:var(--shadow)}.quality-strip div{display:grid;gap:3px}.quality-strip span{font-size:9px;color:var(--muted)}.quality-strip strong{font-size:11px;color:var(--navy)}.workflow-modal{width:min(980px,100%);max-height:94vh;overflow:auto}.validation-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.validation-grid>div{padding:10px;border-radius:8px;background:#f2f7f8}.validation-grid small,.validation-grid strong{display:block}.validation-grid small{color:var(--muted);font-size:9px}.validation-grid strong{margin-top:3px;color:var(--navy);font-size:13px}.workflow-list,.workflow-warning,.workflow-ok,.report-template-box{padding:12px;border:1px solid var(--line);border-radius:9px}.workflow-list strong,.workflow-warning strong,.report-template-box>strong{color:var(--navy);font-size:11px}.workflow-list p,.workflow-warning p,.workflow-ok p,.report-template-box p{margin:5px 0;font-size:9px;line-height:1.6}.workflow-warning{border-color:#efc68f;background:#fff8ed;color:#8b5a1d}.workflow-warning small{display:block;margin:2px 0}.workflow-ok{border-color:#acd7cd;background:#eff9f6;color:#176b5d}.threshold-grid,.export-checks{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.history-list{display:grid;gap:8px;max-height:310px;overflow:auto}.history-list article{display:flex;justify-content:space-between;gap:12px;padding:11px;border:1px solid var(--line);border-radius:9px}.history-list article>div{display:grid;gap:3px}.history-list article>div:last-child{display:flex;align-items:center}.history-list small,.history-list span{font-size:9px;color:var(--muted)}.source-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #e5ecef}.source-row>span{font-size:10px}.source-row small{display:block;color:var(--muted)}.trace-preview{max-height:220px;overflow:auto}.trace-preview>div{display:grid;gap:2px;padding:6px 0;border-top:1px solid #edf1f3}.trace-preview span{font-size:9px}.trace-preview small{font-size:8px;color:var(--muted)}.template-create{display:flex;gap:8px}.template-create input{flex:1}.report-template-box{display:grid;gap:7px;background:#f8fbfc}.status-定稿{background:#2f9d6a}.status-已確認{background:#3e87bb}.status-待確認{background:#e58a2b}.status-草稿{background:#9aa8b2}
+.quality-strip{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:10px;align-items:center;margin:12px 0;padding:12px 14px;border:1px solid #cfe2e5;border-radius:11px;background:#fff;box-shadow:var(--shadow)}.quality-strip div{display:grid;gap:3px}.quality-strip span{font-size:9px;color:var(--muted)}.quality-strip strong{font-size:11px;color:var(--navy)}.quality-strip>header{grid-column:1/-1;display:grid;gap:3px;padding-bottom:9px;margin-bottom:2px;border-bottom:1px solid #e4eef0}.quality-strip>header span{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal)}.quality-strip>header strong{font-size:15px;font-weight:800;color:var(--navy);line-height:1.4}.quality-strip>header small{font-size:10px;line-height:1.65;color:var(--muted)}.workflow-modal{width:min(980px,100%);max-height:94vh;overflow:auto}.validation-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.validation-grid>div{padding:10px;border-radius:8px;background:#f2f7f8}.validation-grid small,.validation-grid strong{display:block}.validation-grid small{color:var(--muted);font-size:9px}.validation-grid strong{margin-top:3px;color:var(--navy);font-size:13px}.workflow-list,.workflow-warning,.workflow-ok,.report-template-box{padding:12px;border:1px solid var(--line);border-radius:9px}.workflow-list strong,.workflow-warning strong,.report-template-box>strong{color:var(--navy);font-size:11px}.workflow-list p,.workflow-warning p,.workflow-ok p,.report-template-box p{margin:5px 0;font-size:9px;line-height:1.6}.workflow-warning{border-color:#efc68f;background:#fff8ed;color:#8b5a1d}.workflow-warning small{display:block;margin:2px 0}.workflow-ok{border-color:#acd7cd;background:#eff9f6;color:#176b5d}.threshold-grid,.export-checks{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.history-list{display:grid;gap:8px;max-height:310px;overflow:auto}.history-list article{display:flex;justify-content:space-between;gap:12px;padding:11px;border:1px solid var(--line);border-radius:9px}.history-list article>div{display:grid;gap:3px}.history-list article>div:last-child{display:flex;align-items:center}.history-list small,.history-list span{font-size:9px;color:var(--muted)}.source-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #e5ecef}.source-row>span{font-size:10px}.source-row small{display:block;color:var(--muted)}.trace-preview{max-height:220px;overflow:auto}.trace-preview>div{display:grid;gap:2px;padding:6px 0;border-top:1px solid #edf1f3}.trace-preview span{font-size:9px}.trace-preview small{font-size:8px;color:var(--muted)}.template-create{display:flex;gap:8px}.template-create input{flex:1}.report-template-box{display:grid;gap:7px;background:#f8fbfc}.status-定稿{background:#2f9d6a}.status-已確認{background:#3e87bb}.status-待確認{background:#e58a2b}.status-草稿{background:#9aa8b2}
 @media(max-width:900px){.quality-strip{grid-template-columns:1fr 1fr}.validation-grid{grid-template-columns:repeat(2,1fr)}.threshold-grid,.export-checks{grid-template-columns:1fr 1fr}}
 .empty-project-list{margin:8px 2px;padding:12px;border:1px dashed #b9cbd7;border-radius:9px;color:var(--muted);font-size:10px;line-height:1.5}.empty-state{margin-bottom:14px;padding:24px;border:1px dashed #94c8c5;border-radius:12px;background:#f3fbfa;text-align:center}.empty-state strong{display:block;color:var(--navy);font-size:18px}.empty-state p{max-width:650px;margin:8px auto 16px;color:var(--muted);font-size:11px;line-height:1.7}
 .offline-note{margin:0 0 12px;padding:11px 14px;border:1px solid #f0cf9f;border-radius:9px;background:#fff8ed;color:#76501d;font-size:10px;line-height:1.6}.offline-note strong{color:#a55a08}
@@ -123,7 +344,15 @@
 .period-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:0 18px 14px}.period-controls label{display:grid;gap:4px;font-size:9px;font-weight:800;color:var(--muted)}.period-controls select{height:32px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:11px;color:var(--ink)}
 .period-scope-picker{display:grid;gap:4px;flex:1;min-width:220px}.period-scope-picker>span{font-size:9px;font-weight:800;color:var(--muted)}.period-scope-chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip-toggle{height:28px;padding:0 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--navy);font-size:10px;font-weight:700;cursor:pointer}.chip-toggle:hover{border-color:var(--teal)}.chip-toggle.selected{border-color:var(--teal);background:var(--teal);color:#fff}
-.period-table th small{display:block;font-weight:600;opacity:.85}.period-table td small{display:block;color:var(--muted);font-size:8px}.period-table tbody tr.period-total-row{background:#f4fafa}.period-table tbody tr.period-total-row td:first-child strong{color:#0c6f70}
+.period-table th small{display:block;font-weight:600;opacity:.85}.period-table td small{display:block;color:var(--muted);font-size:8px}
+/*
+ * 表格裡的「調查日」那一行。
+ * 使用者 2026-09-11：「請新增讓我在切換顯示調查月份時，也能看出
+ *   哪一個路口／路段是在 X 月做的這項功能。」
+ * ⚠️ 它和上面的調查點編號都是 <small>，要看得出是兩件不同的事，
+ *   所以這一行用青色（--teal 在白底上 5.96:1，對比由測試把關）。
+ */
+table td small.survey-date{color:var(--teal);font-weight:800;margin-top:2px}.period-table tbody tr.period-total-row{background:#f4fafa}.period-table tbody tr.period-total-row td:first-child strong{color:#0c6f70}
 .period-empty{padding:0 18px 18px}
 .export-period-box{display:grid;gap:9px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#f8fbfc}.export-period-box>strong{font-size:10px;color:var(--navy)}.export-period-group{display:grid;gap:5px}.export-period-group>span{font-size:9px;font-weight:800;color:var(--muted)}.export-period-chips{display:flex;flex-wrap:wrap;gap:6px}
 @media(max-width:760px){.period-controls{padding:0 12px 12px}.period-help{padding:0 12px}}
@@ -266,7 +495,20 @@
 .report-draft-head{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
 .report-draft-head strong{display:block;font-size:12px;color:var(--navy)}
 .report-draft-head .help{margin:4px 0 0;max-width:640px}
-.report-draft-actions{display:flex;gap:6px;flex-wrap:wrap}
+.report-draft-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+/*
+ * 報表草稿的「小數位數」。
+ * ⚠️ 與「重新產生」「複製全文」擺在同一列，所以要對齊基線；
+ *   標籤橫排（不是上下），才不會把那一列撐高一倍。
+ */
+.report-draft-digits{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:9px;color:var(--muted);white-space:nowrap;
+}
+.report-draft-digits select{
+  padding:4px 6px;border:1px solid var(--line);border-radius:6px;
+  background:#fff;font-size:9px;color:var(--ink);
+}
 .draft-section-picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0}
 .chip-check{
   display:inline-flex;align-items:center;gap:5px;padding:5px 9px;
@@ -293,6 +535,31 @@
 
 .status-effect{display:block;margin-top:5px;font-size:9px;color:var(--muted);line-height:1.7}
 
+/*
+ * X-82（使用者 2026-09-17，附圖）：「草稿欄位與上面文字幾乎黏在一起，
+ *   請保持一定的間距」——「資料狀態（115Q3）」那一行的下拉直接貼著、
+ *   甚至壓到後面的「）」。
+ *
+ * ⚠️ 成因：這個 <label> 裡是**純文字節點 ＋ <select>**，沒有任何版面宣告，
+ *   走的是 inline 流排版——中文字與 <select> 之間沒有空白字元就零間距。
+ *   （.filters label／.modal label 有 display:grid;gap，這一顆在面板裡，
+ *   兩條都吃不到，和 X-72 面板欄位沒有樣式是同一個成因的不同表現。）
+ *
+ * ⚠️ 不可以只加一個 &nbsp; 了事：那是用內容補版面，欄位一改就破。
+ */
+.status-field{
+  display:grid;
+  grid-template-columns:auto minmax(0,max-content);
+  align-items:center;
+  column-gap:12px;
+  row-gap:8px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--ink);
+}
+.status-field > select{justify-self:start}
+.status-field > .status-effect{grid-column:1/-1;margin-top:0}
+
 /* 匯出範圍警告：搜尋關鍵字會讓匯出少掉工作表，而搜尋框不在這個視窗裡。 */
 .export-scope-warning{display:block;margin-top:8px;padding:9px 11px;border-radius:8px;background:#fff4e6;border-left:3px solid #c9761f;color:#8a5312;font-size:12px;line-height:1.7;font-weight:700}
 
@@ -315,6 +582,48 @@
 .panel-actions>button,
 .report-items-actions>button{flex:none;white-space:nowrap}
 .button,button{white-space:nowrap}
+/*
+ * ⚠️ 側欄的**大分頁**按鈕是例外：全域 nowrap 讓「五　資料產出與維護」
+ *   在側欄縮成 205px 的寬度（≤1100px）時被裁掉 27px——
+ *   2026-09-16 新增的「按鈕文字沒有被裁掉」守門實測抓到（900／1024／1100px 全紅）。
+ *   這幾顆的字是分頁名稱，折行比裁掉好；小分頁（.side-nav-item）維持原狀。
+ * ⚠️ word-break 用 keep-all：中文詞不要從中間硬切。
+ */
+/*
+ * ⚠️ X-74（使用者 2026-09-17）：「第五分類 資料產出與維護，字不要換行」。
+ *
+ *   這一條與 2026-09-16 補的「按鈕文字沒有被裁掉」守門**直接衝突**：
+ *   當時就是為了不讓「五　資料產出與維護」在 205px 的側欄被裁掉，
+ *   才把它從全域的 nowrap 改成可折行。兩者要同時成立只有一條路——
+ *   **把字放得下**，不是在 nowrap 與 wrap 之間來回切。
+ *
+ *   所以：字改回不折行，並且在側欄變窄時（≤1100px）把分類標題縮到 14px，
+ *   同時把分類那一列的左右內距收窄。兩支守門一起跑才算過：
+ *   「不可以折行」（量 scrollHeight 與單行高）與「不可以被裁掉」
+ *   （量 scrollWidth 與 clientWidth）。
+ */
+/*
+ * ⚠️ X-81（使用者 2026-09-17，附圖）：「第五分類雖然沒有換行了，但文字也
+ *   看不到了（畫面上是「五　資料產出與維」，最後一個『護』被切掉），
+ *   如果在這個文字大小無法不換行的話，那就換行沒關係」。
+ *
+ *   ⚠️ 上面 X-74 那一段的作法（nowrap ＋ overflow:hidden）**本身就是裁掉**。
+ *     縮到 14px 只是把裁切往後推，推不過去的時候字就少一個——
+ *     而「少一個字」比「折成兩行」嚴重得多：折行還讀得到，裁掉讀不到。
+ *   ⚠️ 而且 2026-09-16 的「按鈕文字沒有被裁掉」守門**沒有抓到這一次**：
+ *     它量的是 <button> 的 scrollWidth，但 overflow:hidden 同時套在裡面的
+ *     <span> 上，字是在 span 裡被裁的，button 自己量起來剛剛好——
+ *     典型的假守門。守門已一併補成連按鈕裡面的元素一起量。
+ *
+ *   所以現在：**能不折就不折（字夠小就放得下），放不下就折，但絕不裁**。
+ *   word-break:keep-all 讓中文詞不要從中間硬切。
+ */
+.side-nav-group > button:not(.side-nav-collapse),
+.side-nav-group > button:not(.side-nav-collapse) > span {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
 
 /* 2. 上方篩選列沒有 flex-wrap，1101～1375px 之間搜尋框與「已選 N 個計畫」
       會被推出視窗外，整頁跟著左右捲動（實測 1160px 溢出 216px）。 */
@@ -691,8 +1000,14 @@
 .collapsed-panel{border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}
 .collapsed-panel>summary{list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .collapsed-panel>summary::-webkit-details-marker{display:none}
-.collapsed-panel>summary::before{content:"▸";color:var(--teal);font-size:11px;margin-right:2px}
-.collapsed-panel[open]>summary::before{content:"▾"}
+/*
+ * ⚠️ 只用「▼」一個字，收合狀態用 rotate 轉 90 度，**不要換成 ▸／▾**。
+ *   U+25B8「▸」與 U+25BE「▾」是小三角，不在 Big5 字集裡，微軟正黑體
+ *   沒有這兩個字形，實機上畫出來是一片空白（使用者 2026-09-11 回報側欄
+ *   的箭頭看不到，就是同一個原因）。U+25BC「▼」在 Big5 是 A1B4，一定有。
+ */
+.collapsed-panel>summary::before{content:"▼";display:inline-block;transform:rotate(-90deg);color:var(--teal);font-size:11px;margin-right:2px}
+.collapsed-panel[open]>summary::before{transform:none}
 .collapsed-panel>summary b{font-size:15px;color:var(--navy)}
 .collapsed-panel>summary span{font-size:10px;color:var(--muted)}
 .collapsed-panel>.panel{border:0;border-radius:0;box-shadow:none;border-top:1px solid var(--line)}
@@ -702,8 +1017,58 @@
  * 代表的意義的說明提供給使用者看。」
  * 寬螢幕並排，窄螢幕自動移到圖的下方——並排時圖被擠窄反而更難看。
  */
-.chart-with-note{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,320px);gap:14px;align-items:start;padding:0 18px 16px}
-@media(max-width:1240px){.chart-with-note{grid-template-columns:1fr}}
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  圖與說明：放得下就左右並排、圖固定；放不下就上下排、圖不固定
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-15 定案（三支同步）：
+ *   「那應該一開始就要做成左右並排，然後圖固定在左邊？」
+ *
+ * ⚠️ 斷點從 @media（量視窗）改成 @container（量這一區實際有多寬）。
+ *   使用者在交通服務水準踩過的雷：瀏覽器縮放 110% 之類的比例時，
+ *   右側說明欄會蓋住圖——因為斷點看的是視窗寬度，和這一區真正剩多少
+ *   寬度是兩件事。門檻 935px 是照舊行為換算的（舊斷點視窗 1240px
+ *   對應到這一區實際寬度約 934px），所以版面在一般視窗下不會改變。
+ *
+ * ⚠️⚠️ 這裡用 **flex** 不用 grid，而且斷點改的是**子元素**的 flex 值。
+ *   原因：`container-type` 下在哪一層就從哪一層的**後代**開始生效，
+ *   **元素不能當自己的 container query 容器**。
+ *   如果照舊用 grid，grid-template-columns 是 .chart-with-note 自己的屬性，
+ *   就必須把 container-type 移到它的父層——而那幾個父層在 JSX 裡各不相同。
+ *   改成 flex 之後，要換的全是子元素的屬性，container-type 就可以留在
+ *   .chart-with-note 自己身上，一行 JSX 都不用動。
+ *  （路口轉向那邊我第一版正是下錯層：sticky 生效、版面卻沒換，
+ *    同一個 @container 區塊只有一半會動。）
+ *
+ * ⚠️ 預設**單欄**，放得下才換成兩欄。方向不可以顛倒：
+ *   瀏覽器不支援 container query 時會停在「兩欄擠在一起」，說明會蓋住圖。
+ */
+.chart-with-note{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  align-items:start;
+  padding:0 18px 16px;
+  container-type:inline-size;
+}
+.chart-with-note>.chart-with-note-main{flex:1 1 100%;min-width:0}
+.chart-with-note>.chart-note{flex:1 1 100%;min-width:0}
+@container (min-width: 935px){
+  .chart-with-note>.chart-with-note-main{flex:1 1 0}
+  .chart-with-note>.chart-note{flex:0 0 clamp(260px,24%,320px)}
+  /*
+   * ⚠️ 釘住**只能**寫在這裡（說明在右側時）。
+   *   窄到說明掉到圖的下方時兩者是上下排的，圖若還釘著，
+   *   往下捲會滑到說明上面把字蓋住（圖底下是不透明的面板色）。
+   * ⚠️ top 用 --sticky-top（跟著主工具列的實際高度走），不可以寫死。
+   */
+  .chart-with-note>.chart-with-note-main{position:sticky;top:var(--sticky-top)}
+}
+/* 使用者設定「減少動態」時不要跟著滑動。 */
+@media (prefers-reduced-motion: reduce){
+  .chart-with-note>.chart-with-note-main{position:static!important}
+}
 .chart-note{border-left:3px solid var(--teal);background:#f6fafb;border-radius:0 8px 8px 0;padding:12px 14px}
 .chart-note h4{margin:0 0 6px;font-size:11px;color:var(--navy)}
 .chart-note p{margin:0 0 7px;font-size:10.5px;line-height:1.75;color:#3f5763}
@@ -719,54 +1084,51 @@
 .chart-with-note-main>.donut{margin-top:0}
 
 /* ══════════════════════════════════════════════════════════════════
- *  五大功能區的分區（區段導覽 ＋ 區段標題）
+ *  五個分頁（分頁導覽 ＋ 分頁標題）
  * ══════════════════════════════════════════════════════════════════
  *
- * 使用者的要求：「讓使用者一目了然知道資料匯入區、參數設定區、圖表區、
- * 多計畫比較區等等各大功能區。」這一支是單一長頁往下捲，所以做兩件事：
- * 頂端一列固定的導覽，加上每一區前面一條看得見的分隔標題。
+ * v20.64 起這是**真的分頁**，不是同一頁的錨點。使用者的原話：
+ *   「路口轉向那樣的方式，點一個頁面，如同換了一個分頁，
+ *     **這個畫面獨屬於它**，我反而不喜歡全日交通量那樣，
+ *     所有資訊都一直往下滾動下來察看」
+ *
+ * ⚠️ 因此拿掉了 .section-nav 的 position:sticky。
+ * 那是「同一頁捲動」時代的補償——導覽會蓋住標題、所以標題要留出上緣。
+ * 現在導覽只在頁首出現一次，換頁會回到頁首，**那個問題本身不存在了**。
+ * 這不是改壞了忘記補回來；把 sticky 留著反而會在捲長頁時多壓掉一條。
+ *
+ * ⚠️⚠️ 但 scroll-margin-top 在 2026-09-15 **又需要了**，原因是**另一個東西**：
+ *   主工具列（.filters）那天起常駐在上方（position:sticky; top:0）。
+ *   側欄的小分頁仍然會在同一頁裡捲到某一塊（scrollToBlock），
+ *   捲過去之後那一塊的標題就落在工具列後面——使用者看到的是
+ *   「按了有動，但不知道停在哪」。見下面的 [id^="block-"] 規則。
  */
-.section-nav{
-  position:sticky;top:0;z-index:30;
-  display:flex;gap:6px;flex-wrap:wrap;
-  /* ⚠️ 不要用負的左右邊界去做「滿版」。實測在 900／1024／1100px 三個
-     寬度會讓整頁橫向溢出 10px（e2e-layout 量到 NAV.section-nav@910）。
-     導覽自己是一張卡片就好，不必貼齊內容區的外緣。 */
-  margin:0 0 16px;padding:10px 14px;border-radius:0 0 12px 12px;
-  /* 不透明底色是必要的：半透明的話捲過去的圖表會透出來，
-     導覽上的字就被蓋掉——使用者特別交代過「說明文字顏色不能被底色遮掩」。 */
-  background:#f4f8fa;
-  border-bottom:1px solid var(--line);
-  box-shadow:0 6px 14px rgba(23,50,77,.05);
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  側欄跳轉的落點要讓開浮在上面的主工具列
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 用 scroll-margin-top，不要在 JS 裡自己算 offset 再 window.scrollTo：
+ *   自己算的版本要處理平滑捲動、巢狀捲動容器、以及「捲到底捲不動」三種
+ *   情況，每一種都出過錯；scroll-margin-top 是瀏覽器在 scrollIntoView 時
+ *   直接扣掉，三種情況都不必特別處理。
+ *
+ * ⚠️ 用 --sticky-top（＝主工具列的**實際**高度 ＋ 留白），不可以寫死數字：
+ *   工具列可以收合、窄視窗欄位會換行，高度一直在變。
+ *
+ * ⚠️ 選擇器用前綴比對而不是逐一列出 id——逐一列出的話，
+ *   新增一塊就會漏掉一塊（另外兩支踩過這個坑）。
+ */
+[id^="block-"],
+[id^="card-"],
+[id^="backup-"] {
+  scroll-margin-top: var(--sticky-top);
 }
-.section-nav button{
-  display:flex;align-items:center;gap:6px;
-  height:32px;padding:0 12px;
-  border:1px solid var(--line);border-radius:16px;
-  background:#fff;color:var(--navy);
-  font-size:11px;font-weight:800;
-}
-.section-nav button b{
-  display:grid;place-items:center;
-  width:17px;height:17px;border-radius:50%;
-  background:#e6f2f2;color:#0c6f70;font-size:9px;
-}
-.section-nav button:hover{border-color:#9bd2cf;background:#f2fafa}
-.section-nav button.active{
-  /* --teal 已在 v20.62 調深成 #0c6f70，白字配它實測 5.96:1，過 AA。 */
-  border-color:var(--teal);background:var(--teal);color:#fff;
-}
-.section-nav button.active b{background:rgba(255,255,255,.25);color:#fff}
-.section-nav button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
-
 .zone-heading{
   display:flex;align-items:center;gap:11px;
   margin:22px 0 10px;padding:9px 14px;
   border:1px solid var(--line);border-left:5px solid var(--teal);
   border-radius:10px;background:#fff;
-  /* ⚠️ 沒有這一行，按了導覽之後標題會被上面固定的導覽列蓋住，
-     看起來就像「按了沒反應」。使用者回報過這個現象。 */
-  scroll-margin-top:84px;
 }
 .zone-heading:first-of-type{margin-top:4px}
 .zone-heading>b{
@@ -778,8 +1140,2005 @@
 /* --muted 已在 v20.62 調深成 #55677a，白底實測 5.91:1。 */
 .zone-heading small{display:block;margin-top:2px;font-size:9px;color:var(--muted);line-height:1.55}
 
+/*
+ * 窄畫面：側欄變成上方的橫向列（.workspace 在 760px 以下已改成 block），
+ * 分頁導覽也跟著改成可橫向捲動的一列，不佔掉整個第一屏。
+ */
 @media(max-width:760px){
-  .section-nav{margin:0 0 12px;padding:8px 10px;gap:5px}
-  .section-nav button{height:28px;padding:0 9px;font-size:10px}
-  .zone-heading{scroll-margin-top:74px}
+  .side-nav{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px}
+  /*
+   * ⚠️ 這裡**不可以**把 .side-nav-group 整個 display:none——
+   *   分頁按鈕就在它裡面，隱藏它等於整排分頁消失，畫面看起來還在
+   *  （側欄變成上方那一條），但一個分頁都切不了。
+   *   我第一版就是這樣寫的，e2e-layout 在 640px 抓到「按鈕不可見、
+   *   點不到」。要隱藏的是歸類底下的**子項目**，不是歸類本身。
+   */
+  .side-nav-group{flex:none;display:flex}
+  .side-nav-items{display:none}
+  .side-nav button{flex:none;padding:9px 12px;font-size:14px}
+  .sidebar-heading{padding-top:12px}
+}
+
+/*
+ * ── 長計畫名稱與長計畫編號 ───────────────────────────────────
+ *
+ * 使用者實測回報兩次：長名稱撐破側欄卡片（實測超出容器 265px）、
+ * 長編號蓋住名稱。做法是「上限 ＋ 換行」兩個都做，這裡是換行那一半。
+ *
+ * ⚠️ `minmax(0, 1fr)` 只救得了**彈性軌道**。grid 的 `1fr` 最小值預設是
+ * auto（＝ min-content），而一整串沒有空白的中文，min-content 就等於整串
+ * 字的長度——於是軌道被撐開、卡片跟著變寬、再撐破外面的容器。
+ *
+ * ⚠️ 但 `minmax(0, 1fr)` **救不了固定寬度的軌道**（例如 `100px`）。
+ * 固定軌道要靠元素自己 `overflow-wrap: anywhere` 才不會溢出去壓到旁邊。
+ * 這正是「名稱修好了、編號還是會蓋住名稱」的成因——上一輪只處理了
+ * 彈性軌道那一半。
+ *
+ * ⚠️ `white-space: normal` 一定要寫：nowrap 常常是從祖先繼承來的，
+ * 不覆寫的話下面兩條都不會生效。
+ * ⚠️ 用 `overflow-wrap: anywhere` 而不是 break-word：中文長字串沒有空白，
+ * break-word 在部分瀏覽器對它不生效。
+ * `text-wrap: balance` 讓各行長度接近，不會出現最後一行只剩兩三個字；
+ * 不支援的瀏覽器會退回一般換行（仍然不溢出），是安全的降級。
+ */
+.field-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.modal label > .field-note {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/*
+ * ── 匯入確認對話框的動作列 ───────────────────────────────────
+ *
+ * 使用者對這一列提了兩個看似衝突、實際不衝突的要求：
+ *   ・「確認匯入按鈕應該都要做在**異常確認表單的右下處**，
+ *      表示有確認過沒異常，使用者親自按確認」
+ *   ・「懶得看的使用者也能透過 sticky 直接點確認（這很方便）……
+ *      **我們總不能逼迫使用者非這樣做不可**」
+ *
+ * 解法：**DOM 順序**在異常區塊之後、靠右（＝語意上的「都看過了」），
+ * **顯示方式**黏在對話框底緣（＝不擋住想直接按的人）。
+ *
+ * ⚠️ 黏的是「對話框底緣」，不是「視窗底緣」。
+ * 黏在視窗上，使用者還沒捲到異常區就看到確認鈕，
+ * 那就把「確認」變回「關掉」了。
+ */
+.modal footer.sticky-actions {
+  position: sticky;
+  bottom: -22px; /* 抵銷 .modal 的 22px 內距，讓它真的貼齊底緣 */
+  z-index: 2;
+  margin: 4px -22px -22px;
+  padding: 12px 22px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 14px rgba(23, 50, 77, 0.06);
+}
+/* 需注意區塊的標頭：項數 ＋「跳到第一項」 */
+.workflow-warning .warning-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+/*
+ * ⚠️ 選擇器從 `.warning-head .link-button` 放寬成 `.workflow-warning .link-button`。
+ *
+ *   原因：v20.71 在「調查日期與季別不一致」那一段裡加了
+ *   「改用檔案日期的季別（114Q3）」這顆按鈕，它不在 .warning-head 裡面，
+ *   舊選擇器打不到，於是它會退回成一顆一般的實心按鈕——
+ *   在淺黃警示底上變成整段最搶眼的東西，而它只是個補救動作。
+ *   底色相同，深綠 #0a5c5d 的對比在這個底上已經驗過，沿用同一個值。
+ */
+.workflow-warning .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  /* 這一段的底是淺黃警示色，品牌綠在上面對比不足，用同色系深一階。 */
+  color: #0a5c5d;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+/*
+ * 「改用檔案日期的季別」那一顆比 .warning-head 那顆大一級：
+ * 它是一個**動作**（按下去季別就會變），不是導覽用的小連結。
+ * 兩支程式同一個長相（路口轉向是 .period-date-alert .link-button）。
+ */
+.workflow-warning [data-testid="use-file-quarter"] {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  表格可讀性：表頭強化 ＋ 極淡斑馬紋（2026-09-10 使用者定案，三支共通）
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 起因是路口轉向「各路口尖峰彙總」表太多、同色系看到眼花。使用者的原話：
+ *   「配色按你建議去做，沒問題，可以推到另外兩支程式，
+ *     只要**不要文字被背景色遮蔽**或**看的眼花撩亂**就可以了。」
+ *
+ * ⚠️ **刻意不做「整張表換一個顏色」。**
+ * 顏色在資料介面裡是「有意義」的訊號——看到不同顏色，讀的人會問
+ *「這個顏色代表什麼？」，而這裡它只代表「這是第幾張表」，沒有任何意義。
+ * 用有意義的語彙表達沒有意義的區別，正是雜亂感的來源。
+ * 而且超過八個色相本來就分不出來（這也是三支共用的類別配色規則）。
+ *
+ * ⚠️ 斑馬底色刻意選**極淡的中性灰**（與白底只差約 3% 亮度），不是淡綠淡藍：
+ * 差距這麼小，同一個字色在兩種底色上的對比幾乎相同，
+ * 使用者擔心的「文字被背景色遮蔽」在這個色階根本不會發生。
+ * 用 Excel 預設那種綠色的話，飽和度對「只是要分行」來說太強了。
+ *
+ * ⚠️ hover 整列變色其實比斑馬紋更有效：游標跟著眼睛走，
+ * 而且**靜止時不佔任何視覺重量**。兩者一起做。
+ */
+.table-wrap tbody tr:nth-child(even) {
+  /*
+   * #f8fafb：與白底的相對亮度差 **4.71%**，在我自己訂的 5% 上限之內。
+   * 一開始選的 #f7f9fa 量出來是 5.57%——超過上限，所以往上調一階。
+   * ⚠️ 這個數字不是憑感覺定的，是先量再挑：
+   *   主要文字 #17324d 在它上面 12.54:1、次要文字 #55677a 5.56:1，
+   *   兩者都遠高於 AA 的 4.5:1，使用者擔心的「文字被背景色遮蔽」不會發生。
+   */
+  background: #f8fafb;
+}
+/* hover 要壓過斑馬紋，所以放在後面而且選擇器同樣具體。 */
+.table-wrap tbody tr:hover,
+.table-wrap tbody tr:nth-child(even):hover {
+  background: #eef5f6;
+}
+/*
+ * 數字上下對齊之後，橫向讀錯行的機率本來就會大幅下降——
+ * 這一項不加任何顏色，卻和斑馬紋解決同一個問題。
+ */
+.table-wrap td,
+.table-wrap th {
+  font-variant-numeric: tabular-nums;
+}
+/*
+ * 表頭強化：使用者眼花的真正原因是「表頭不夠醒目」，不是「表長得一樣」。
+ * 捲動時要能一眼看到「換一張表了」。
+ */
+.table-panel > .panel-title h3 {
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+.table-panel > .panel-title {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+.table-panel {
+  margin-top: 18px;
+}
+
+/*
+ * ── 新車種要一眼看得出來（三支共用同一套做法）───────────────────
+ *
+ * 使用者 2026-09-11 在路口轉向實測漏看：畫面寫「辨識到 4 個原始車種」，
+ * 他以為就是系統內建的四大類（機車／小型車／大型車／特種車），
+ * 沒注意到第四個其實是「聯結車」——因為「新增車種」是灰色小字，
+ * 和「原四大類」長得幾乎一樣。他是看到當量係數是 1 才發現的。
+ *
+ * 新車種是**需要使用者做決定**的東西（獨立分析還是併入哪一類），
+ * 決定錯了整季的 PCU 都會不對，所以用黃底整列標示。
+ *
+ * ⚠️ 用黃色不用紅色：這不是錯誤，是「需要你看一眼並做決定」。
+ * ⚠️ 徽章底色是 #8a5a08 不是 #d99a19——白字在 #d99a19 上實測只有 2.45:1，
+ *   字會融進底色（使用者特別提醒過「不要讓文字被背景色融合」）。
+ */
+.vehicle-row-new > td {
+  background: #fdf7ea;
+}
+.vehicle-row-new > td:first-child {
+  box-shadow: inset 3px 0 0 #d99a19;
+}
+.vehicle-badge-new {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #8a5a08;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  /*
+   * ⚠️ 原本是 white-space: nowrap，路口轉向那支被實測抓到：
+   *   「新增車種・請確認歸類」不換行 ≈ 137px，直接變成表格第一欄的最小寬度，
+   *   再一路往上把整頁推寬（820px 寬度下橫向溢出 128px）。
+   *   這支雖然表格結構不同，但同一顆徽章、同一段字、同樣掛在表格第一欄裡，
+   *   沒有理由等它也被撞到才改。寬螢幕下本來就不會換行。
+   */
+  white-space: normal;
+}
+.vehicle-new-count {
+  color: #7a5405;
+  font-style: normal;
+  font-weight: 800;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  側欄點到哪一張卡片，那一張就「被點名」
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-11 實測：「二 參數設定，下面三個分頁，我各點一下，
+ * 畫面都沒反應，後來我才看出來，因為這三個的畫面是同一個，
+ * 一開始以為是壞掉……例如點一下道路與流向管理，那個功能欄位就變換顏色？
+ * 但要注意文字不能被背景色遮蔽。」
+ *
+ * ⚠️ **不換底色，用外框。** 這是刻意的取捨，不是省事：
+ *   這幾張卡片裡有白底輸入框、灰字說明、彩色徽章、深色大數字。
+ *   換底色 = 一次動到五六種文字的對比，而他已經提醒過兩次
+ *   「不要讓文字被背景色融合在一起」。
+ *   outline 畫在卡片**外面**，不覆蓋任何一個字——「遮到字」在這個做法下
+ *   結構上不可能發生，也就不必為它再量一次對比。
+ *
+ * ⚠️ 點名會**留著**到點下一個，不是閃一下就沒：閃一下的話，
+ *   使用者的視線還沒移過去就結束了，等於沒做。
+ */
+/*
+ * ⚠️ 選擇器**故意只寫 .is-focused，不掛在特定元素上**。
+ *
+ * 使用者 2026-09-11：「點本季總覽，對應的欄位邊框沒有像參數設定各分頁
+ * 那樣有顯眼的提示，真的不知道本季總覽是要看什麼」。
+ *
+ * 原因是這串選擇器原本寫成 `.road-manager-launch.is-focused,
+ * .pcu-settings.is-focused, .kpi.is-focused`——只有這三種卡片吃得到樣式。
+ * 側欄新增指向 .quality-strip、.panel 的項目時，className 有加上
+ * is-focused，CSS 卻沒有對應規則，於是「點了完全沒反應」。
+ *
+ * 這是 ⑥-13（類別覆蓋）的變形：類別名稱在 CSS 裡**找得到**，掃描器過關，
+ * 但它被綁在別的元素上。解法不是再補一個元素名進來（下次新增卡片又會忘），
+ * 而是讓規則與元素脫鉤——只要掛上 is-focused 就一定看得見。
+ * e2e-tabs.mjs 另外逐一點過側欄每一個錨點項目做實測把關。
+ */
+.is-focused {
+  outline: 2px solid var(--teal);
+  outline-offset: 3px;
+  /* 抬起來一點，讓它在一排卡片裡「浮」在前面。底色完全不動。 */
+  box-shadow: 0 14px 32px rgba(12, 111, 112, 0.22);
+}
+/*
+ * .kpi 本來就有一條 4px 的左緣色條當識別（綠／橘）。
+ * 被點名時把它加粗到 6px，外框之外再多一個不靠顏色的訊號——
+ * 色覺障礙的使用者看不出綠色外框，但看得出「這一條變粗了」。
+ */
+.kpi.is-focused:before {
+  width: 6px;
+}
+/*
+ * 進場脈動一次就停。
+ * ⚠️ 使用者的系統若要求減少動態效果，直接顯示外框、不做動畫
+ *   （下面的 @media 覆蓋掉 animation）。
+ */
+@keyframes card-called {
+  0% {
+    outline-color: rgba(12, 111, 112, 0);
+    box-shadow: 0 0 0 0 rgba(12, 111, 112, 0.36);
+  }
+  45% {
+    outline-color: var(--teal);
+    box-shadow: 0 0 0 9px rgba(12, 111, 112, 0);
+  }
+  100% {
+    outline-color: var(--teal);
+    box-shadow: 0 14px 32px rgba(12, 111, 112, 0.22);
+  }
+}
+.is-focused {
+  animation: card-called 1.2s ease-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-focused {
+    animation: none;
+  }
+}
+/*
+ * 側欄那一顆也要亮起來，否則使用者只知道「有一張被框起來了」，
+ * 不知道是自己剛剛點的那一個。
+ *
+ * ⚠️ 一樣不換底色：側欄是深森綠底、淺色字，換底色最容易把字吃掉。
+ *   改成**左緣色條＋字加粗＋字轉純白**，三個都不影響對比計算
+ *   （純白在 #0f3d31 上是 12.6:1，比原本的 #dcecf3 還高）。
+ *   sidebar-contrast 測試量的是文字與側欄底色，這裡沒有動到底色。
+ */
+.side-nav-item.current {
+  color: var(--side-ink-strong);
+  font-weight: 800;
+  box-shadow: inset 3px 0 #7fe3dd;
+}
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  計畫清單不可以無限往下長
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-11：「當管理的計畫變多時，上方計畫堆疊變的很長，
+ * 有解決辦法嗎？」——他的截圖是 5 個計畫，底下的五個分區導覽已經被推到
+ * 要捲動才看得到；十個計畫就等於導覽消失。
+ *
+ * ⚠️ 解法是給清單**自己的捲動區**，不是把清單收起來。
+ *   收起來的話「一眼看完手上有哪些計畫」就沒了，而那正是這份清單
+ *   相對於工具列下拉的價值（卡片上有編號與角色，下拉塞不下）。
+ *
+ * 高度上限抓 246px ≈ 3 張卡片多一點——刻意讓第 4 張**露出半張**，
+ * 使用者才看得出「下面還有，可以捲」。剛好切齊會讓人以為只有三個。
+ */
+.project-list {
+  /*
+   * ⚠️ flex: 0 0 auto 不是可有可無的。
+   *   .sidebar 是 display:flex + flex-direction:column + height:100vh。
+   *   內容比 100vh 高時，flex 會去壓縮可壓縮的項目；而一個
+   *   overflow-y:auto 的項目，它的自動最小尺寸是 **0**——
+   *   結果是這份清單被壓成 0 高度**整個消失**（實測 7 個計畫時發生，
+   *   量到 height=0、scrollHeight=581）。
+   *   .side-nav 沒事是因為它已經寫了 flex:none。
+   */
+  flex: 0 0 auto;
+  max-height: 246px;
+  overflow-y: auto;
+  /* 捲動時不要把上下卡片切在一半，停在整張卡片上比較好讀。 */
+  scroll-snap-type: y proximity;
+  /* 捲軸與卡片之間留一點縫，不要壓在卡片邊框上。 */
+  padding-right: 4px;
+}
+.project-list > .project-card {
+  scroll-snap-align: start;
+}
+/* 深色側欄上的捲軸：預設的亮色捲軸在深森綠上非常刺眼。 */
+.project-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+.project-list::-webkit-scrollbar {
+  width: 6px;
+}
+.project-list::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.3);
+}
+.project-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/*
+ * 工具列上的「切換計畫」下拉。
+ *
+ * ⚠️ 文字顏色 #17324d（--navy）在白底上是 12.0:1；
+ *   標籤 #55677a（--muted）是 5.8:1。兩者都過 AA，
+ *   而且沒有動到任何底色——這一區的其他字不受影響。
+ */
+.project-switch {
+  display: grid;
+  gap: 3px;
+  margin-left: 18px;
+  padding-left: 18px;
+  border-left: 1px solid var(--line);
+}
+.project-switch > span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.project-switch select {
+  height: 34px;
+  max-width: 260px;
+  padding: 0 10px;
+  border: 1px solid #cad6df;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+.project-switch select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(20, 140, 140, 0.1);
+}
+/* 只有一個計畫時下拉沒有意義，停用但仍看得到現在是哪一個。 */
+.project-switch select:disabled {
+  background: #f4f7f9;
+  color: var(--navy);
+  opacity: 1;
+}
+/* 窄視窗時讓它換到下一行，不要把標題擠掉。 */
+@media (max-width: 1100px) {
+  .project-title {
+    flex-wrap: wrap;
+  }
+  .project-switch {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+/*
+ * 工具列的寬度分配：標題優先，功能鈕可以換行。
+ *
+ * ⚠️ 加了「切換計畫」之後實測（1440px 視窗）：標題被壓到只剩 116px，
+ *   「目前計畫・尚無季度・草稿」那一行被折成兩行，看起來像壞掉。
+ *   功能鈕那一排本來就會換行，讓它多換一顆，比把標題擠爛好。
+ */
+.toolbar > .project-title {
+  flex: 1 1 auto;
+  min-width: 210px;
+}
+.toolbar > .project-title > div {
+  min-width: 0;
+}
+.toolbar > .project-switch {
+  flex: 0 0 auto;
+}
+.toolbar > .actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  側欄只放「目前這一個」＋ 進「我的計畫」那一頁的入口
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-11 指名照路口轉向的做法：全部計畫在一頁上瀏覽，
+ * 側欄不再堆疊。所以這裡的 max-height 不再是「容納三張卡」，
+ * 而是「一張卡 ＋ 一個入口」的自然高度——清單長度從此與導覽位置無關。
+ */
+.project-list {
+  max-height: none;
+  overflow: visible;
+}
+.project-list > .project-card {
+  /* 現在只有一張，而且是「顯示用」不是按鈕，游標不要假裝可以點。 */
+  cursor: default;
+}
+/*
+ * 側欄標題「我的計畫 N」本身就是進那一頁的入口。
+ *
+ * ⚠️ 它是 <button>，所以要把瀏覽器預設的按鈕外觀全部歸零，
+ *   否則深色側欄上會冒出一塊淺灰底的方塊。
+ * ⚠️ 顏色沿用原本的 #eaf4fa（在側欄底色 #0f3d31 上是 12.1:1），
+ *   沒有動到底色，sidebar-contrast 測試量的那一組完全不受影響。
+ */
+.sidebar-heading-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  font-size: 13px;
+  font-weight: 800;
+  color: #eaf4fa;
+  text-align: left;
+}
+.sidebar-heading-link:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+.sidebar-heading-link:focus-visible {
+  outline: 2px solid #7fe3dd;
+  outline-offset: 2px;
+}
+.sidebar-heading-link strong {
+  padding: 2px 7px;
+  border-radius: 10px;
+  /* 深字配淺底：#0b3c3d 在 #8fe0da 上是 8.9:1。 */
+  background: #8fe0da;
+  color: #0b3c3d;
+  font-size: 12px;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  「我的計畫」那一頁的清單
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 捲動放在**清單**上，不是整頁：計畫再多，底下的「資料完整度總覽」
+ *   等區塊位置都不變，不必為了看下一個區塊先滑過幾十列計畫。
+ */
+.project-portfolio {
+  margin-bottom: 12px;
+}
+.project-portfolio .panel-title small {
+  display: block;
+  margin-top: 5px;
+  /*
+   * ⚠️ 這裡原本是 `max-width: 70ch`，被使用者實測抓到（2026-09-14，附圖）：
+   *   「紅框的文字不用換行」——那一句 41 個字的說明被折成兩行，
+   *   而它右邊還空著一大片（面板寬約 1470px，它只佔 388px）。
+   *
+   *   成因是**單位用錯**：`ch` 是「數字 0 的寬度」，對半形英數而言
+   *   1 個字 ≈ 1ch，但中文字大約是 **2ch**。所以 70ch 看起來像「70 個字」，
+   *   實際上只裝得下約 35 個中文字——這一句有 41 個字，必然換行。
+   *   （70ch 在 font-size:10px 下實測 = 388.5px。）
+   *
+   *   改用 `em`：1em 就是一個中文字的寬度，數字的意思才和看到的一致。
+   *   仍然保留上限，長說明不會拉成一整行橫跨螢幕。
+   *
+   * ⚠️ 三支程式裡凡是中文說明文字用 `ch` 當上限的都有同樣的風險，
+   *   已一併掃過（scripts/e2e-text-wrap.mjs 逐頁量「被自己綁住而換行」）。
+   */
+  max-width: 60em;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+.portfolio-list {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 0 18px 16px;
+}
+.portfolio-row {
+  display: grid;
+  /*
+   * ⚠️ 四欄改五欄：2026-09-11 每一列多了一顆「修改」。
+   *   欄數不加的話，第五個元素會被擠進第四欄，兩顆按鈕疊在一起。
+   *   （auto auto auto ＝ 狀態／修改／刪除）
+   */
+  grid-template-columns: 78px minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid #edf1f4;
+}
+/*
+ * 目前這一個：用**左緣色條**標示，不換底色。
+ * 使用者提醒過兩次「不要讓文字被背景色融合在一起」；色條畫在文字之外，
+ * 結構上不可能遮到字。
+ */
+.portfolio-row.current {
+  box-shadow: inset 3px 0 var(--teal);
+  padding-left: 12px;
+}
+.portfolio-code {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.portfolio-main {
+  min-width: 0;
+}
+.portfolio-main strong {
+  display: block;
+  font-size: 13px;
+  color: var(--navy);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.portfolio-main small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.portfolio-current {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e6f4f3;
+  /* #0a5c5d 在 #e6f4f3 上是 7.0:1。 */
+  color: #0a5c5d;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+/*
+ * 刪除是不可逆的，字要明顯是警示色，但**不要**做成紅底白字——
+ * 那會變成整列最搶眼的東西，而它應該是最少被按到的。
+ * #9c3a32 在白底上是 6.5:1。
+ */
+.portfolio-delete {
+  color: #9c3a32;
+  border-color: #f0bdb8;
+}
+.portfolio-delete:hover {
+  background: #fdeceb;
+}
+@media (max-width: 760px) {
+  .portfolio-row {
+    /*
+     * ⚠️ 窄螢幕改成三顆按鈕一排（狀態／修改／刪除）。
+     *   舊版寫的是兩欄的 "switch delete"，多了「修改」之後
+     *   第三顆會被擠到下一列，看起來像跟下一個計畫黏在一起。
+     *   按鈕沒有各自的 grid-area，靠自動排位填進最後那一列即可。
+     */
+    grid-template-columns: repeat(3, auto);
+    grid-template-areas:
+      "code code code"
+      "main main main";
+    justify-content: start;
+  }
+  .portfolio-code {
+    grid-area: code;
+  }
+  .portfolio-main {
+    grid-area: main;
+  }
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  圖表下方那兩顆動作鈕要看得出是按鈕
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-11：「『下載高清晰圖片』和『複製說明文字』按鍵的顏色
+ * 與背景色一樣，導致看不出這是兩個功能按鈕」。
+ *
+ * ⚠️ 原因查到了：JSX 上寫的是 className="ghost"，但**整份 CSS 裡沒有
+ *   .ghost 這條規則**——一個從來不存在的 class。於是那兩顆按鈕只剩
+ *   瀏覽器的預設，被全站的按鈕重置洗成純文字，看起來就是兩行說明文字。
+ *
+ * ⚠️ 這一類「class 打錯／規則沒寫」不會有任何錯誤訊息，
+ *   畫面照樣長出來，只是長成別的樣子——所以特別容易活很久。
+ *
+ * 顏色都量過：#0c6f70 在 #f2fbfa 上是 5.4:1，過 AA；
+ * 說明小字 #47616b 在同一個底上是 6.9:1。
+ */
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 13px;
+  border: 1px solid #9bc9c7;
+  border-radius: 8px;
+  background: #f2fbfa;
+  color: #0c6f70;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.ghost:hover {
+  background: #dff3f1;
+  border-color: #7bb8b6;
+}
+.ghost:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.ghost small {
+  color: #47616b;
+  font-weight: 500;
+}
+/*
+ * 這兩顆的說明小字是**直排**在標題底下的（.trend-actions button 設了
+ * flex-direction: column），所以這裡要把 gap 與對齊交回給那條規則，
+ * 只保留外框、底色與文字顏色。
+ */
+.trend-actions .ghost {
+  align-items: flex-start;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  備份與還原：三張卡片
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 新增 class 就要同時寫樣式。Tailwind preflight 會把 border-width
+ *   歸零、background 設成 transparent——**漏掉樣式的區塊不是「沒裝飾」，
+ *   而是整塊看不見**（這一支踩過一次：.factor-scope-* 當時完全不見）。
+ *   e2e-class-coverage.mjs 會掃 tsx 裡出現過、CSS 裡卻找不到的 class。
+ *
+ * 卡片高度刻意用 grid 讓按鈕一律貼齊底部（1fr 吃掉說明文字的高度差），
+ * 三張卡的按鈕才會在同一條線上——三段說明長度本來就不一樣。
+ */
+.backup-grid {
+  display: grid;
+  /*
+   * ⚠️ 用 auto-fit，不可以寫死 repeat(3, …)。
+   *   寫死三欄時最小寬度是 3×240＋2×12 ＝ 744px，而 1024px 的視窗
+   *   扣掉側欄與內距只剩約 720px——整段會撐出去，連帶把同一頁的表格
+   *   推到溢出（e2e-layout 在 1024／1100 兩個寬度實測到 39px／14px）。
+   *   auto-fit 會自己折行，窄的時候變兩欄再變一欄。
+   */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.backup-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px;
+  padding: 18px;
+}
+.backup-step {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: var(--teal);
+}
+.backup-card h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--navy);
+}
+.backup-card p {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.backup-card .button {
+  width: 100%;
+  /*
+   * ⚠️ 按鈕的字要能換行。
+   *   <button> 的預設是 white-space:nowrap，而 .button 又是固定 36px 高——
+   *   「下載全部計畫備份（JSON）」這種長標籤的最小寬度就變成整串字的寬度，
+   *   於是卡片撐出格軌、整頁跟著橫向溢出
+   *  （e2e-layout 在 1024／1100 兩個寬度實測到 39px／14px）。
+   */
+  white-space: normal;
+  height: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  line-height: 1.5;
+}
+.backup-card .upload-zone {
+  padding: 14px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--navy);
+}
+.backup-card .upload-zone span {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--muted);
+}
+@media (max-width: 1000px) {
+  .backup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  車種組成：平日＋假日時的兩個圓環
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 這三個 class（.donut-pair / .donut-day / .donut-pair-note）原本
+ *   **完全沒有樣式**，所以日別標題與最下面那段合計文字是貼著面板左緣的
+ *  （使用者 2026-09-12：「平日假日和下面總結的文字，離邊緣非常近，
+ *   幾乎是黏著的」）。面板的內距是寫在特定子元素上的
+ *  （.panel-title、.chart-with-note），這三個都套不到。
+ *
+ * ⚠️ 為什麼 e2e-class-coverage 沒有抓到：那支掃的是**畫面上實際出現過**的
+ *   class，而這一段只有在日別切成「平日＋假日」時才會渲染，
+ *   掃描器跑的時候停在預設日別。掃描器已補上「把日別切過去再掃一次」。
+ */
+.donut-pair {
+  display: grid;
+  gap: 6px;
+}
+.donut-day > h4 {
+  /* 與 .panel-title、.chart-with-note 的左右內距對齊（18px）。 */
+  margin: 0;
+  padding: 10px 18px 0;
+  font-size: 13px;
+  color: var(--navy);
+}
+.donut-day > h4 small {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.donut-pair-note {
+  margin: 0;
+  padding: 4px 18px 18px;
+  font-size: 10.5px;
+  line-height: 1.85;
+  color: var(--muted);
+}
+.donut-pair-note b {
+  color: var(--ink);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * 每一張圖的「下載高解析圖片（PNG）」與一鍵下載全部圖檔
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-12：「每張圖都應該要有能直接提供高清晰圖片下載的功能」，
+ * 並指名三支程式同樣方式處理。按鈕外觀沿用歷季趨勢圖那一顆（已定案）：
+ * 主標一行、副標一行小字「只有圖，不含說明文字」。
+ *
+ * ⚠️ 按鈕**不可以** white-space:nowrap。它是兩行的，而且副標很長；
+ *   不換行的話在 1024px 以下會把整條標題列撐寬，整頁跟著左右捲動
+ *  （備份卡片踩過一模一樣的坑，見 .backup-card .button 的說明）。
+ */
+.chart-png-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+}
+.chart-png-button small {
+  font-weight: 400;
+  font-size: 11px;
+  opacity: 0.72;
+}
+/* 標題列上的按鈕要和旁邊的單位小字並排，不要各佔一行。 */
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* 雙圓環的抬頭：左邊是日別與合計，右邊是那一天的下載鈕。 */
+.donut-day > h4 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.donut-day > h4 > span {
+  min-width: 0;
+}
+
+.chart-png-all {
+  margin-bottom: 14px;
+}
+.chart-png-all-note {
+  margin: 0;
+  padding: 0 18px 10px;
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--muted);
+}
+.chart-png-all-note b {
+  color: var(--ink);
+}
+/*
+ * 勾選清單。auto-fit 讓它在窄畫面自動變一欄——寫死兩欄的話，
+ * 1024px 以下每一列的檔名會被壓到看不完（檔名正是這裡最需要看的東西）。
+ */
+.chart-png-all-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 8px;
+  padding: 0 18px 12px;
+}
+.chart-png-all-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fbfdfd;
+  font-size: 12.5px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.chart-png-all-list label > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+/* 檔名可能很長，要能換行，不可以被裁掉。 */
+.chart-png-all-list small {
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.chart-png-all-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 18px 18px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * 清除本機資料（危險區）
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-12 指定三支程式都要有這顆，版面比照路口轉向：
+ * 獨立一區、放在備份還原三張卡片的最下面、和它們明顯分開。
+ *
+ * ⚠️ 紅色只用在**外框與按鈕**，不要整塊填紅。整塊紅會讓人不敢往下讀，
+ *   而下面那一段正是「什麼時候該用它」——不讀的話這個功能等於不存在。
+ */
+.danger-zone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid #e0b4b4;
+  background: #fffafa;
+}
+.danger-zone > div {
+  min-width: 0;
+}
+.danger-zone b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13.5px;
+  color: #7a2f2f;
+}
+.danger-zone p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #5a4646;
+}
+/*
+ * ⚠️ 危險動作的按鈕顏色，要寫成 `.button.danger` 而不是只綁在 .danger-zone 裡。
+ *
+ *   2026-09-14 被 tests/button-class.test.mjs 抓到：畫面上有兩顆
+ *   `className="danger"`，其中「刪除範本」那一顆**不在** .danger-zone 裡面，
+ *   於是整份樣式表裡沒有任何一條規則打得到它——它是一顆完全沒有樣式的按鈕。
+ *   （另一顆「全部清除」在 .danger-zone 裡，有顏色但沒有按鈕的高度與圓角。）
+ *
+ *   這一類錯的共同點是：功能完全正常、點得下去，只是看起來不像按鈕，
+ *   所以「點得動嗎」那一類的測試永遠抓不到。
+ */
+.button.danger {
+  border-color: #c86a6a;
+  background: #fff;
+  color: #a33;
+  font-weight: 700;
+}
+.button.danger:hover:not(:disabled) {
+  background: #fdeded;
+}
+.danger-zone .danger {
+  flex: none;
+}
+.danger-zone .danger:hover:not(:disabled) {
+  background: #fdeded;
+}
+/*
+ * 「和刪除計畫差在哪」。
+ * ⚠️ 這一段一定要在。使用者 2026-09-12 問的正是「這個一鍵清除本機資料
+ *   是否有需要作?」——會這樣問，就是因為畫面上看不出它和「刪除計畫」
+ *   差在哪。功能講不清楚，等於不存在。
+ */
+.danger-zone-why {
+  margin-top: 8px !important;
+  padding: 9px 11px;
+  border-left: 3px solid #e0b4b4;
+  border-radius: 0 6px 6px 0;
+  background: #fdf6f6;
+}
+.danger-zone-why b {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+}
+@media (max-width: 720px) {
+  .danger-zone {
+    flex-direction: column;
+  }
+}
+
+/*
+ * 本季總覽「這一季還沒有資料」的狀態。
+ *
+ * ⚠️ 這一塊在沒有資料時**也要畫出來**。
+ *   使用者 2026-09-12（附截圖）：剛建好的計畫（0 個季度）按側欄的「本季總覽」，
+ *   整個區塊因為 `quarter` 是空字串而沒有被渲染——側欄那一項照樣點得下去、
+ *   照樣變成「目前這一項」，但畫面上什麼都沒發生。他看到的是「按了沒反應」，
+ *   而不是「這一季還沒有資料」。功能看起來像故障，而他無從得知原因。
+ *
+ * 規矩：**側欄列得出來的東西，畫面上就必須找得到對應的一塊**；
+ * 沒有資料時要說出為什麼沒有、以及下一步該做什麼。
+ */
+.quality-strip.empty {
+  grid-template-columns: 1fr;
+  border-style: dashed;
+  border-color: #b9cbd7;
+  background: #fbfdfd;
+}
+.quality-strip-empty {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.quality-strip-empty b {
+  color: var(--ink);
+}
+
+/*
+ * 面板在「沒有符合條件的資料」時的說明。
+ *
+ * ⚠️ 側欄列得出來的東西，畫面上就必須找得到對應的一塊——
+ *   整個不渲染的話，使用者點了會覺得「按鈕壞了」，而那是錯的結論，
+ *   他也不會再按第二次。沒有資料時要說出為什麼沒有、下一步該做什麼。
+ */
+.panel.empty {
+  border-style: dashed;
+  border-color: #b9cbd7;
+  background: #fbfdfd;
+}
+/*
+ * X-22：可追溯明細（路口）在「駛出＋駛入並列」時，同一格上下兩行。
+ * ⚠️ 要 display:block——表格儲存格裡的 <span> 預設是 inline，
+ *   兩行會擠成一行，那就看不出是兩個數字了。
+ */
+.flow-line {
+  display: block;
+  white-space: nowrap;
+}
+.flow-line + .flow-line {
+  margin-top: 3px;
+}
+.flow-line small {
+  display: block;
+  font-size: 7px;
+  color: var(--muted);
+}
+.panel-empty-note {
+  margin: 0;
+  padding: 0 18px 18px;
+  font-size: 11.5px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.panel-empty-note b {
+  color: var(--ink);
+}
+
+/*
+ * 尖峰卡片：各方向的量，一個日別一組。
+ *
+ * ⚠️ 這一塊的版面規矩來自兩個實測問題（使用者 2026-09-12，附截圖）：
+ *   ① 各方向必須在**同一個視窗**裡取值，才加得起來等於合計；
+ *      舊版讓每個方向各自挑自己的尖峰，2,792.5＋3,454≠6,164.5。
+ *   ② 平日與假日各有自己的尖峰小時，所以**一個日別一組**；
+ *      舊版只列一組，而抬頭卻有平日與假日兩個數字——
+ *      使用者的原話：「下面的三個數字都是在講平日，不用列出假日嗎?」
+ */
+.peak-direction-note {
+  margin: 8px 0 0;
+  padding: 9px 11px;
+  border-left: 3px solid #c3d2d6;
+  border-radius: 0 6px 6px 0;
+  background: #f6f9fa;
+  font-size: 10.5px;
+  line-height: 1.85;
+  color: #41545a;
+}
+.peak-direction-note b {
+  color: var(--ink);
+}
+.peak-directions-head {
+  grid-column: 1/-1;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--teal);
+}
+/* 目前選到的那個方向要一眼看得出來，不然還要自己對代碼。 */
+.peak-directions > span.picked {
+  border: 1px solid var(--teal);
+  background: #eef8f8;
+}
+.peak-directions > span.picked > b {
+  color: var(--teal);
+}
+.peak-directions > span.peak-directions-total {
+  border-style: dashed;
+}
+/*
+ * 「各方向各自認定」時這一格印的是「為什麼沒有合計」，不是一個數字。
+ * ⚠️ 要看得出來它是提醒而不是數值——底色換掉，不然使用者會在那裡找數字。
+ */
+.peak-directions > span.peak-no-total {
+  background: #fff7e9;
+  color: #6b4d1c;
+  line-height: 1.7;
+}
+
+/*
+ * ── 橫跨中午的尖峰：匯入前的詢問視窗 ──────────────────────────
+ *
+ * 這個視窗會改變數字，所以每一列都要把「現在的候選是什麼、不選它的話
+ * 會變成什麼」寫清楚；只給四個選項而不給數字的話，使用者無從判斷。
+ */
+.noon-intro {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.noon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 14px 0;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.noon-item {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--orange);
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--wash);
+}
+.noon-where {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+.noon-where span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.noon-figures {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  line-height: 1.8;
+  font-variant-numeric: tabular-nums;
+}
+.noon-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.noon-choices label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/*
+ * 主工具列選到尖峰類時段時，不受影響的兩張卡自己講出來。
+ *
+ * ⚠️ 用**提示色**不用警告紅：它不是錯誤，是一句說明。
+ *   紅色會讓使用者以為資料有問題，反而比不講更糟。
+ */
+.kpi-scope-note {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #eef4f7;
+  color: #3c5a6b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ── 「期別顯示／年份顯示」兩顆切換鈕的份量 ─────────────────────
+   使用者 2026-09-13：「這兩個功能鍵不論是在哪個分頁，在三個程式裡，
+   都顯得特別大顆，它的大小可以按照所在的分頁或區塊中，調整成適當的大小嗎?」
+
+   量出來的事實（修正前，1600px 視窗）：
+     主工具列 .filters   → 選單 78×34、兩顆鈕 96×27／106×27  ← 本來就正常
+     區塊篩選列 .block-filters → 選單 320×31、**兩顆鈕 320×49**  ← 比選單又寬又高
+
+   成因不在按鈕自己（padding 5px 12px、font-size 10px 都很小），
+   而在 .block-filters 是網格：按鈕當成格子項目時寬度被拉滿一整格、
+   高度被 stretch 撐到與「標籤＋選單」同高。
+
+   修法：兩顆包進 .block-filter-toggles 共用一格，靠左、底部對齊選單，
+   高度固定 26px（比 31px 的選單小一號——它們是顯示格式，不是篩選條件）。
+   ⚠️ 只縮尺寸、不縮字級到看不清；white-space:nowrap 保證文字不被裁。 */
+.block-filter-toggles{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  align-self:end;
+  justify-self:start;
+  gap:6px;
+  min-width:0;
+  padding-bottom:2px;
+}
+.block-filters .period-display-toggle{
+  height:26px;
+  padding:0 11px;
+  width:auto;
+  flex:none;
+  line-height:24px;
+}
+
+/* 規則②：被某個條件篩空時，指名條件並給一顆「只解除這一個」的按鈕。
+   使用者 2026-09-13 確認：「如果上方工具列篩選了A條件，但B這張圖並沒有A
+   這個條件的計算……那麼就在B圖那邊顯示個提醒文字說，請解除A條件的篩選」。
+   ⚠️ 與 .kpi-scope-note（規則①「這張不受影響」）刻意長得不一樣：
+     一個是「篩空了、要動手」，一個是「照常顯示、不用動」。 */
+.kpi-empty-note{
+  margin:8px 0 0;
+  padding:8px 10px;
+  border-radius:8px;
+  background:#fff6ed;
+  border:1px solid #f0d6b8;
+  color:#8a5a1b;
+  font-size:10px;
+  line-height:1.7;
+}
+/* X-28：多個調查點時「不給數字」的那一段說明（使用者 2026-09-16 裁示）。
+   ⚠️ 它佔的是本來放數字的位置，所以要有份量——不可以做成一行小字，
+     那會看起來像卡片壞掉。也不用紅色：這不是錯誤，是這張卡不適用。 */
+.kpi-overflow-note{
+  margin:8px 0 0;
+  padding:10px 12px;
+  border-radius:8px;
+  background:#eef4f7;
+  border:1px solid #d3e2ea;
+  color:#3c5a6b;
+  font-size:11.5px;
+  line-height:1.75;
+}
+.kpi-overflow-note b{color:#27424f}
+/* X-46：「展開看全部」／「收起來」。做成一顆小的行內按鈕，
+   不搶走卡片上數字的位置。 */
+.kpi-expand{
+  display:inline-block;
+  margin-top:8px;
+  padding:4px 11px;
+  border:1px solid #9fb8c4;
+  border-radius:999px;
+  background:#fff;
+  color:#27424f;
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.kpi-expand:hover{border-color:#5b8ba1}
+.kpi-empty-clear{
+  display:inline-block;
+  margin-left:6px;
+  padding:2px 9px;
+  border:1px solid #c98a3a;
+  border-radius:999px;
+  background:#fff;
+  color:#8a5a1b;
+  font-size:10px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.kpi-empty-clear:hover{background:#fdf0e0}
+
+/* ── 需使用者確認的清單：類型標籤 ＋ 逐筆列出 ───────────────────
+   使用者 2026-09-13：「能像『歷季異常提醒』那樣，列表展示當前匯入有異常的
+   項目，並且有篩選功能，可以明顯看到發生了 ABCD 四個類型資料異常，
+   點了 A 標籤就列出 A 異常的事件，如果都沒點任何標籤，表格就全列出全部。」
+   ⚠️ 標籤要看得出「按下去了沒有」——只有顏色差一點的話，
+     使用者不會知道現在看到的是全部還是篩過的。 */
+.warning-items{margin-top:10px}
+.anomaly-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.anomaly-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border:1px solid #d8c6a8;border-radius:999px;
+  background:#fff;color:#7a5a1f;font-size:10.5px;font-weight:800;cursor:pointer;
+  white-space:nowrap;
+}
+.anomaly-chip:hover{background:#fdf6ea}
+.anomaly-chip>b{
+  display:inline-grid;place-items:center;min-width:18px;height:16px;padding:0 4px;
+  border-radius:999px;background:#f0e2c8;color:#6b4a12;font-size:10px;
+}
+.anomaly-chip.is-on{background:#7a5a1f;border-color:#7a5a1f;color:#fff}
+.anomaly-chip.is-on>b{background:rgba(255,255,255,.25);color:#fff}
+.anomaly-chip.is-clear{border-style:dashed;color:#5b7183;border-color:#c3ced6}
+.warning-items-count{margin:0 0 6px;font-size:10px;color:#7a5a1f;font-weight:800}
+.warning-item-list{margin:0;padding-left:0;list-style:none;display:grid;gap:4px}
+.warning-item-list li{
+  display:flex;gap:8px;align-items:baseline;
+  padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.65);
+  font-size:10.5px;line-height:1.7;color:#5c451c;overflow-wrap:anywhere;
+}
+.warning-item-type{
+  flex:none;padding:1px 7px;border-radius:999px;
+  background:#f0e2c8;color:#6b4a12;font-size:9.5px;font-weight:800;white-space:nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  每一個視窗的「取消／確認／關閉」一律黏在對話框底緣
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-13：
+ *   「畫面右下角的**取消／關閉功能，請保持始終可見**，不要像這張圖片視窗一樣，
+ *     我必須把內容滑到最底部，才能看到取消／關閉的功能鍵。」
+ *   「請**確實檢視每個有「取消、確認、關閉」的功能鍵**，這類功能鍵都能始終可見。」
+ *
+ * ⚠️ 以前只有匯入確認那一個視窗做了（.modal footer.sticky-actions），
+ *   其餘十幾個視窗的動作列都是跟著內容一起捲走的。
+ *   使用者若只是想**離開**，卻被迫先把整份內容捲完——
+ *   「反悔」正是最該讓人隨時做得到的動作。
+ *
+ * ⚠️ 黏的是「**對話框**底緣」不是「視窗底緣」：
+ *   黏在視窗上的話，使用者還沒捲到內容就看到確認鈕，那是另一種毛病。
+ *   .modal 自己是 overflow:auto 的捲動容器，所以 sticky 的參考就是它。
+ *
+ * ⚠️ bottom 與負邊界都用 −22px：抵銷 .modal 的 22px 內距，才真的貼齊底緣。
+ */
+.modal footer,
+.modal .modal-actions {
+  position: sticky;
+  bottom: -22px;
+  z-index: 2;
+  margin: 4px -22px -22px;
+  padding: 12px 22px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 14px rgba(23, 50, 77, 0.06);
+}
+
+/* ── 轉向判定衝突的醒目提示 ───────────────────────────────────────
+ *
+ * 使用者 2026-09-13：「如果出現程式判讀有 2 支線落進同一個轉向，
+ *   一定是判讀失誤，**可以用醒目顏色提醒**。」
+ */
+.route-conflicts {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5b98a;
+  border-left: 4px solid var(--orange);
+  border-radius: 8px;
+  background: #fdf5ec;
+}
+.route-conflicts ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+.route-conflicts .warn-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.route-conflict-flag {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 9px;
+  background: var(--orange);
+  color: #3b2408;
+  font-size: 11px;
+  font-weight: 800;
+}
+.route-mapping tr.route-row-conflict > td {
+  background: #fdf1e3;
+}
+.route-source {
+  font-size: 11px;
+  font-weight: 700;
+  /* ⚠️ 原本用 #6b8090，白底只有 4.11:1，未達 AA 的 4.5:1（text-contrast 守門抓到）。 */
+  color: #5c7180;
+}
+.route-source-manual {
+  padding: 1px 8px;
+  border-radius: 9px;
+  background: #e0f1ef;
+  color: #0c6f70;
+}
+
+/* ── 大分頁那一列：文字區照舊換頁，最右側一顆獨立的收合鈕 ──────────
+ *
+ * ⚠️ 收合鈕**沒有**另外包一層 DOM：包一層的話 `.side-nav-group > button`
+ *   就打不到大分頁按鈕，而九支既有守門都是那樣寫的。
+ *   兩顆並排改由這裡的格線負責，小分頁那一塊橫跨兩欄。
+ */
+.side-nav-group {
+  display: grid;
+  /*
+   * ⚠️ 第二欄寫死 28px，不可以用 auto（2026-09-14，三支同步）。
+   *   收合鈕只有在那一頁被選中時才出現，第二欄若是 auto，
+   *   它一出現就把文字那一欄擠窄——字剛好卡在一行邊緣的分頁就會
+   *   掉到第二行，整個側欄跟著往下跳。
+   *   固定寬度之後，不管收合鈕在不在，文字可用寬度都一樣。
+   *   （是在姊妹專案「路口轉向」被使用者實測回報、並逐顆量高度才找到的
+   *     真正原因——一開始誤判成「選中時字加粗」。）
+   */
+  grid-template-columns: minmax(0, 1fr) 28px;
+  column-gap: 6px;
+}
+.side-nav-group > .side-nav-items {
+  grid-column: 1 / -1;
+}
+/*
+ * ⚠️ 做成**看得出來是按鈕的小標籤**，不是一個很淡的三角形。
+ *   使用者 2026-09-14：「這個按鈕也非常淺……可以做一個小標籤寫著『展開』」。
+ *   底色與外框都要看得見，字要讀得出來（對比見 tests/text-contrast.test.mjs）。
+ */
+.side-nav-collapse {
+  align-self: center;
+  width: 30px;
+  padding: 5px 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #eaf4fa;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  /*
+   * ⚠️ 箭頭要**真的置中**（使用者 2026-09-17 附圖回報：這一支的箭頭明顯偏右）。
+   *
+   *   舊寫法沒有任何水平置中的宣告，箭頭的位置由按鈕繼承來的 text-align
+   *   與 ▼ 這個字自己的字身框決定——▼ 的字身框左右不對稱，
+   *   固定 30px 寬的按鈕一定看得出偏一邊。`line-height:1.2` 也讓它偏下。
+   *
+   *   改用 flex 置中：水平與垂直都交給版面算，不靠字形自己的重心。
+   *   三支同一套寫法。
+   */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+/*
+ * ⚠️ 收合狀態靠**旋轉**表示，不是換一個字。
+ *   ▼（U+25BC）在 Big5 A1B9，微軟正黑體一定畫得出來；
+ *   ▸／▾（U+25B8／U+25BE）不在 Big5，某些電腦上會變成空白
+ *  （2026-09-15：它們原本寫成 \u25b8 跳脫，因此躲過了字形守門）。
+ *   inline 元素套不上 transform，所以要 inline-block。
+ */
+.side-nav-caret {
+  display: inline-block;
+  font-style: normal;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+.side-nav-collapse[aria-expanded="false"] .side-nav-caret {
+  transform: rotate(-90deg);
+}
+.side-nav-collapse:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+.side-nav-collapse:focus-visible {
+  outline: 2px solid #7fe3dd;
+  outline-offset: 2px;
+}
+
+/*
+ * ── 內容區塊之間的間距，由父層統一決定 ──────────────────────────
+ *
+ * 使用者 2026-09-14（附圖）：「一鍵下載全部圖檔與結論草稿產生器
+ *   功能區塊之間中間空格不要黏在一起，請與其他區塊保持一致的空格」
+ *
+ * ⚠️ 實測（量畫面上相鄰兩塊的實際距離，不是讀 CSS 推論）：
+ *   同一頁上的間距是 18 / 18 / 12 / **0** / 14 / 14 ——四種值都不一樣，
+ *   而「結論草稿產生器 → 一鍵下載全部圖檔」那一處剛好是 0，所以黏在一起。
+ *   成因又是老問題：每一塊自己帶自己的 margin，有的帶 12、有的帶 14、
+ *   有的只帶 margin-bottom 沒帶 margin-top。塊與塊之間就一定各說各話。
+ *
+ * 改由父層一條規則決定，把各塊自己的上下 margin 歸零。
+ *
+ * ⚠️ 只挑 article 與 section（＝內容區塊）。
+ *   toolbar／filters／zone-output 是 div，是版面骨架不是內容區塊，
+ *   它們的間距有自己的道理，不要一起動到。
+ *
+ * ⚠️ **絕對不要用 display:flex + gap 來做這件事。**
+ *   同一天在交通服務水準上，`#charts{display:flex}` 的 ID 權重壓過了
+ *   「非當前分頁要隱藏」那條規則，害整個圖表頁黏在其他 14 頁的最下面。
+ *   間距問題一律用 margin 解決，不要碰 display。
+ */
+.content > article,
+.content > section {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  主工具列的三態（脫離／回歸／不適用）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 這一段與路口轉向（g2164/app/globals.css）、交通服務水準（ts2028/styles.css）
+ *   刻意寫成同一套（同樣的類別名稱、同樣的顏色與間距）。
+ *   三支程式的同一個機制長得一樣，使用者才不必在三個地方各學一次。
+ *   改的時候三邊一起改。
+ */
+/*
+ * 「恢復預設條件」（X-10，使用者 2026-09-16）。
+ *
+ * ⚠️ 要和「回歸全部」**看得出不一樣**：那一顆是紫色的主要動作（有區塊脫離了，
+ *   是需要處理的狀態）；這一顆只是把條件歸零，所以做成安靜的灰色膠囊。
+ * ⚠️ 條件已是預設值時整顆不出現，所以不必做 disabled 樣式。
+ */
+.mt-reset-main {
+  align-self: center;
+  margin-left: auto;
+  padding: 7px 13px;
+  border: 1px solid #c8cfda;
+  border-radius: 999px;
+  background: #fff;
+  color: #46566b;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mt-reset-main:hover {
+  background: #eef2f6;
+  border-color: #9fabbb;
+}
+.mt-reset-main:focus-visible {
+  outline: 2px solid #46566b;
+  outline-offset: 2px;
+}
+/* ⚠️ 兩顆同時出現時，只有前面那一顆吃 margin-left:auto（都吃會被推開）。 */
+.mt-reset-main ~ .mt-detached .mt-reset-all,
+.mt-reset-main ~ .mt-reset-all {
+  margin-left: 10px;
+}
+.mt-reset-all {
+  align-self: center;
+  margin-left: auto;
+  padding: 7px 14px;
+  border: 1px solid #a88fe0;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b2e94;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mt-reset-all:hover {
+  background: #efe7ff;
+}
+.mt-reset-all:focus-visible {
+  outline: 2px solid #7a4ed6;
+  outline-offset: 2px;
+}
+/*
+ * 脫離中的區塊上掛的那一條。要看得出「這一塊和別塊不一樣」，
+ * 但不可以搶過內容本身——所以用左側色條，不用整塊底色。
+ */
+.chart-detach-note {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 4px solid #7a4ed6;
+  border-radius: 0 8px 8px 0;
+  background: #f6f2ff;
+  color: #3f3160;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.chart-detach-reset {
+  padding: 5px 11px;
+  border: 1px solid #a88fe0;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b2e94;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chart-detach-reset:hover {
+  background: #efe7ff;
+}
+/*
+ * 「這個條件對本區塊不適用」。
+ * ⚠️ 用中性的提示色，不用紅色——它不是錯誤，是在解釋為什麼沒動。
+ *   紅色會讓使用者以為資料有問題。
+ */
+.chart-inapplicable {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-left: 4px solid #c9a227;
+  border-radius: 0 8px 8px 0;
+  background: #fdf8e6;
+  color: #5b4a12;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+
+/*
+ * ── 主工具列：固定在上方 ＋ 可收合 ─────────────────────────
+ *
+ * 使用者 2026-09-15：「固定在上方隨時可見，只是會做著展開的按鈕，
+ * 避免版面佔用過大」。
+ *
+ * ⚠️ `.main-toolbar-row[hidden]` 這一條**必須**存在：`display:flex` 的權重比
+ *   瀏覽器內建的 `[hidden]{display:none}` 高，少了它，收合之後那一列
+ *   **還是看得見**（路口轉向 2026-09-15 實測到）。
+ */
+.filters{ position:sticky; top:0; z-index:30; flex-wrap:wrap; }
+/*
+ * ── 吸頂高度（三支同一套作法）────────────────────────────────
+ *
+ * `--main-toolbar-h`：主工具列的**實際**高度，由 DashboardClient 用
+ *                     ResizeObserver 量了寫進來。這裡的 0px 只是還沒量到
+ *                     之前的起始值。
+ * `--sticky-top`    ：任何要黏在內容區上緣的東西一律用這一個。
+ *
+ * ⚠️ 這一支的 .topbar 不是 sticky，所以不必扣它的高度。
+ *   另外兩支（交通服務水準、路口轉向）的標題列是 sticky，
+ *   它們的 --sticky-top 還要再加 --topbar-h——**不要互相照抄**。
+ */
+:root{ --main-toolbar-h:0px; --sticky-top:calc(var(--main-toolbar-h) + 12px); }
+.filters.is-collapsed{ padding-bottom:10px; }
+.main-toolbar-bar{
+  display:flex; align-items:center; gap:10px; min-width:0;
+  flex:1 0 100%;
+}
+.main-toolbar-row{
+  display:flex; flex-wrap:wrap; align-items:end; gap:9px;
+  flex:1 0 100%; min-width:0;
+}
+.main-toolbar-row[hidden]{ display:none; }
+/*
+ * 主工具列的收合鈕。2026-09-16 使用者把名稱從「篩選條件」改成「主工具列收合」。
+ * ⚠️ 字變長了（4 字 → 6 字），所以明寫 nowrap 與行高，文字不可被裁。
+ */
+.mt-toggle{
+  display:inline-flex; align-items:center; gap:6px; flex:none;
+  white-space:nowrap; line-height:1.8;
+  padding:3px 11px; border:1px solid #cad6df; border-radius:999px;
+  background:#fff; color:var(--navy); font:inherit; font-size:11.5px;
+  font-weight:800; cursor:pointer;
+}
+.mt-toggle:hover{ border-color:var(--teal); }
+.mt-toggle i{ font-style:normal;
+  /* ⚠️ 收合狀態靠**旋轉**表示，不是換一個字。▼（U+25BC）在 Big5 裡有，
+     微軟正黑體一定畫得出來；▾／▸ 不在 Big5 裡，實機上會變成空白
+     （2026-09-15 由 glyph-guard 抓到）。inline 元素套不上 transform，
+     所以要 inline-block。 */
+  display:inline-block; transition:transform .15s; }
+.mt-toggle i.is-collapsed{ transform:rotate(-90deg); }
+/*
+ * 目前條件那一句。**一定要留著**——收合之後如果只剩一顆按鈕，
+ * 使用者要確認「現在依什麼在算」就得先展開，那比佔版面更糟。
+ */
+.mt-summary{
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:11px; color:var(--muted);
+}
+@media print{ .main-toolbar-bar{ display:none; } }
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  L-2：「回歸全部」旁邊的浮動小卡（三支同一套樣式）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 一定要 position:absolute（浮起來），**不可以**做成佔版面的展開清單。
+ *   使用者 2026-09-15：「我怕展開時候，整個主工具列會被擠的超大」。
+ *   浮起來的話，脫離 12 塊和脫離 1 塊，工具列的高度完全一樣。
+ */
+.mt-detached{position:relative;display:inline-flex;align-items:center;gap:6px}
+.mt-detached-toggle{
+  border:1px solid var(--line);background:#fff;color:var(--navy);
+  border-radius:7px;padding:7px 10px;font:inherit;font-size:10px;font-weight:800;
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.mt-detached-toggle:hover{background:#eef4f6}
+/*
+ * ⚠️ 箭頭只能用 ▼（U+25BC，Big5 A1B9）＋ CSS 轉角度。
+ *   ▸／▾（U+25B8／U+25BE）不在 Big5，微軟正黑體畫不出來，實機上是空白。
+ */
+.mt-detached-toggle > i{
+  font-style:normal;font-size:9px;line-height:1;
+  transform:rotate(-90deg);transition:transform .15s;
+}
+.mt-detached-toggle[aria-expanded="true"] > i{transform:rotate(0deg)}
+.mt-detached-pop{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:40;
+  width:min(320px,80vw);max-height:min(420px,60vh);overflow:auto;
+  padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;
+  box-shadow:0 14px 34px rgba(23,50,77,.18);text-align:left;
+}
+.mt-detached-lead{margin:0 0 8px;font-size:10.5px;line-height:1.75;color:#4d6878}
+.mt-detached-list{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.mt-detached-item{
+  width:100%;text-align:left;border:0;background:#f2f7f8;color:var(--navy);
+  border-radius:7px;padding:8px 10px;font:inherit;font-size:11px;font-weight:700;cursor:pointer;
+}
+.mt-detached-item:hover{background:#e2eef1}
+.mt-detached-item:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  資料維護頁（X-43／X-44／X-49，三支同步）
+ * ══════════════════════════════════════════════════════════════════
+ * 這一區的內容是從「品質與定稿」視窗搬過來的。視窗裡靠 .modal 撐版面，
+ * 搬到頁面上之後要自己有一組版面規則，否則會變成一長串貼著左邊的欄位。
+ */
+.maintenance-zone{display:grid;gap:14px;margin-top:18px}
+.maintenance-zone > section{padding:18px 20px 20px}
+.maintenance-zone h3{margin:0 0 8px;font-size:15px}
+.maintenance-delete{border-left:4px solid #b4443c}
+.maintenance-delete-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px}
+.maintenance-delete-row label{display:grid;gap:5px;font-size:11px;font-weight:700;color:#52666d}
+.maintenance-delete-row select{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff}
+.maintenance-run{border-left:4px solid var(--teal,#2f7d69)}
+.maintenance-run-state{margin:10px 0 0;padding:8px 11px;border-radius:7px;background:#f1f5f8;color:#3c5a6b;font-size:12px;line-height:1.7}
+.maintenance-run-state.stale{background:#fff6e8;color:#8a5312;font-weight:700}
+
+/* ── X-49：檢查結果的「解決方式」欄 ─────────────────────────────
+ * ⚠️ 顏色只是輔助，類別的字本身一定要印出來——只靠顏色的話，
+ *   色弱的使用者與列印出來的紙本都分不出「重新匯入」與「人工確認」。
+ * ⚠️ 這一欄是整段文字，所以這一格不可以 white-space:nowrap
+ *   （.anomaly-table td 預設是 nowrap，會把一整段話拉成一條橫線）。
+ */
+.anomaly-table td.resolution-cell{white-space:normal;min-width:280px;max-width:430px;line-height:1.75}
+.resolution-cell span{display:block;margin-top:5px;color:#3d5563}
+.resolution-kind{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:800;color:#fff;white-space:nowrap}
+.resolution-kind.kind-reimport{background:#b4443c}
+.resolution-kind.kind-confirm{background:#8f6712}
+.resolution-kind.kind-onscreen{background:#2f7d69}
+.resolution-goto{display:inline-block;margin-top:7px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 10px;font:inherit;font-size:11px;font-weight:700;color:var(--teal,#2f7d69);cursor:pointer}
+.resolution-goto:hover{border-color:var(--teal,#2f7d69)}
+/* 檢查結果那一塊的標題列（⚠️ 不要用 .status-dot，那在這一支是裝飾色條）。 */
+.maintenance-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.maintenance-head h3{margin:0}
+.maintenance-count{padding:3px 10px;border-radius:999px;background:#e6f4f3;color:#0b5253;font-size:11px;font-weight:800;white-space:nowrap}
+
+/*
+ * 歷季趨勢「一個調查點一條線」時的說明。
+ * 顏色沿用 .kpi-scope-note，只加一條左側標線讓它在圖上方站得住。
+ * ⚠️ 不可以用 .status-dot 那一類裝飾色條當文字底（對比只有 2.23:1，
+ *   2026-09-16 對比守門抓到過一次）。
+ */
+.trend-per-road-note {
+  border-left: 3px solid #148c8c;
+  padding-left: 10px;
+  margin: 0 0 8px;
+}
+
+/*
+ * 「已確認，不再提醒」（使用者 2026-09-17）。
+ * ⚠️ 已確認的那一列用**淡化＋左側標線**表示，不可以只靠淡化——
+ *   列印成灰階或色弱時分不出來。
+ */
+.resolution-ack{display:inline-block;margin-top:6px;margin-left:8px;
+  border:1px solid #cbd7dd;background:#fff;border-radius:7px;padding:4px 10px;
+  font:inherit;font-size:11px;font-weight:700;color:#3d5563;cursor:pointer}
+.resolution-ack:hover{border-color:#2f6f9e;color:#2f6f9e}
+.resolution-ack.on{background:#eef4f2;border-color:#9dbfb4;color:#2f7d69}
+.anomaly-table tr.issue-acked{background:#f7f9fa;color:#6b7780}
+.anomaly-table tr.issue-acked td:first-child{box-shadow:inset 3px 0 0 #2f7d69}
+.chip-toggle.ack-toggle{border-style:dashed}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  X-63：側欄三層（分區 → 大分頁 → 小分頁）
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ 字級要**嚴格遞減**：分區 > 大分頁 > 小分頁。
+ *   使用者 2026-09-15 對另一支說過：「分類標題與它下方的大分頁文字大小
+ *   不要相同……文字大小請依此順序遞減」。這一支多了一層，同一條規則照用。
+ * ⚠️ 選擇器一定要寫成 `.side-nav .side-nav-page`（0,2,0）。
+ *   只寫 `.side-nav-page`（0,1,0）會被 `.side-nav button`（0,1,1）壓過去，
+ *   字級與內距都不會生效——這一支的側欄已經因為同一件事踩過一次。
+ */
+.side-nav-page-group {
+  display: grid;
+  gap: 1px;
+}
+.side-nav .side-nav-page {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  background: none;
+  color: #e8f4f9;
+  text-align: left;
+  padding: 8px 11px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.side-nav .side-nav-page:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+.side-nav .side-nav-page.current {
+  background: rgba(255, 255, 255, 0.17);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: inset 3px 0 var(--teal);
+}
+.side-nav .side-nav-page:focus-visible {
+  outline: 2px solid #7fe3dd;
+  outline-offset: 1px;
+}
+/*
+ * 大分頁底下的小分頁再縮一層，看得出從屬關係。
+ *
+ * ⚠️ **一定要排除同時掛著 .side-nav-page 的那一顆**（使用者 2026-09-17 附圖回報：
+ *   「可追溯明細／時段車種分析文字過小，應該要與其它大分頁的文字一樣大」）。
+ *
+ *   單一塊的大分頁（底下只有一塊、而且名字一樣）那一顆鈕**同時**掛著
+ *   `side-nav-page` 與 `side-nav-item`——掛 item 是為了讓它可以「點名」那一塊。
+ *   這一條原本會連它一起縮成 11.5px，於是同一層的六個大分頁裡，
+ *   有兩個字比另外四個小，看起來像階層不同。
+ *   兩條規則的具體度都是 (0,2,0)，而這一條在檔案後面，所以一定贏——
+ *   不是「大分頁那條沒生效」，是這一條把它蓋掉了。
+ */
+.side-nav-page-group > .side-nav-item:not(.side-nav-page) {
+  margin-left: 12px;
+  font-size: 11.5px;
+}
+
+/*
+ * X-63：「批次輸出」那一頁上，開啟報表批次輸出中心的入口卡。
+ * ⚠️ 那個中心是一個視窗；這一頁上要有看得到、點得到的入口，
+ *   否則切過去只看得到「一鍵下載全部圖檔」，中心像是被藏起來了。
+ */
+.export-center-entry {
+  padding-bottom: 16px;
+}
+.export-center-entry .panel-actions {
+  padding: 0 18px;
+}
+
+/*
+ * ── 側欄左上角的招牌（使用者 2026-09-17）────────────────────────────
+ *
+ * 頁首那條 128px 高的藍色橫幅整條拿掉之後，系統名稱與版號搬到這裡。
+ * 樣式刻意與姊妹專案「路口轉向」「交通服務水準」同一套：
+ * 名稱 16px、副標 12px、版號 10px——**不放大**，
+ * 使用者的原話是「字體不要太大導致版面大量被占據」。
+ */
+.brand{display:flex;gap:12px;align-items:center;padding:2px 2px 18px;border-bottom:1px solid rgba(255,255,255,.12)}
+.brand-mark{width:42px;height:42px;border-radius:12px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:15px;font-weight:800;letter-spacing:-.04em;flex:none}
+.brand strong,.brand small{display:block}
+.brand strong{font-size:16px;letter-spacing:.01em}
+.brand small{margin-top:3px;font-size:12px;color:#cfe0ea}
+.brand-version{display:inline-block;margin-top:5px;padding:2px 7px;border:1px solid rgba(102,209,203,.35);border-radius:999px;background:rgba(20,140,140,.18);color:#9fe4df;font-size:10px;font-weight:800;letter-spacing:.02em}
+/*
+ * 側欄最下面的使用者身分（也是從頁首橫幅搬下來的）。
+ * ⚠️ 不可以用 margin-top:auto——它底下還有 .side-note，
+ *   兩個都搶 auto 的話會被推開，中間出現一段空白。
+ */
+.side-foot{margin-top:auto;padding:13px 2px 10px;border-top:1px solid rgba(255,255,255,.12)}
+.side-foot span,.side-foot small{display:block;color:#cfe0ea;font-size:11px}
+.side-foot span{color:#fff;font-weight:700;font-size:12px}
+.side-foot i{display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:#66d1cb}
+.side-note{margin-top:10px}
+
+/*
+ * ── 異常提醒門檻的輸入框（使用者 2026-09-17 附圖回報）────────────────
+ *
+ * 使用者原話：「全日交通量的異常門檻輸入數值的位置，和背景都是白色的，
+ *   會看不出哪裡是可以輸入數字的地方」。
+ *
+ * ⚠️ 成因：`.threshold-grid` 只設了格線，**裡面的 <input> 一條樣式都沒有**。
+ *   整份樣式表裡把輸入框畫成「看得出是欄位」的規則是 `.modal input`，
+ *   而這一塊不在 modal 裡（它在資料維護那一頁的面板上），
+ *   於是拿到瀏覽器預設樣式：白底、幾乎看不見的細框，
+ *   而面板本身也是白底——數字看起來就只是一行字。
+ *
+ * ⚠️ 不可以只加一條 border 了事。看不出「可以輸入」有三個線索，
+ *   少一個都還是會被當成純文字：**框線**、**與底色不同的欄位底**、
+ *   以及**點下去有反應**（focus 環）。三個一起給。
+ *   欄位底用極淡的灰藍（#f6f9fa），和面板的純白分得出來，
+ *   但又不會讓整塊看起來髒。
+ *
+ * 標籤與欄位改成上下排（原本是同一行、欄位緊貼在文字後面，
+ * 那也是它看起來像純文字的原因之一）。
+ */
+/*
+ * ⚠️ 面板裡的**每一個**表單控制項都要看得出來是控制項。
+ *
+ * 使用者 2026-09-17 連續回報兩處（異常提醒門檻的數字欄、資料狀態的下拉），
+ * 兩處是同一個成因：整份樣式表把「輸入框長什麼樣」寫在 `.filters` 與 `.modal`
+ * 底下，面板裡直接寫的控制項一條都沒吃到，於是拿瀏覽器預設樣式——
+ * 透明底、幾乎看不見的細框，而面板本身是白底。
+ *
+ * 所以這裡**一次補齊**，不是一個一個補：面板裡的 select 與文字類 input
+ * 統一成和 .filters 同一套外觀，底色用極淡的灰藍與白底面板分開。
+ * e2e-maintenance 有一條掃描式守門，會把任何「沒有框線或底色透明」的
+ * 控制項抓出來——日後新增的欄位漏掉樣式也會被擋下。
+ */
+.panel select,
+.panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.threshold-grid input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cad6df;
+  border-radius: 7px;
+  background: #f6f9fa;
+  color: var(--ink);
+  font-size: 12px;
+  outline: none;
+}
+.panel select:hover,
+.panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):hover {
+  border-color: #9fb6c2;
+}
+.panel select:focus,
+.panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus {
+  border-color: var(--teal);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(20, 140, 140, 0.12);
+}
+.threshold-grid label {
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--navy);
+}
+.threshold-grid input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cad6df;
+  border-radius: 7px;
+  background: #f6f9fa;
+  color: var(--ink);
+  font-size: 12px;
+  outline: none;
+}
+.threshold-grid input:hover {
+  border-color: #9fb6c2;
+}
+.threshold-grid input:focus {
+  border-color: var(--teal);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(20, 140, 140, 0.12);
+}
+
+/*
+ * 側欄變窄時分類標題跟著縮，才能同時滿足「不折行」與「不被裁掉」。
+ * ⚠️ 縮的是**分類標題**這一層，大分頁與小分頁不動——
+ *   分類標題本來就是最長的那一串（「五　資料產出與維護」）。
+ */
+@media (max-width: 1100px) {
+  .side-nav-group > button:not(.side-nav-collapse) {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+  .side-nav-group > button:not(.side-nav-collapse) > span {
+    font-size: 14px;
+  }
+}
+
+/*
+ * X-80：24 小時型態逐調查點分圖。
+ * ⚠️ 每一張圖都要有自己的標題（調查點名稱），否則兩張一樣的折線擺在一起
+ *   比一張合計的圖更容易看錯——使用者不知道哪一張是哪一個點。
+ */
+.hourly-split{display:grid;gap:14px}
+.hourly-split-note{margin:0}
+.hourly-one{margin:0;display:grid;gap:4px}
+.hourly-one > figcaption{
+  font-size:11px;font-weight:800;color:var(--navy);
+  padding:0 12px;overflow-wrap:anywhere;
 }

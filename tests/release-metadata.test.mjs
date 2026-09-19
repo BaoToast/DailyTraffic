@@ -45,11 +45,27 @@ test("畫面上的手冊連結檔名帶著目前版本", async () => {
     new URL("../app/DashboardClient.tsx", import.meta.url),
     "utf8",
   );
-  for (const ext of ["pdf", "docx"])
-    assert.ok(
-      source.includes(`Traffic_Analysis_Beginner_Guide_${version}.${ext}`),
-      `手冊 ${ext} 連結沒有跟著版本更新`,
-    );
+  assert.ok(
+    source.includes(`全日交通流量程式手冊_${version}.pdf`),
+    "手冊 PDF 連結沒有跟著版本更新",
+  );
+  /*
+   * 手冊自 v20.65 起**只出 PDF**。
+   *
+   * 使用者 2026-09-11：「新手手冊只需要做 PDF 檔就好……三個程式都同步，
+   * 只需要 PDF 檔就好。」路口轉向在 v2.1.64 就已經因為同一句話改掉，
+   * 這一支是最後一個還在出 Word 的。
+   *
+   * ⚠️ 這條反面守門不可以省。Word 版的產生器與檔案都刪掉了，
+   *   只刪不守的話，下一次照舊版樣板補回一顆按鈕，就會連到一個
+   *   **不存在的檔案**——而畫面上那顆按鈕看起來完全正常，
+   *   使用者要按下去才會看到 404。
+   */
+  assert.doesNotMatch(
+    source,
+    /全日交通流量程式手冊_[^"'`]*\.docx/,
+    "畫面上又出現 Word 手冊連結，但本專案不再產生 .docx，點下去會 404",
+  );
 });
 
 /*
@@ -89,6 +105,10 @@ test("GitHub Pages 根目錄建置產物與目前版本一致", async () => {
   const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const match = index.match(/\.\/assets\/(index-[A-Za-z0-9_-]+\.js)/);
   assert.ok(match, "根目錄 index.html 找不到主程式資產");
+  assert.ok(
+    index.includes(`?v=${version.replace(/^v/, "")}`),
+    "根目錄 index.html 的快取參數沒有跟著版本更新",
+  );
   const asset = await readFile(
     new URL(`../assets/${match[1]}`, import.meta.url),
     "utf8",

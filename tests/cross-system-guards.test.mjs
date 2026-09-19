@@ -22,6 +22,21 @@ const source = await readFile(
   "utf8",
 );
 
+/*
+ * ⚠️ 掃原始碼的斷言，凡是「跨多個 token 的形狀」一律比對壓平空白之後的字串。
+ *
+ * 2026-09-11 的教訓：我不小心對 DashboardClient.tsx 跑了一次
+ * `prettier --write`（這個專案本來就不是 prettier 排版）。行為一個字都沒變，
+ * 但它把一段 JSX 折行並插入 `{" "}`，於是這裡的斷言紅字，
+ * 訊息寫著「車種組成的兩天合計數字仍然要明講是『兩天合計』」——
+ * 聽起來像功能被拿掉了，其實只是換行位置變了。
+ *
+ * ⚠️ 但**不是每一條都能改用 flat**：下面找字串字面值的那一條靠 `\n`
+ *   界定字串邊界（`[^"\n]*`），壓平之後會跨行吃掉整段程式碼。
+ *   那一條必須繼續用 source。
+ */
+const flat = source.replace(/\s+/g, " ");
+
 function blockFrom(marker, endMarker) {
   const start = source.indexOf(marker);
   assert.notEqual(start, -1, `找不到 ${marker}`);
@@ -73,16 +88,43 @@ test("「平日＋假日」不得把兩天相加成一列", () => {
    * 【現在的規則】「平日＋假日」＝兩天各出一列，每一格都是單日的量。
    * 因此也就不再需要、也不可以出現「平假日合計」這種單位或欄名。
    */
-  const block = blockFrom("const roadRows = useMemo", "const roadOnlyRows");
+  /*
+   * ⚠️ v20.74 起這一段被抽成 buildRoadRows(source)（各區塊可以有自己的條件，
+   *   所以同一支公式要能吃不同批紀錄）。守門要守的仍然是同一件事——
+   *   「平日＋假日」必須依日別分列——只是它現在住在 buildRoadRows 裡。
+   *   寫死舊的起點名稱只會逼人把公式搬回去，那才是真的退步。
+   */
+  /*
+   * ⚠️ v20.75（X-37）起 buildRoadRows 多了兩個選項：
+   *   ・`dayMode`：用**哪一個**日別條件判斷要不要分列。
+   *     有自己工具列的區塊要傳自己那一個——舊版一律讀主工具列，
+   *     於是可追溯明細選「平日＋假日」而主工具列是「平日」時，
+   *     兩天被加成一列，日別欄還填成主工具列那一個（標籤在說謊）。
+   *   ・`splitQuarter`：依季別分列（可追溯明細用）。
+   *
+   * 這一條守的事情沒有放寬——「平日＋假日必須依日別分列」仍然是硬規則，
+   * 只是判斷的來源從寫死的 dayType 換成 dayMode（預設仍是 dayType）。
+   */
+  const block = blockFrom("const buildRoadRows = useCallback", "const roadRows = useMemo");
   assert.match(
     block,
-    /const splitByDay = dayType === "平日＋假日"/,
+    /const dayMode = options\?\.dayMode \?\? dayType/,
+    "日別條件要能由呼叫端指定（預設才是主工具列）",
+  );
+  assert.match(
+    block,
+    /const splitByDay = dayMode === "平日＋假日"/,
     "roadRows 必須在「平日＋假日」時依日別分列",
   );
   assert.match(
     block,
-    /splitByDay \? `\$\{r\.roadId\}\|\$\{r\.dayType \?\? ""\}` : r\.roadId/,
+    /splitByDay \? \(r\.dayType \?\? ""\) : ""/,
     "分組鍵要帶日別，否則兩天又會被併成一列",
+  );
+  assert.match(
+    block,
+    /splitQuarter \? \(r\.quarter \?\? ""\) : ""/,
+    "X-37：分組鍵也要帶季別，否則拉開季度區間時多季會被併成一列",
   );
   assert.match(block, /map\.set\(keyOf\(r\), x\)/, "寫回 map 要用同一把鍵");
 
@@ -106,10 +148,42 @@ test("「平日＋假日」不得把兩天相加成一列", () => {
     "還有地方把兩天標成「平假日合計」——分列之後每一格都是單日量：\n" +
       combinedLabels.join("、"),
   );
+  /*
+   * ⚠️ v20.64 改了做法，但**這條規則沒有放寬**。
+   *
+   * 舊版：「平日＋假日」畫**一個合併的圓環**，圓心那個數字是兩天相加，
+   *       所以單位一定要標成「輛・平假日兩天合計」，不能標「輛／調查日」。
+   * 新版：改成**兩個圓環**（使用者 2026-09-10 指名），每一個圓心都是
+   *       單日的量，標「輛／調查日」才對；兩天合計的數字移到底下那一行。
+   *
+   * 要守的東西沒變：**只要畫面上出現「兩天相加」的數字，就必須明講它是兩天的**。
+   * 所以斷言改成守新的位置，而不是刪掉。
+   */
+  /*
+   * ⚠️ 2026-09-18 使用者裁示（F-30，選 A）：「平日＋假日數值相加，這個數值沒有
+   *   應用上的意義。平日＋假日指的是同時並列顯示兩者的結果」。
+   *   所以那一行「兩天合計 N 輛」整個拿掉；規則翻成**畫面上不可以再出現
+   *   兩天相加的數字**。反面：把那一行加回來 → 這一條紅。
+   */
+  assert.doesNotMatch(
+    flat,
+    /兩天合計 \{formatter\.format\(compositionTotals\.total\)\}/,
+    "F-30：車種組成不可以再印「兩天合計 N 輛」——平日與假日相加沒有應用意義",
+  );
+  assert.doesNotMatch(
+    source,
+    /const modes: CompositionMode\[\] = \["平日", "假日", "平日＋假日"\]/,
+    "F-30：匯出的車種組成明細不可以再有「平日＋假日」合計列",
+  );
   assert.match(
     source,
-    /輛・平假日兩天合計/,
-    "車種組成面板的兩天合計要用專屬字樣標明，不可以省略單位",
+    /const compositionByDay = useMemo/,
+    "「平日＋假日」要拆成兩份逐日資料，不可以只畫一個合併的圓環",
+  );
+  assert.match(
+    source,
+    /const compositionDayNotes = useMemo/,
+    "兩個圓環的說明文字也要逐日各算一份，否則圖畫兩天、文字講合併值",
   );
 
   /* 兩條匯出路徑仍然要共用同一套單位函式，不可以各寫一份 */
@@ -129,13 +203,47 @@ test("「平日＋假日」不得把兩天相加成一列", () => {
     /const dailyTotals = useMemo[\s\S]*?row\.dayType[\s\S]*?dayType: row\.dayType/,
     "KPI 的平假日數值要依每列自己的日別分組",
   );
-  assert.match(
-    source,
-    /const projectComparisons = useMemo\([\s\S]*?\.flatMap\([\s\S]*?r\.dayType === selectedDay/,
-    "跨計畫比較在平日＋假日模式也必須分日產生列",
-  );
+  /*
+   * ⚠️ 這裡原本還有一條「跨計畫比較在平日＋假日模式也必須分日產生列」。
+   *
+   * 跨計畫比較已於 v20.64 整個移除（使用者 2026-09-09 授權：
+   * 「只保留交通服務水準跨計畫比較的功能，全日交通量及路口轉向程式
+   *   移除跨計畫比較的功能」）。
+   *
+   * 那一條不是刪掉就算，而是**翻面**：改成守「這個功能真的不見了」，
+   * 否則日後有人把它加回來，這一整組單位守門完全不會有反應。
+   */
+  /*
+   * ⚠️ 只能查**程式碼**，不可以連註解一起查。
+   * 移除的說明本身就會寫「跨計畫比較已移除」，把註解算進去的話這一條
+   * 永遠是紅的——那不是守門，是自己絆自己。
+   */
+  const codeOnly = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "");
+  for (const gone of [
+    "projectComparisons",
+    "compareIds",
+    "setCompareIds",
+    "buildCrossProjectTrend",
+    "buildCrossProjectScript",
+    "CrossProjectTrendChart",
+    "crossTrend",
+    "跨計畫",
+  ])
+    assert.equal(
+      codeOnly.includes(gone),
+      false,
+      `跨計畫比較已於 v20.64 移除，程式碼裡不可以再出現「${gone}」`,
+    );
+  /*
+   * ⚠️ 這個門檻 v20.64 從 7 降到 5：跨計畫比較移除後，
+   * 它自己的兩處呼叫（面板長條與 Excel 工作表）跟著消失。
+   * 降門檻是**跟著功能少掉的實數走**，不是為了讓測試變綠而放寬——
+   * 現況剛好 5 處，寫 5 才會在有人少寫一處時立刻紅。
+   */
   assert.ok(
-    (source.match(/dayQualifiedLabel\(/g) ?? []).length >= 7,
+    (source.match(/dayQualifiedLabel\(/g) ?? []).length >= 5,
     "畫面與可編輯 Excel 的分類標籤要帶日別，避免兩天同名而無法辨識",
   );
 });
@@ -176,7 +284,12 @@ test("舊版 .xls 的平假日比較要有中文欄名、單位與完整欄位",
     /add\("current", dayComparisons, "平假日比較"\)/,
     "不可以把狀態物件直接丟給 json_to_sheet",
   );
-  const block = blockFrom("const dayComparisonRows = dayComparisons.map", "add(\"current\", dayComparisonRows");
+  /*
+   * ⚠️ 2026-09-16 起匯出讀的是 dayComparisonsMain（主工具列那一份）——
+   *   使用者的規則是「交出去的文件一律吃主工具列」，而畫面上那一塊可以脫離。
+   *   錨點跟著改，守的東西一個都沒變。
+   */
+  const block = blockFrom("const dayComparisonRows = dayComparisonsMain.map", "add(\"current\", dayComparisonRows");
   for (const key of ["調查點編號", "調查點名稱", "平日實際量", "假日實際量",
                      "平日PCU", "假日PCU", "平假日差", "假日相較平日"])
     assert.ok(block.includes(key), `.xls 的平假日比較少了「${key}」欄`);
@@ -199,7 +312,11 @@ test("沒做過的日別要與「做了但量是 0」分開", () => {
   assert.match(type, /weekdaySurveyed: boolean/);
   assert.match(type, /holidaySurveyed: boolean/);
 
-  const memo = blockFrom("const dayComparisons = useMemo(", "const trendRows");
+  /*
+   * ⚠️ 2026-09-16 起這一段收成 dayComparisonsFor(own)（一份算式，
+   *   畫面與匯出各傳自己那一組條件進去）。錨點跟著改。
+   */
+  const memo = blockFrom("const dayComparisonsFor = useCallback(", "const roadOptions");
   assert.match(memo, /x\.weekdaySurveyed = true/);
   assert.match(memo, /x\.holidaySurveyed = true/);
 
@@ -218,17 +335,23 @@ test("沒做過的日別要與「做了但量是 0」分開", () => {
 
 /* ── M8／L1：寫死的單位 ── */
 
-test("跨計畫比較與同季平假日面板的單位不可寫死", () => {
+test("同季平假日面板的單位不可寫死", () => {
   /* 只看真正的字串常值，註解裡提到這個舊字串是正常的。 */
   assert.doesNotMatch(
     source,
     /(name|\s):\s*"實際交通量（輛\/調查日）"/,
-    "跨計畫比較的單位寫死了，旁邊的 PCU 欄卻是依調查涵蓋算的",
+    "實際交通量的單位寫死了，旁邊的 PCU 欄卻是依調查涵蓋算的",
   );
-  assert.equal(
-    (source.match(/`實際交通量（\$\{sheetActualUnit\}）`/g) ?? []).length,
-    3,
-    "工作表標題與兩張原生圖表的系列名稱都要用同一個單位",
+  /*
+   * ⚠️ v20.64：原本要求 `實際交通量（${sheetActualUnit}）` 出現 3 次
+   *（跨計畫工作表標題＋兩張原生圖表的系列名）。跨計畫比較移除後
+   * 那三處全數消失，這一條**不是放寬，是它守的東西不存在了**。
+   * 直接刪掉會讓「單位一致」這件事失去守門，所以改成守剩下的路徑：
+   * sheetActualUnit 必須真的被用在工作表欄名上，不可以有人改回寫死。
+   */
+  assert.ok(
+    (source.match(/\$\{sheetActualUnit\}/g) ?? []).length >= 2,
+    "工作表欄名要用 sheetActualUnit，不可以把單位寫死",
   );
   assert.doesNotMatch(
     source,
@@ -274,8 +397,27 @@ test("兩個調查點同名時匯出的下拉與 SUMIFS 不可重複計算", () 
    *（同一條路分段調查時本來就可能同名），所以只在真的重複時補上編號。
    */
   const block = blockFrom("const roadExportLabels = useMemo(", "}, [roadOptions]);");
-  assert.match(block, /count\.get\(roadName\) \?\? 0\) > 1/, "只在名稱重複時才加註");
+  /*
+   * ⚠️ 2026-09-11：計數的鍵改成 roadNameMatchKey(roadName)，不再用原字串。
+   *
+   * 名稱有兩種來源（檔名剝出來的、路段管理改過的），兩邊只保證去過**頭尾**
+   * 空白。「中山 路」與「中山路」在畫面上幾乎看不出差別，用原字串計數的話
+   * 兩個各算 1、誰都不補編號——匯出選單裡就出現兩個分不出來的同名項目，
+   * 正是這一條本來要防的事。
+   * 姊妹系統（路口轉向）同一天因為「路口 A」vs「路口A」踩到同一類問題。
+   */
+  assert.match(
+    block,
+    /count\.get\(roadNameMatchKey\(roadName\)\) \?\? 0\) > 1/,
+    "只在名稱重複時才加註，而且比對前要先正規化",
+  );
   assert.match(block, /`\$\{roadName\}（\$\{roadId\}）`/);
+  /* 反面：不可以退回用原字串當鍵 */
+  assert.doesNotMatch(
+    block,
+    /count\.set\(name,/,
+    "計數的鍵不可以是原始名稱（空格差異會讓同名的兩個各算一次）",
+  );
   /* 下拉清單與 SUMIFS 的輔助列必須用同一組標籤，否則會對不到 */
   assert.match(source, /roadExportLabels\.get\(roadId\) \?\? name/);
   assert.match(source, /roadExportLabels\.get\(roadId\) \?\? roadName/);
@@ -400,9 +542,32 @@ test("periodDisplayLabel 的月份寫法也跟著年份切換，不傳就維持�
 test("切換鈕存在，而且季度選單的值一律是儲存值", () => {
   assert.match(source, /data-testid="year-style-toggle"/, "要有年份顯示切換鈕");
   assert.match(source, /useState<YearStyle>\("roc"\)/, "預設是民國年");
+  /*
+   * ⚠️ 這一條在 v20.68 就過期了，但一直到 v20.70 才被發現——
+   *   v20.68 把 showQuarter 改成**同時**套兩層（期別寫法 ＋ 年份寫法），
+   *   這裡卻還寫著舊的單層形狀，於是 v20.68、v20.69 兩版交出去時
+   *   這支單元測試是紅的。守門本身過期，比沒有守門更糟：
+   *   它會讓人以為那件事還被看著。
+   *
+   * 現在改成驗**兩層都在**：
+   *   ・期別層：先查 quarterLabels.labels（季別／調查月份）
+   *   ・年份層：查不到時退回 quarterInYearStyle（民國／西元）
+   */
   assert.match(
     source,
-    /const showQuarter = \(value: string\) => quarterInYearStyle\(value, yearStyle\)/,
+    /*
+     * ⚠️ v20.74 起 showQuarter 包進了 useCallback（applyMainToConclusion
+     *   依賴它，不包的話那個 useCallback 的相依每次 render 都變）。
+     *   守門要守的是**兩層都在**，不是它有沒有包 useCallback——
+     *   寫死外層寫法只會逼人把它拆回去，然後 lint 又要求貼 eslint-disable。
+     */
+    /quarterLabels\.labels\[value\] \?\? quarterInYearStyle\(value, yearStyle\)/,
+    "showQuarter 必須同時套上期別寫法與年份寫法兩層",
+  );
+  assert.doesNotMatch(
+    source,
+    /const showQuarter = \(value: string\) => quarterInYearStyle\(value, yearStyle\);/,
+    "showQuarter 又退回成只換年份——期別切換會變成假的",
   );
   /*
    * <option> 的 value 一定要是儲存的季度。文字換成西元年、值也跟著換的話，
@@ -619,5 +784,37 @@ test("行為契約檔本身必須與另外兩支逐位元相同", async () => {
     createHash("sha256").update(bytes).digest("hex"),
     "638f2b48ed3d7e24e7c605314eb2149f3cc5c07865f69a99d8c767a52945fe75",
     "行為契約檔與另外兩支不同步；三支必須是同一份檔案",
+  );
+});
+
+test("⚠️ 稽核表 G：Excel「每小時趨勢」要逐調查點分列，而且有調查點欄", () => {
+  /*
+   * 《加總與並列稽核》第三節 G：舊版把篩選範圍內的**全部調查點**同一小時
+   * 相加寫成一格，而表頭只有「時段／實際交通量／當量交通量」三欄——
+   * 收到這份 Excel 的人根本看不出那是幾個點的合計。
+   * 使用者 2026-09-16 已裁示：不同調查點的交通量不可以相加，一律逐點分列。
+   *
+   * ⚠️ 這一條用原始碼掃描，不是跑瀏覽器：那張表在 ExcelJS 的位元組裡，
+   *   端對端要解 zip 才驗得到，而真正會回歸的是「有沒有人把那一維又拿掉」。
+   *   所以釘的是三件具體的事，任何一件被改掉都會紅：
+   *     ① 資料列真的依調查點展開（hourlyExportPoints.flatMap）
+   *     ② 篩選條件真的帶了調查點（!pointId || r.roadId === pointId）
+   *     ③ 表頭真的有「調查點」那一欄
+   *   ⚠️ 只驗③的話，一個「加了欄位但每一列都填同一個名字」的實作也會全綠。
+   */
+  assert.match(
+    flat,
+    /hourlyExportPoints\.flatMap\(\(\[pointId, pointName\]\) =>/,
+    "每小時趨勢的資料列要依調查點展開",
+  );
+  assert.match(
+    flat,
+    /\(!pointId \|\| r\.roadId === pointId\) &&/,
+    "每一列要真的只挑那一個調查點的紀錄（不然欄位是裝飾）",
+  );
+  assert.match(
+    flat,
+    /hourlySheet\.addRow\(\[ "時段", "調查點",/,
+    "Excel 的「每小時趨勢」表頭要有調查點欄",
   );
 });

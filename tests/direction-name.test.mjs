@@ -3,6 +3,8 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import {
   DIRECTION_PLACEHOLDER,
+  isRealArmName,
+  typedNameKey,
   isRealDirectionName,
   pickDirectionName,
 } from "../app/road-identity.ts";
@@ -33,6 +35,8 @@ function sourceWithoutComments(relativePath) {
 
 const dashboard = sourceWithoutComments("../app/DashboardClient.tsx");
 const appFetch = sourceWithoutComments("../app/app-fetch.ts");
+/* 線上版的路段 API——「離線與線上一致」這件事要兩邊都讀才驗得到。 */
+const roadsRoute = sourceWithoutComments("../app/api/roads/route.ts");
 
 test("佔位值「方向A／方向B」不算使用者取過的名字", () => {
   assert.equal(isRealDirectionName("方向A", "A"), false);
@@ -150,12 +154,45 @@ test("離線 API 的方向名稱預設值與線上版一致", () => {
     "離線 API 仍用 ?? 補預設值，空字串會被寫進 directionName",
   );
   assert.doesNotMatch(appFetch, /body\.directionB \?\? "方向B"/);
-  // 線上版是 clean(v) = String(v ?? "").normalize("NFKC").trim() 再 `|| 預設值`。
-  // 只補 `||` 而不補 NFKC 仍然不算對齊：全形字在兩邊會存成不同的字串。
-  assert.match(appFetch, /const clean = \(value: unknown\) => String\(value \?\? ""\)\.normalize\("NFKC"\)\.trim\(\);/);
-  assert.match(appFetch, /directionA = clean\(body\.directionA\) \|\| "方向A"/);
-  assert.match(appFetch, /directionB = clean\(body\.directionB\) \|\| "方向B"/);
-  assert.match(appFetch, /targetRoadName = clean\(body\.targetRoadName\)/);
+  /*
+   * ⚠️ 2026-09-12 起「使用者打的名字」兩邊都用 cleanLabel()＝只去頭尾空白，
+   *   **不做 NFKC**。
+   *
+   * 為什麼改：NFKC 會把全形括號「（）」換成半形「()」。實測輸入
+   * 「中山路（改名後）」，存進去變成「中山路(改名後)」——使用者看得出來
+   * 自己打的字被改掉了。依專案定過的分界（使用者原話）：
+   * 「空格看不出來要吸收（排版雜訊），大小寫看得出來不吸收（內容）」，
+   * 全半形括號屬於看得出來的內容。
+   *
+   * ⚠️ 比對完全不受影響：別名鍵與路段比對走 roadNameMatchKey()，
+   *   那一支自己就做 NFKC。這是「顯示保留原樣、比對才正規化」。
+   *
+   * 這一條要守的**不變量沒有變**：離線版與線上版對同一個輸入要存成同一個字串。
+   */
+  const cleanLabelDef = /const cleanLabel = \(value: unknown\) => String\(value \?\? ""\)\.trim\(\);/;
+  assert.match(appFetch, cleanLabelDef, "離線版沒有 cleanLabel()");
+  assert.match(roadsRoute, cleanLabelDef, "線上版沒有 cleanLabel()");
+  assert.match(appFetch, /directionA = cleanLabel\(body\.directionA\) \|\| "方向A"/);
+  assert.match(appFetch, /directionB = cleanLabel\(body\.directionB\) \|\| "方向B"/);
+  assert.match(appFetch, /targetRoadName = cleanLabel\(body\.targetRoadName\)/);
+  assert.match(roadsRoute, /roadName = cleanLabel\(body\.roadName\)/);
+  assert.match(roadsRoute, /targetRoadName = cleanLabel\(body\.targetRoadName\)/);
+  /* 反面：名稱欄位不可以再走 NFKC。 */
+  for (const [label, source] of [
+    ["離線版", appFetch],
+    ["線上版", roadsRoute],
+  ]) {
+    assert.doesNotMatch(
+      source,
+      /roadName = clean\(/,
+      `${label}的路段名稱還在做 NFKC，使用者打的全形括號會被換成半形`,
+    );
+    assert.doesNotMatch(
+      source,
+      /aliasName = String\(body\.aliasName \?\? ""\)\.normalize\("NFKC"\)/,
+      `${label}的別名名稱還在做 NFKC`,
+    );
+  }
 });
 
 test("離線 API 改名／合併路口時不會蓋掉支線名稱", () => {
@@ -182,4 +219,62 @@ test("離線 API 改名／合併路口時不會蓋掉支線名稱", () => {
     2,
     "rename 與 merge 兩條路徑都要走 renamedDirection",
   );
+});
+
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  路口支線名稱：中間的空格也要被吸收
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 姊妹系統（路口轉向）2026-09-11 實測到的坑：自動命名產生的是
+ * `"路口 " + code`（「路口」與代碼之間有半形空格），使用者手打的是
+ * 「路口A」。兩者看起來一模一樣，字串卻不相等。
+ *
+ * 本系統的症狀比較輕（分組走的是 directionCode，數字不受影響），
+ * 但方向標籤會變成「駛出路口A（路口 A）」——括號裡重複一次同一個名字。
+ *
+ * ⚠️ 只做 trim() 沒有用：問題出在**字串中間**的空格。
+ */
+test("isRealArmName：看起來等於佔位值的名字，一律不算「取過名字」", () => {
+  for (const value of ["路口A", "路口 A", "路口　A", " 路口A ", "路口Ａ"])
+    assert.equal(
+      isRealArmName(value, "A"),
+      false,
+      `「${value}」看起來就是佔位值，不可以被當成使用者取的名字`,
+    );
+  /* 反面：真的取過名字要認得出來，不可以連這種也擋掉 */
+  for (const value of ["神農路口", "岡山北路北側", "路口A側道"])
+    assert.equal(isRealArmName(value, "A"), true, `「${value}」是真的名字`);
+  /* 空值 */
+  assert.equal(isRealArmName("", "A"), false);
+  assert.equal(isRealArmName(undefined, "A"), false);
+  /* 不同代碼互不干擾 */
+  assert.equal(isRealArmName("路口 B", "B"), false);
+  assert.equal(isRealArmName("路口 B", "A"), true);
+});
+
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  使用者自己打的名稱：吸收排版差異，不吸收內容差異
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-11 定的分界：
+ *   ・空格與全半形 ＝ **排版雜訊**（他自己看不出差別）→ 要吸收
+ *   ・大小寫 ＝ **內容**（看得出來）→ 不吸收
+ *     「我建議是判定是不同，因為這不是比對前『正規化』的意思。」
+ *
+ * ⚠️ 這一則同時擋兩個方向：正規化**不足**（空格沒吸收）與正規化**過頭**
+ *   （把不同的名字併在一起）。只驗其中一邊都是不完整的。
+ */
+test("typedNameKey：吸收排版差異，不吸收大小寫", () => {
+  assert.equal(typedNameKey("季報用"), typedNameKey("季報 用"), "中間的半形空格要吸收");
+  assert.equal(typedNameKey("季報用"), typedNameKey("季報　用"), "全形空格要吸收");
+  assert.equal(typedNameKey("季報用"), typedNameKey(" 季報用 "), "頭尾空白要吸收");
+  assert.equal(typedNameKey("路口A"), typedNameKey("路口Ａ"), "全形 Ａ 要收斂成半形");
+  assert.notEqual(typedNameKey("路口A"), typedNameKey("路口a"), "大小寫算不同");
+  assert.notEqual(typedNameKey("季報用"), typedNameKey("月報用"), "不同的名字當然不同");
+  assert.equal(typedNameKey(""), "");
+  assert.equal(typedNameKey(undefined), "");
 });

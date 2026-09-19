@@ -58,7 +58,7 @@ test("上午尖峰只看12點前、下午尖峰只看12點後，且以PCU判定"
       roadRow("08:00～09:00", "A", { motorcycle: 400, small: 100 }), // PCU 300
       roadRow("09:00～10:00", "A", { motorcycle: 100, small: 300 }), // PCU 350 ← 上午尖峰
       roadRow("13:00～14:00", "A", { motorcycle: 100, small: 100 }), // PCU 150
-      roadRow("18:00～19:00", "A", { motorcycle: 200, small: 500 }), // PCU 600 ← 下午＋全日尖峰
+      roadRow("18:00～19:00", "A", { motorcycle: 200, small: 500 }), // PCU 600 ← 下午＋全調查時段尖峰
     ],
     { factors },
   );
@@ -228,14 +228,54 @@ test("沒有上午資料時上午尖峰為空白而不是誤抓下午", () => {
   assert.equal(all.periods.pm.hour, "15:00～16:00");
 });
 
-test("平日＋假日模式下平日與假日各自成一個時段", () => {
+/*
+ * ⚠️ 這一條 2026-09-16 **反轉**了（X-18）。
+ *
+ * 舊版斷言的是「兩天併成一列」的結果：
+ *   ・all.periods.am.pcu === 400  → 在兩天的格子裡挑最大的那一個
+ *     （看起來像**只顯示假日**）
+ *   ・all.periods.all.pcu === 500 → 把兩天**加起來**
+ *     （得到一個不存在的「日交通量」）
+ * 使用者 2026-09-16 實測回報的就是這兩個症狀：
+ *   「這張表僅有在平日+假日條件下，變成了數字加總或僅顯示某一天做為替代」。
+ *
+ * 專案通則（檢查規則.md「A＋B 一律並列」）：平日＋假日要**一天一列**。
+ * ⚠️ 不可以把這一條改回去：改回去就是把使用者回報的那個錯又寫成規格。
+ */
+test("平日＋假日：一天一列，各自算自己的尖峰與全調查時段", () => {
   const weekday = roadRow("08:00～09:00", "A", { small: 100 });
   const holiday = { ...roadRow("08:00～09:00", "A", { small: 400 }), dayType: "假日" };
   const rows = buildPeriodRows([weekday, holiday], { factors, separateDays: true });
-  const all = rows.find((row) => row.scopeCode === "ALL");
-  assert.equal(all.periods.am.hour, "假日 08:00～09:00");
-  assert.equal(all.periods.am.pcu, 400);
-  assert.equal(all.periods.all.pcu, 500);
+  const allRows = rows.filter((row) => row.scopeCode === "ALL");
+  assert.equal(allRows.length, 2, "平日與假日要各成一列");
+  const weekdayRow = allRows.find((row) => row.dayType === "平日");
+  const holidayRow = allRows.find((row) => row.dayType === "假日");
+  assert.ok(weekdayRow && holidayRow, "兩列都要帶著自己的日別");
+  /* 各自算自己的：不加總、也不互相取代。 */
+  assert.equal(weekdayRow.periods.am.pcu, 100);
+  assert.equal(weekdayRow.periods.all.pcu, 100);
+  assert.equal(holidayRow.periods.am.pcu, 400);
+  assert.equal(holidayRow.periods.all.pcu, 400);
+  /* 時段標籤仍要寫出是哪一天（同一張表上兩列的標籤不可以一模一樣）。 */
+  assert.equal(weekdayRow.periods.am.hour, "平日 08:00～09:00");
+  assert.equal(holidayRow.periods.am.hour, "假日 08:00～09:00");
+});
+
+/* 單一日別時**一個數字都不可以動**（升級當天的差異只能出現在平日＋假日）。 */
+test("單一日別：行為與升級前逐格相同（一列、不帶日別）", () => {
+  const rows = buildPeriodRows(
+    [
+      roadRow("08:00～09:00", "A", { small: 100 }),
+      roadRow("18:00～19:00", "A", { small: 300 }),
+    ],
+    { factors },
+  );
+  const allRows = rows.filter((row) => row.scopeCode === "ALL");
+  assert.equal(allRows.length, 1);
+  assert.equal(allRows[0].dayType, undefined);
+  assert.equal(allRows[0].periods.all.pcu, 400);
+  assert.equal(allRows[0].periods.am.pcu, 100);
+  assert.equal(allRows[0].periods.pm.pcu, 300);
 });
 
 test("匯出結構依勾選的時段／方向／指標動態產生", () => {

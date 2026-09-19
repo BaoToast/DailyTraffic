@@ -6,6 +6,7 @@ import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
 import { launchOptions } from "./chrome-path.mjs";
+import { TABS, gotoTab, gotoBlock, ensureToolbarOpen } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -50,6 +51,9 @@ page.on("response", (r) => { if (r.status() === 404) console.log("   （404）",
 page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "N" : ""));
 
 await page.goto("http://localhost:8099/");
+/* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+await page.waitForTimeout(1200);
+await ensureToolbarOpen(page);
 await page.waitForTimeout(800);
 
 // ── 建立計畫 ───────────────────────────────────────────────
@@ -104,21 +108,47 @@ ok("匯入不再逐一詢問新車種當量，並提示新車種預設值為1",
   toasts.map((t) => t.replace(/\n/g, " ").slice(0, 80)).join(" ／ "));
 
 // ── 需求4：新車種當量預設 1 ────────────────────────────────
+/*
+ * ⚠️ v20.64 起五個分區是**真的分頁**，別頁的元素不在 DOM 裡。
+ * 碰某一頁的東西之前一定要先切過去，否則 locator 會等到逾時，
+ * 而錯誤訊息只寫「找不到元素」，看不出真正的原因是「你在別頁」。
+ */
+await gotoTab(page, TABS.settings);
 await page.locator('button:has-text("車種分類與新增當量")').first().click();
 await page.waitForTimeout(500);
 const vehicleRows = await page.locator(".vehicle-class-table tbody tr").evaluateAll((rows) =>
   rows.map((row) => ({
     label: row.querySelector("strong")?.textContent?.trim(),
-    kind: row.querySelector("small")?.textContent?.trim(),
+    /*
+     * ⚠️ 這裡原本只讀 <small>。v20.71 起「新增車種」改成彩色徽章
+     * （<span class="vehicle-badge-new">，文字也變成「新增車種・請確認歸類」），
+     *   於是新車種那幾列讀出來是 undefined，測試紅字——但行為完全正確，
+     *   三個新車種確實都在、當量也確實都是 1。
+     *   又一次「守門測試鎖住實作長相」。改成兩種標記都認，
+     *   並且下面用 startsWith 比對，文案再加字也不會再紅。
+     */
+    kind: (
+      row.querySelector(".vehicle-badge-new") || row.querySelector("small")
+    )?.textContent?.trim(),
     values: [...row.querySelectorAll("input")].map((i) => ({ v: i.value, disabled: i.disabled })),
   })),
 );
 console.log("   車種列：", JSON.stringify(vehicleRows.map((r) => [r.label, r.values.map((v) => v.v).join("/")])));
-const newVehicles = vehicleRows.filter((r) => r.kind === "新增車種");
+const newVehicles = vehicleRows.filter((r) => (r.kind || "").startsWith("新增車種"));
 ok("偵測到 3 個新車種（大貨車／聯結車／大客車）", newVehicles.length === 3, newVehicles.map((r) => r.label).join("、"));
 ok("新車種一般/直行/右轉/左轉PCU全部預設為1",
   newVehicles.every((r) => r.values.every((v) => Number(v.v) === 1 && !v.disabled)));
-const coreRows = vehicleRows.filter((r) => r.kind === "原四大類");
+/*
+ * 前置：每一列都要讀得到標記。
+ * 沒有這一項的話，哪天標記的長相又換了，兩個 filter 會同時變成空陣列，
+ * 而「原四大類」那一則是 `every(...)`——空陣列 every 恆真，會安靜地變綠。
+ */
+ok(
+  "前置：每一列都讀得到「原四大類／新增車種」標記",
+  vehicleRows.length > 0 && vehicleRows.every((r) => Boolean(r.kind)),
+  vehicleRows.map((r) => `${r.label}=${r.kind ?? "（讀不到）"}`).join("、"),
+);
+const coreRows = vehicleRows.filter((r) => (r.kind || "").startsWith("原四大類"));
 ok("原四大類欄位維持鎖定不可編輯", coreRows.length > 0 && coreRows.every((r) => r.values.every((v) => v.disabled)));
 const motorcycleBefore = coreRows.find((r) => r.label === "機車");
 ok("修改前機車一般PCU顯示 0.5", Number(motorcycleBefore?.values[0].v) === 0.5, String(motorcycleBefore?.values[0].v));
@@ -155,6 +185,7 @@ await page.locator('.vehicle-class-modal button:has-text("取消")').first().cli
 await page.waitForTimeout(300);
 
 // ── 需求1 & 3：獨立的時段車種分析面板 ───────────────────────
+await gotoBlock(page, "periodAnalysis");
 await page.locator("#periodAnalysis").scrollIntoViewIfNeeded();
 await page.waitForTimeout(400);
 const panelExists = await page.locator("#periodAnalysis").count();
@@ -166,7 +197,7 @@ const readTable = () =>
   );
 const allPeriods = await readTable();
 const periodsSeen = [...new Set(allPeriods.map((r) => r[2].split("｜")[0]))];
-ok("四種時段全部呈現", ["全日時段", "全日尖峰小時", "上午尖峰小時", "下午尖峰小時"].every((p) => periodsSeen.includes(p)), periodsSeen.join("、"));
+ok("四種時段全部呈現", ["全調查時段", "全調查時段尖峰", "上午尖峰小時", "下午尖峰小時"].every((p) => periodsSeen.includes(p)), periodsSeen.join("、"));
 const scopesSeen = [...new Set(allPeriods.map((r) => r[1]))];
 ok("路口四個支線與路段兩個方向都各自成列",
   ["駛出路口A", "駛出路口B", "駛出路口C", "駛出路口D", "方向A", "方向B", "雙向合計", "全部支線合計"].every((name) => scopesSeen.includes(name)),
@@ -268,7 +299,8 @@ const flowSelect = page.locator('.filters label:has-text("路口流量視角") s
 if (await flowSelect.count()) {
   await flowSelect.selectOption("destination");
   await page.waitForTimeout(800);
-  await page.locator("#periodAnalysis").scrollIntoViewIfNeeded();
+  await gotoBlock(page, "periodAnalysis");
+await page.locator("#periodAnalysis").scrollIntoViewIfNeeded();
   const destinationScopes = [...new Set((await readTable()).map((r) => r[1]))];
   ok("切換到駛入路口視角後，時段分析改以駛入支線呈現",
     destinationScopes.some((t) => t.includes("駛入")) || destinationScopes.some((t) => t.includes("未指定駛入")),
@@ -283,11 +315,12 @@ if (await flowSelect.count()) {
 await page.locator('#periodAnalysis button:has-text("設定匯出項目")').click();
 await page.waitForTimeout(500);
 // 取消全部既有區塊，只留時段分析；時段只留上午/下午尖峰；數值只留車輛數與百分比
-for (const label of ["本季交通量、PCU與平假日比較", "歷季全日量與趨勢", "車種組成與歷季比例", "每小時實際量與PCU", "跨計畫比較", "PCU、車種與路口設定", "來源追溯、品質與版本紀錄", "9張可編輯原生圖表"]) {
+/* ⚠️ v20.64 少了「跨計畫比較」（功能已移除），原生圖表從 9 張變 8 張。 */
+for (const label of ["本季交通量、PCU與平假日比較", "歷季全日量與趨勢", "車種組成與歷季比例", "每小時實際量與PCU", "PCU、車種與路口設定", "來源追溯、品質與版本紀錄", "7張可編輯原生圖表"]) {
   const box = page.locator(".export-checks .check-row", { hasText: label }).locator("input");
   if (await box.isChecked()) await box.uncheck();
 }
-for (const chip of ["全日時段", "全日尖峰小時"]) {
+for (const chip of ["全調查時段", "全調查時段尖峰"]) {
   const btn = page.locator(".export-period-box .chip-toggle", { hasText: new RegExp(`^${chip}$`) }).first();
   if ((await btn.getAttribute("class")).includes("selected")) await btn.click();
 }
@@ -342,7 +375,7 @@ const restored = await page.locator(".export-period-box .chip-toggle").evaluateA
 );
 ok("套用範本後勾選完整還原",
   restored.includes("上午尖峰小時") && restored.includes("下午尖峰小時") &&
-    !restored.includes("全日時段") && !restored.some((t) => t.includes("交通流量")),
+    !restored.includes("全調查時段") && !restored.some((t) => t.includes("交通流量")),
   restored.join("、"));
 await page.locator('.modal-backdrop button:text-is("取消")').first().click();
 
@@ -351,25 +384,26 @@ await page.waitForTimeout(500);
 await page.locator(".modal-backdrop .modal").first().screenshot({ path: "/tmp/export-center.png" });
 await page.locator('.modal-backdrop button:text-is("取消")').first().click();
 await page.waitForTimeout(300);
+await gotoBlock(page, "periodAnalysis");
 await page.locator("#periodAnalysis").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator("#periodAnalysis").screenshot({ path: "/tmp/period-panel.png" });
+await gotoTab(page, TABS.settings);
 await page.locator(".pcu-settings").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator(".pcu-settings").screenshot({ path: "/tmp/pcu.png" });
 /*
- * v20.62 起「路段排名」依使用者的意思**預設收合**（他說幾乎用不到，
- * 但移除是不可逆的）。收合狀態下 .panel.road-chart 量不到尺寸，
- * 所以截圖前要先把它展開；圖表區的容器也從 .chart-grid 換成 .chart-stack。
+ * ⚠️ v20.64 移除了「路段排名」（使用者 2026-09-09 明確指名），
+ * 所以這裡不再展開 .collapsed-panel、也不再截 .panel.road-chart。
+ * 圖表區的容器是 .chart-stack，在「圖表」分頁上。
  */
-await page.locator(".collapsed-panel > summary").first().click();
-await page.waitForTimeout(400);
-await page.locator(".panel.road-chart").scrollIntoViewIfNeeded();
-await page.waitForTimeout(300);
-await page.locator(".panel.road-chart").screenshot({ path: "/tmp/block.png" });
+/* ⚠️ X-63：.chart-stack 在四張圖那幾個大分頁上，不在時段車種分析頁。 */
+await gotoBlock(page, "block-composition");
 await page.locator(".chart-stack").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator(".chart-stack").screenshot({ path: "/tmp/grid.png" });
+/* ⚠️ X-63：.panel.table-panel 是「可追溯明細」那一塊，自己一個大分頁。 */
+await gotoBlock(page, "block-detail");
 await page.locator(".panel.table-panel").first().scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.locator(".panel.table-panel").first().screenshot({ path: "/tmp/table.png" });
@@ -386,6 +420,7 @@ const periodBody = async () =>
       [...tr.querySelectorAll("td")].slice(0, 3).map((td) => td.textContent.trim()),
     ),
   );
+await gotoBlock(page, "periodAnalysis");
 await page.locator("#periodAnalysis").scrollIntoViewIfNeeded();
 await page.locator("#periodViewSelect").selectOption("ALL");
 await page.locator("#periodFlowViewSelect").selectOption("both");
@@ -406,53 +441,115 @@ const amKeys = amRows.map((r) => r.join("|"));
 ok("切換後沒有重複的列", new Set(amKeys).size === amKeys.length,
   `${amKeys.length} 列、去重後 ${new Set(amKeys).size} 列`);
 
-await page.locator("#periodFlowViewSelect").selectOption("follow");
+/*
+ * ⚠️ 這裡原本選的是「follow（跟隨上方工具列）」——那個選項 **v20.75 起
+ *   已經移除**，因為它和三態的「沒動過就是跟著走」重複。
+ *
+ * 使用者 2026-09-15：「我使用該表單自己的工具列，選擇路口流量視角為
+ *   『駛出路口』時，並未跳出回歸上方工具列的按鈕」——成因正是這一顆
+ *   當時不走三態。現在四顆全部走同一套，回歸的方式是**按那一顆按鈕**。
+ *
+ * 順便在這裡驗 J-2：動了這一區自己的條件之後，
+ * 「回到主工具列條件」那一顆**必須**浮現。
+ */
+const detachReset = page
+  .locator('#periodAnalysis [data-testid="chart-detach-reset"]')
+  .first();
+ok(
+  "⚠️ 動了這一區自己的條件之後，浮現「回到主工具列條件」",
+  (await detachReset.count()) > 0,
+  `${await detachReset.count()} 顆`,
+);
+ok(
+  "⚠️ 主工具列同時出現「回歸全部」",
+  (await page.locator('[data-testid="mt-reset-all"]').count()) > 0,
+);
+if (await detachReset.count()) await detachReset.click();
+await page.waitForTimeout(500);
 await page.locator("#periodViewSelect").selectOption("ALL");
 await page.waitForTimeout(600);
 
 // ── 每個分析區塊都要有自己的篩選列 ───────────────────────────────
+/*
+ * ⚠️ v20.64：路段排名與跨計畫比較兩個面板已移除（使用者分別指名），
+ * 這裡少兩列不是放寬檢查，是那兩個面板不存在了。
+ * 剩下三個要各自在自己的分頁上檢查——換頁之後別頁的面板不在 DOM 裡。
+ */
+/* ⚠️ X-63：這三塊現在各自一個大分頁，所以改成指名那一塊的錨點。 */
 const blockChecks = [
-  [".panel.road-chart", "路段排名"],
-  [".panel.hourly", "每小時趨勢"],
-  [".panel.comparison-panel", "平假日比較"],
-  [".panel.project-compare", "跨計畫比較"],
-  [".panel.table-panel", "明細表"],
+  ["block-hourly", ".panel.hourly", "每小時趨勢"],
+  ["block-comparison", ".panel.comparison-panel", "平假日比較"],
+  ["block-detail", ".panel.table-panel", "明細表"],
 ];
-for (const [selector, label] of blockChecks) {
+for (const [anchor, selector, label] of blockChecks) {
+  await gotoBlock(page, anchor);
   const count = await page.locator(`${selector} .block-filters`).count();
   ok(`「${label}」區塊有自己的篩選列`, count >= 1, `${count} 個`);
 }
-// 在區塊內改季度，最上方要同步（同一組狀態）
-const topQuarter = page.locator(".filters select").first();
-const blockQuarter = page.locator(".panel.road-chart .block-filters select").first();
+/*
+ * ⚠️ v20.74 起這一段驗的規則**變了**，不是守門寫壞。
+ *
+ *   舊規則：區塊與最上方共用同一組狀態，在哪邊改都一樣（雙向同步）。
+ *   新規則（使用者 2026-09-14「圖自己的篩選只影響自己，不會影響到其他圖表」）：
+ *     ① 沒動過 → 區塊顯示的就是主工具列的值，主工具列一改它就跟著變（鏡子）
+ *     ② 動了   → **只有那一塊**脫離，主工具列與別塊都不可以被帶著跑
+ *     ③ 回歸   → 按「回到主工具列條件」之後回到鏡子
+ *
+ *   所以「在區塊內改，最上方會跟著變」現在是**錯的**行為，下面改成驗三態。
+ *
+ * ⚠️ 選擇器一律用 data-testid，不可以用 `.filters select` 的排序。
+ *   主工具列多了「季度（起）」之後，原本的 .nth(1) 從「日別」變成「季度（迄）」，
+ *   守門就開始等一個永遠不會出現的選項——選擇器要綁語意，不是綁位置。
+ */
+await gotoBlock(page, "block-hourly");
+const topQuarter = page.locator('[data-testid="mt-quarter-from"]');
+const blockQuarter = page.locator(".panel.hourly .block-filters select").first();
 const beforeQ = await topQuarter.inputValue();
-ok("區塊內的季度與最上方一致", (await blockQuarter.inputValue()) === beforeQ,
+ok("區塊內的季度與最上方一致（鏡子）", (await blockQuarter.inputValue()) === beforeQ,
   `${await blockQuarter.inputValue()} vs ${beforeQ}`);
 
 // ── 區塊內的篩選列：不必捲回最上方就能換條件 ─────────────────────
+await gotoBlock(page, "periodAnalysis");
 await page.locator("#periodAnalysis").scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 for (const id of ["#periodQuarterSelect", "#periodDaySelect", "#periodRoadSelect"])
   ok(`時段車種分析區塊內有「${id.replace("#period", "").replace("Select", "")}」篩選器`,
     await page.locator(`#periodAnalysis ${id}`).count() === 1);
 
-// 在區塊內改日別，上方工具列要同步，表格也要跟著變
-const topDay = page.locator('.filters select').nth(1);
-await page.locator("#periodDaySelect").selectOption("假日");
-await page.waitForTimeout(700);
-ok("在區塊內改日別，最上方的日別會同步", (await topDay.inputValue()) === "假日",
-  await topDay.inputValue());
-await page.locator("#periodDaySelect").selectOption("平日");
-await page.waitForTimeout(700);
-ok("改回平日也同步", (await topDay.inputValue()) === "平日", await topDay.inputValue());
+const topDay = page.locator('[data-testid="mt-day"]');
 
-// 反向：在上方改，區塊內也要同步
+/* ① 鏡子：還沒動過這一塊時，主工具列一改，區塊上那一顆看得到跟著變 */
 await topDay.selectOption("假日");
 await page.waitForTimeout(700);
-ok("在最上方改日別，區塊內的日別也會同步",
-  (await page.locator("#periodDaySelect").inputValue()) === "假日");
+ok("① 鏡子：在最上方改日別，區塊內的日別跟著變",
+  (await page.locator("#periodDaySelect").inputValue()) === "假日",
+  await page.locator("#periodDaySelect").inputValue());
 await topDay.selectOption("平日");
 await page.waitForTimeout(700);
+ok("① 鏡子：改回平日，區塊也跟著回來",
+  (await page.locator("#periodDaySelect").inputValue()) === "平日",
+  await page.locator("#periodDaySelect").inputValue());
+
+/*
+ * ② 脫離：在區塊內改 → 主工具列**不可以**被帶著跑。
+ *   這是使用者明確要求的新行為；如果這一條紅了，代表區塊又寫回全域狀態。
+ */
+await page.locator("#periodDaySelect").selectOption("假日");
+await page.waitForTimeout(700);
+ok("② 脫離：在區塊內改日別，最上方**不可以**跟著變",
+  (await topDay.inputValue()) === "平日",
+  `最上方現在是 ${await topDay.inputValue()}`);
+ok("② 脫離時要寫明「目前用本區塊自己的條件」",
+  await page.locator('#periodAnalysis [data-testid="chart-detach-note"]').count() === 1);
+
+/* ③ 回歸：按了之後回到鏡子 */
+await page.locator('#periodAnalysis [data-testid="chart-detach-note"] button').first().click();
+await page.waitForTimeout(700);
+ok("③ 回歸：按「回到主工具列條件」之後回到主工具列的值",
+  (await page.locator("#periodDaySelect").inputValue()) === "平日",
+  await page.locator("#periodDaySelect").inputValue());
+ok("③ 回歸之後脫離說明要收掉",
+  await page.locator('#periodAnalysis [data-testid="chart-detach-note"]').count() === 0);
 
 // ── 各計畫的 PCU 係數必須互相獨立 ──────────────────────────────
 // v20.8 以前只存一組，所有計畫共用：在 B 計畫改成 0.42，切回 A 計畫也會變成
@@ -549,8 +646,18 @@ const motorcycleBox = () =>
   );
 }
 
-const readMotorcycle = async () => Number(await motorcycleBox().inputValue());
+/*
+ * ⚠️ PCU 係數在「參數設定」分頁上。v20.64 改成真的換頁之後，
+ * 每一次讀寫係數之前都要確定人在那一頁——中間穿插了建立計畫、
+ * 切換計畫等動作，而換計畫**不會**改變目前停在哪一頁，
+ * 所以不能只在最前面切一次就假設之後都還在。
+ */
+const readMotorcycle = async () => {
+  await gotoTab(page, TABS.settings);
+  return Number(await motorcycleBox().inputValue());
+};
 const setMotorcycle = async (value) => {
+  await gotoTab(page, TABS.settings);
   await motorcycleBox().fill(String(value));
   await page.locator('button:has-text("套用係數")').first().click();
   await page.waitForTimeout(600);
@@ -568,16 +675,44 @@ await page.waitForTimeout(900);
 await setMotorcycle(0.42);
 ok("B 計畫設定機車當量 0.42", (await readMotorcycle()) === 0.42, String(await readMotorcycle()));
 
+/*
+ * 換計畫的定位方式 2026-09-11 改過。
+ *
+ * 舊寫法是 `.project-list button:has-text("測試計畫A")`——側欄那一疊計畫卡片。
+ * 那一疊在 v20.64 收掉了（使用者：「側欄計畫清單不再無限往下長」），
+ * 於是這一段整個逾時。
+ *
+ * ⚠️ 新寫法刻意綁 **id="projectSwitch"** 這顆工具列下拉，不綁畫面上的字：
+ *   它是「不離開現在這一頁就換計畫」的正式入口，也是使用者實際會用的那一個。
+ *   綁 id（程式接線）而不是綁按鈕文字或位置——今天已經被這件事咬了好幾次。
+ */
+const switchProject = async (name) => {
+  const moved = await page.evaluate((label) => {
+    const select = document.querySelector("#projectSwitch");
+    if (!select) return "沒有 #projectSwitch 這顆下拉";
+    const option = [...select.options].find((o) => o.textContent.includes(label));
+    if (!option) return `下拉裡沒有「${label}」`;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLSelectElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(select, option.value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    return "";
+  }, name);
+  /* 換不過去就當場紅，不要讓下面的斷言在「其實沒換」的狀態下比對。 */
+  ok(`切換到「${name}」`, moved === "", moved);
+  await page.waitForTimeout(900);
+};
+
 // 切回 A 計畫，必須還是 0.5
-await page.locator('.project-list button:has-text("測試計畫A")').first().click();
-await page.waitForTimeout(900);
+await switchProject("測試計畫A");
 const backToA = await readMotorcycle();
 ok("切回 A 計畫時，機車當量仍是 A 自己的 0.5（不會被 B 的 0.42 蓋掉）",
   backToA === 0.5, String(backToA));
 
 // 再切回 B，確認 B 也還在
-await page.locator('.project-list button:has-text("測試計畫B")').first().click();
-await page.waitForTimeout(900);
+await switchProject("測試計畫B");
 const backToB = await readMotorcycle();
 ok("再切回 B 計畫時，機車當量仍是 B 自己的 0.42", backToB === 0.42, String(backToB));
 

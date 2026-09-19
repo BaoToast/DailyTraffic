@@ -146,7 +146,8 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit) {
     const body = JSON.parse(String(init?.body ?? "{}"));
     const projectId = String(body.projectId ?? ""), db = await openDb();
     if (body.action === "alias") {
-      const aliasName = String(body.aliasName ?? "").normalize("NFKC").trim(), roadId = String(body.roadId ?? "");
+      /* ⚠️ 使用者打的名字只去頭尾空白，不做 NFKC——理由見線上版 route.ts 的說明。 */
+      const aliasName = String(body.aliasName ?? "").trim(), roadId = String(body.roadId ?? "");
       if (!aliasName || !roadId) return json({ error: "請輸入別名並選擇對應路段" }, 400);
       const aliasKey = roadNameMatchKey(aliasName);
       await requestResult(db.transaction("aliases", "readwrite").objectStore("aliases").put({ _id: `${projectId}|${aliasKey}`, projectId, aliasKey, aliasName, roadId }));
@@ -157,7 +158,16 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit) {
      * 這條離線路徑的每一個欄位都要跟線上版（app/api/roads/route.ts）走同一套清理，
      * 否則同一個輸入在兩邊會存成不同的字串，備份搬來搬去就對不起來。
      */
-    const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
+    /*
+     * ⚠️ 名稱只去頭尾空白：
+     *   識別用欄位（roadId 等）── 直接用原字串，它們本來就是系統產生的代號
+     *   cleanLabel() ── 使用者打的名字：**只去頭尾空白，不做 NFKC**
+     * NFKC 會把全形括號換成半形（實測「中山路（改名後）」→「中山路(改名後)」），
+     * 那是使用者看得出來的內容，不該被系統改掉。比對不受影響——
+     * 別名鍵走 roadNameMatchKey()，它自己會做完整的正規化。
+     * 線上版 app/api/roads/route.ts 用同一套分界，兩邊必須一致。
+     */
+    const cleanLabel = (value: unknown) => String(value ?? "").trim();
     const saveOfflineAlias = (aliasName: string, roadId: string) => { const aliasKey = roadNameMatchKey(aliasName); if (aliasKey) aliasStore.put({ _id: `${projectId}|${aliasKey}`, projectId, aliasKey, aliasName, roadId }); };
     /*
      * 方向名稱只適用「路段」。路口的 A～G 是支線，各有自己的名字，
@@ -175,7 +185,7 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit) {
     if (body.action === "rename") {
       // 原本是 `String(body.directionA ?? "方向A").trim()`：`??` 擋不住空字串
       // （欄位被清空就寫入空白），也沒有做 NFKC。線上版一直都是 `clean(...) || 預設值`。
-      const roadId = String(body.roadId ?? ""), roadName = clean(body.roadName), directionA = clean(body.directionA) || "方向A", directionB = clean(body.directionB) || "方向B";
+      const roadId = String(body.roadId ?? ""), roadName = cleanLabel(body.roadName), directionA = cleanLabel(body.directionA) || "方向A", directionB = cleanLabel(body.directionB) || "方向B";
       if (!roadId || !roadName) return json({ error: "路段名稱不可空白" }, 400);
       const oldName = String(rows.find(r => r.projectId === projectId && r.roadId === roadId)?.roadName ?? "");
       rows.filter(r => r.projectId === projectId && r.roadId === roadId).forEach(r => store.put({ ...r, roadName, directionName: renamedDirection(r, directionA, directionB) }));
@@ -186,7 +196,7 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit) {
     }
     if (body.action === "merge") {
       // targetRoadName 也補上 NFKC：線上版 route.ts 對它做了，這裡原本沒有。
-      const sourceRoadId = String(body.sourceRoadId ?? ""), targetRoadId = String(body.targetRoadId ?? ""), targetRoadName = clean(body.targetRoadName), directionA = clean(body.directionA) || "方向A", directionB = clean(body.directionB) || "方向B";
+      const sourceRoadId = String(body.sourceRoadId ?? ""), targetRoadId = String(body.targetRoadId ?? ""), targetRoadName = cleanLabel(body.targetRoadName), directionA = cleanLabel(body.directionA) || "方向A", directionB = cleanLabel(body.directionB) || "方向B";
       if (!sourceRoadId || !targetRoadId || sourceRoadId === targetRoadId || !targetRoadName) return json({ error: "請選擇不同的來源與目標路段" }, 400);
       const oldName = String(rows.find(r => r.projectId === projectId && r.roadId === sourceRoadId)?.roadName ?? "");
       rows.filter(r => r.projectId === projectId && (r.roadId === sourceRoadId || r.roadId === targetRoadId)).forEach(r => store.put({ ...r, roadId: targetRoadId, roadName: targetRoadName, directionName: renamedDirection(r, directionA, directionB) }));

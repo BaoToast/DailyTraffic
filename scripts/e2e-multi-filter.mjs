@@ -22,6 +22,7 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchOptions } from "./chrome-path.mjs";
+import { TABS, gotoTab, ensureToolbarOpen } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -57,6 +58,9 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e.message)));
 page.on("dialog", (d) => d.accept(""));
 await page.goto("http://localhost:8144/");
+/* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+await page.waitForTimeout(1200);
+await ensureToolbarOpen(page);
 await page.waitForTimeout(1200);
 
 await page.getByRole("button", { name: "＋" }).first().click().catch(() => {});
@@ -101,15 +105,27 @@ const sample = readFileSync(join(SAMPLES, "115T1-01_中山路.xlsx"));
 await importFile("115T1-01_中山路.xlsx", sample);
 await page.waitForTimeout(900);
 
-/** 目前畫面上的關鍵數字，用來證明「複選不改變計算」。 */
-const snapshot = () =>
-  page.evaluate(() => {
-    const kpi = [...document.querySelectorAll(".kpi strong")].map((x) => x.textContent.trim());
-    const rows = [...document.querySelectorAll(".table-panel tbody tr")].map((tr) =>
+/**
+ * 目前畫面上的關鍵數字，用來證明「複選不改變計算」。
+ *
+ * ⚠️ v20.64 起 KPI 與明細表**在不同的分頁上**，不可能同時讀到。
+ * 這裡逐頁切過去各讀一份再合起來——切頁不影響任何篩選條件
+ *（工具列與篩選列在分頁之外，五頁共用同一份 state），
+ * 所以合起來的這一份仍然代表「同一組條件下的畫面」。
+ */
+const snapshot = async () => {
+  await gotoTab(page, TABS.kpi);
+  const kpi = await page.evaluate(() =>
+    [...document.querySelectorAll(".kpi strong")].map((x) => x.textContent.trim()),
+  );
+  await gotoTab(page, TABS.output);
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll(".table-panel tbody tr")].map((tr) =>
       [...tr.children].map((td) => td.innerText.replace(/\s+/g, " ").trim()),
-    );
-    return { kpi, rows };
-  });
+    ),
+  );
+  return { kpi, rows };
+};
 
 /** 操作最上方那一組篩選裡的調查點複選。 */
 async function pickRoads(names) {
@@ -152,6 +168,7 @@ ok("匯入之後看得到資料", all.rows.length >= 1, `${all.rows.length} 列`
 const topDaySelect = page.locator(".filters label").filter({ hasText: "日別" }).locator("select").first();
 await topDaySelect.selectOption({ label: "平日＋假日" });
 await page.waitForTimeout(800);
+await gotoTab(page, TABS.output);
 const combinedDay = await page.evaluate(() => {
   const panel = [...document.querySelectorAll(".table-panel")].find((item) =>
     item.querySelector("h3")?.textContent.includes("雙向路段交通量"),
@@ -169,14 +186,14 @@ const combinedDay = await page.evaluate(() => {
   return {
     days: rows.map((row) => row[dayIndex]),
     totals: rows.map((row) => row[totalIndex]),
-    ranking: [...document.querySelectorAll(".road-chart .bar-row")].map((row) =>
-      row.textContent.replace(/\s+/g, " ").trim(),
-    ),
-    projects: [...document.querySelectorAll(".project-bars > div")].map((row) =>
-      row.textContent.replace(/\s+/g, " ").trim(),
-    ),
   };
 });
+/*
+ * ⚠️ v20.64 移除了「路段排名」與「跨計畫比較」兩個面板（使用者分別指名），
+ * 所以下面少了那兩項斷言。少的是**面板本身**，不是檢查放寬——
+ * 「平日與假日要分得出來」這條規則在剩下的三處仍然逐項驗。
+ */
+await gotoTab(page, TABS.kpi);
 const actualKpiTexts = await page
   .locator(".kpi")
   .nth(0)
@@ -205,18 +222,6 @@ ok(
     pcuKpiTexts.some((text) => text.includes("平日")) &&
     pcuKpiTexts.some((text) => text.includes("假日")),
   pcuKpiTexts.join("｜"),
-);
-ok(
-  "路段排名可分辨平日與假日列",
-  combinedDay.ranking.some((text) => text.includes("平日")) &&
-    combinedDay.ranking.some((text) => text.includes("假日")),
-  combinedDay.ranking.join("｜"),
-);
-ok(
-  "跨計畫比較可分辨平日與假日列",
-  combinedDay.projects.some((text) => text.includes("平日")) &&
-    combinedDay.projects.some((text) => text.includes("假日")),
-  combinedDay.projects.join("｜"),
 );
 await topDaySelect.selectOption({ label: "平日" });
 await page.waitForTimeout(700);
@@ -303,6 +308,7 @@ ok(
 
 /* ── 剛好只勾一條調查點時，「管理名稱」要管那一條 ─────────── */
 await pickRoads([roadNames[0]]);
+await gotoTab(page, TABS.settings);
 await page.locator('button:has-text("管理名稱")').first().click();
 await page.waitForTimeout(900);
 const managed = await page.evaluate(() => {

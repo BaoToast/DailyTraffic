@@ -18,6 +18,7 @@ import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
 import { launchOptions } from "./chrome-path.mjs";
+import { ensureToolbarOpen } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -98,6 +99,9 @@ page.on("dialog", async (d) => {
 });
 
 await page.goto("http://localhost:8103/");
+/* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+await page.waitForTimeout(1200);
+await ensureToolbarOpen(page);
 await page.waitForTimeout(900);
 await page.getByRole("button", { name: "＋" }).first().click().catch(() => {});
 if (!(await page.locator(".modal input").first().isVisible().catch(() => false)))
@@ -173,6 +177,46 @@ ok("B 檢核報告顯眼標示日期與季度不一致", /不一致/.test(bAlert
 ok("B 提示裡寫出檔案裡的日期", /2026-08-05/.test(bAlert), bAlert.slice(0, 180));
 ok("B 提示裡寫出日期屬於哪一季", /115Q3/.test(bAlert), bAlert.slice(0, 180));
 ok("B 提示裡寫出來源儲存格", /平日!F3/.test(bAlert), bAlert.slice(0, 180));
+
+/*
+ * ── B2：一鍵「改用檔案日期的季別」 ────────────────────────────
+ *
+ * 使用者 2026-09-11：「如果我有 N 份檔案 只要有一個錯 我就得全部重選
+ * 會蠻辛苦的」。系統既然已經算出檔案日期屬於 115Q3，就不該叫他自己回去打字。
+ * 路口轉向那支有一模一樣的一段（scripts/e2e-period-date.mjs 的 B2）。
+ */
+const switchButton = page.locator('[data-testid="use-file-quarter"]');
+ok(
+  "B 提供一鍵改成檔案日期的季別",
+  (await switchButton.count()) > 0,
+  (await switchButton.count()) ? await switchButton.first().innerText() : "（找不到）",
+);
+if (await switchButton.count()) {
+  ok(
+    "B 那顆按鈕上要寫出要改成哪一季（不可以只寫「改用檔案日期」）",
+    /115Q3/.test(await switchButton.first().innerText()),
+    await switchButton.first().innerText(),
+  );
+  await switchButton.first().click();
+  await page.waitForTimeout(700);
+  const quarterValue = await page
+    .locator('.modal-backdrop .modal label:has-text("資料季度") input')
+    .first()
+    .inputValue();
+  ok("B 按下去之後季度欄位真的變成 115Q3", quarterValue === "115Q3", `欄位值：${quarterValue}`);
+  ok(
+    "B 切換之後提示跟著更新成「一致」（不是停在舊的警告）",
+    !/不一致/.test(await reportAlert()),
+    (await reportAlert()).slice(0, 160),
+  );
+  /* 改回去，下面仍要驗「不一致時會跳二次確認」——同時證明上一項不是恆真 */
+  await page
+    .locator('.modal-backdrop .modal label:has-text("資料季度") input')
+    .first()
+    .fill("115Q1");
+  await page.waitForTimeout(600);
+  ok("B 改回 115Q1 之後警告回來（證明上一項不是恆真）", /不一致/.test(await reportAlert()));
+}
 
 const beforeB = await roadCount();
 dialogs.length = 0;
@@ -371,6 +415,62 @@ if (await yearToggle.count()) {
   await page.waitForTimeout(700);
 }
 ok("切回民國年後畫面與切換前逐字相同", (await pageText()) === rocText);
+
+/*
+ * ── E：逐筆的「調查日」要看得到（v20.65）────────────────────────
+ *
+ * 使用者 2026-09-11：「請新增讓我在切換顯示調查月份時，
+ *   也能看出哪一個路口／路段是在 X 月做的這項功能。」
+ *
+ * 為什麼期別標籤答不了這一題：它寫的是**整季**的合寫（「115年2、3月」），
+ * 同一季裡哪一筆是 2 月、哪一筆是 3 月，看不出來。所以逐筆的日期
+ * 要出現在可追溯明細那張表上。
+ *
+ * ⚠️ 刻意迴避的假通過：
+ *   一、**只驗「有 .survey-date 這個元素」不算數**：印一行空字串也會過。
+ *       要驗它寫的日期**逐字等於匯入檔表頭那一天**（115年3月9日）。
+ *   二、**只驗民國年不算數**：切到西元年要跟著變成 2026 年，
+ *       否則同一個畫面會出現兩種年份寫法。
+ */
+await page
+  .locator('.side-nav button[data-goto="zone-output"]')
+  .first()
+  .click()
+  .catch(() => {});
+await page.waitForTimeout(900);
+const surveyDateTexts = async () =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("small.survey-date")].map((el) =>
+      el.textContent.replace(/\s+/g, " ").trim(),
+    ),
+  );
+const rocDates = await surveyDateTexts();
+ok(
+  "可追溯明細裡每一列看得到自己的調查日",
+  rocDates.length > 0,
+  rocDates.length ? rocDates.slice(0, 3).join(" ／ ") : "一列都沒有",
+);
+ok(
+  "調查日寫的就是匯入檔表頭那一天（民國年）",
+  rocDates.some((t) => t.includes("115年3月9日")),
+  rocDates.slice(0, 3).join(" ／ ") || "（空）",
+);
+/* 切到西元年，日期也要跟著換寫法 */
+if (await yearToggle.count()) {
+  await yearToggle.first().click();
+  await page.waitForTimeout(700);
+}
+const adDates = await surveyDateTexts();
+ok(
+  "切到西元年之後調查日跟著寫成 2026 年（不會一頁兩種年份寫法）",
+  adDates.some((t) => t.includes("2026年3月9日")) &&
+    !adDates.some((t) => t.includes("115年3月9日")),
+  adDates.slice(0, 3).join(" ／ ") || "（空）",
+);
+if (await yearToggle.count()) {
+  await yearToggle.first().click();
+  await page.waitForTimeout(700);
+}
 
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 2).join(" | "));
 

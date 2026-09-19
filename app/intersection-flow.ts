@@ -1,3 +1,4 @@
+import { isRealArmName } from "./road-identity.ts";
 /**
  * 路口幾何與「駛入／駛出」流向換算。
  *
@@ -18,8 +19,34 @@ export type IntersectionArmSetting = {
   directionCode: string;
   name: string;
   angle: number;
+  /**
+   * 「起點 → 終點轉向判定」：這一支線往每一個其他支線算是左轉、直進還是右轉。
+   *
+   * ⚠️ **這是轉向歸屬的唯一依據**（2026-09-13 使用者裁示）。
+   *   舊版還有一組「駛出目的支線」（`leftTarget/throughTarget/rightTarget`），
+   *   規定每一種轉向只能有一個目的地，已整組移除——見下方 legacy 欄位說明。
+   */
   routes: Record<string, TurnKey>;
+  /**
+   * `routes` 的每一格是**誰決定的**。
+   *
+   * 使用者 2026-09-13：「請不要只靠系統自動依照角度判定，有時會失真，
+   * **而是以使用者判定為主**。預設是系統自動由角度判定，然後使用者手動修正
+   * 做為複核，最後匯入資料。」
+   *
+   * ⚠️ 沒有這個欄位的話，改任何一支的角度都會把使用者在別支線做過的
+   *   手動修正默默抹掉（舊版 `updateArmAngle()` 就是這樣）。
+   *   角度重算**只能覆寫 "angle" 的格子**，"manual" 的一律保留。
+   */
+  routeSources?: Record<string, "angle" | "manual">;
   position?: "北" | "東" | "南" | "西" | "自訂";
+  /**
+   * ⚠️ 以下三個是 **legacy 欄位，只讀不寫**。
+   *
+   * 舊版「駛出目的支線」面板存下來的值。新版不再產生、也不再據以分配車流；
+   * `buildArmSettings()` 只把它們**併進 `routes`**（當成使用者當年做過的手動
+   * 判定），之後就不再出現在輸出裡。保留型別是為了讀得懂舊的 localStorage。
+   */
   leftTarget?: string;
   throughTarget?: string;
   rightTarget?: string;
@@ -72,16 +99,6 @@ export function emptyTurnCounts(): TurnCounts {
   };
 }
 
-export function targetField(
-  turn: TurnKey,
-): "leftTarget" | "throughTarget" | "rightTarget" {
-  return turn === "left"
-    ? "leftTarget"
-    : turn === "through"
-      ? "throughTarget"
-      : "rightTarget";
-}
-
 export function signedOppositeDifference(fromAngle: number, toAngle: number) {
   return (
     ((normalizeAngle(toAngle) - normalizeAngle(fromAngle + 180) + 540) % 360) -
@@ -93,57 +110,38 @@ export function defaultArmAngle(index: number, count: number) {
   return -90 + (index * 360) / Math.max(1, count);
 }
 
-export function bestMovementTarget(
+/**
+ * 這一支線的某一種轉向，通往**哪幾支**支線。
+ *
+ * ⚠️ 這是 `bestMovementTarget()` 的替代品，而且行為刻意不同：
+ *   舊的在多個候選裡**默默挑角度最接近的一支**回傳，畫面上看不出來它挑過。
+ *   使用者 2026-09-13：「如果出現程式判讀有 2 支線落進同一個轉向，
+ *   **一定是判讀失誤**……使用者勢必會協助正確設定轉向。」
+ *   ——所以不可以再默默挑，要把「有幾支」如實回報，讓呼叫端決定怎麼處理。
+ *
+ * 回傳依角度與理想轉向角的接近程度排序（只影響顯示順序，不影響分配）。
+ */
+export function turnTargets(
   source: IntersectionArmSetting,
   settings: IntersectionArmSetting[],
   turn: TurnKey,
-) {
+): string[] {
   const ideal = turn === "left" ? -90 : turn === "right" ? 90 : 0;
-  return (
-    settings
-      .filter(
-        (target) =>
-          target.directionCode !== source.directionCode &&
-          (source.routes[target.directionCode] ??
-            classifyMovement(source.angle, target.angle)) === turn,
-      )
-      .map((target) => ({
-        code: target.directionCode,
-        score: Math.abs(
-          signedOppositeDifference(source.angle, target.angle) - ideal,
-        ),
-      }))
-      .sort((a, b) => a.score - b.score || a.code.localeCompare(b.code))[0]
-      ?.code ?? ""
-  );
-}
-export function completeArmTargets(
-  settings: IntersectionArmSetting[],
-  overwrite = false,
-) {
-  return settings.map((source) => {
-    const next = { ...source };
-    (["left", "through", "right"] as TurnKey[]).forEach((turn) => {
-      const field = targetField(turn);
-      const hasSavedTarget = Object.prototype.hasOwnProperty.call(
-        source,
-        field,
-      );
-      const current = source[field];
-      next[field] =
-        !overwrite && hasSavedTarget
-          ? current &&
-            settings.some(
-              (target) =>
-                target.directionCode === current &&
-                target.directionCode !== source.directionCode,
-            )
-            ? current
-            : ""
-          : bestMovementTarget(source, settings, turn);
-    });
-    return next;
-  });
+  return settings
+    .filter(
+      (target) =>
+        target.directionCode !== source.directionCode &&
+        (source.routes[target.directionCode] ??
+          classifyMovement(source.angle, target.angle)) === turn,
+    )
+    .map((target) => ({
+      code: target.directionCode,
+      score: Math.abs(
+        signedOppositeDifference(source.angle, target.angle) - ideal,
+      ),
+    }))
+    .sort((a, b) => a.score - b.score || a.code.localeCompare(b.code))
+    .map((item) => item.code);
 }
 export function buildArmSettings(
   projectId: string,
@@ -163,9 +161,29 @@ export function buildArmSettings(
       : (legacyAngle(saved?.position) ??
         defaultArmAngle(index, directionCodes.length));
     const routes = { ...(saved?.routes ?? {}) };
-    if (saved?.leftTarget) routes[saved.leftTarget] = "left";
-    if (saved?.throughTarget) routes[saved.throughTarget] = "through";
-    if (saved?.rightTarget) routes[saved.rightTarget] = "right";
+    const routeSources: Record<string, "angle" | "manual"> = {
+      ...(saved?.routeSources ?? {}),
+    };
+    /*
+     * 舊版「駛出目的支線」存下來的三個欄位**併進 routes**。
+     *
+     * 為什麼算 "manual"：那三格當年是使用者在面板上自己選的，
+     * 不是角度算出來的。既然使用者裁示「以使用者判定為主」，
+     * 這些舊的人工判定就該保留成人工判定，不可以被下一次角度重算蓋掉。
+     *
+     * ⚠️ 但 routes 本身若已經有值就不覆寫——routes 是新的來源，比較晚寫。
+     */
+    for (const [legacy, turn] of [
+      [saved?.leftTarget, "left"],
+      [saved?.throughTarget, "through"],
+      [saved?.rightTarget, "right"],
+    ] as [string | undefined, TurnKey][]) {
+      if (!legacy) continue;
+      if (routes[legacy] === undefined) {
+        routes[legacy] = turn;
+        routeSources[legacy] = "manual";
+      }
+    }
     return {
       projectId,
       roadId,
@@ -173,29 +191,59 @@ export function buildArmSettings(
       name: saved?.name || `路口${directionCode}`,
       angle,
       routes,
-      ...(saved && Object.prototype.hasOwnProperty.call(saved, "leftTarget")
-        ? { leftTarget: saved.leftTarget }
-        : {}),
-      ...(saved && Object.prototype.hasOwnProperty.call(saved, "throughTarget")
-        ? { throughTarget: saved.throughTarget }
-        : {}),
-      ...(saved && Object.prototype.hasOwnProperty.call(saved, "rightTarget")
-        ? { rightTarget: saved.rightTarget }
-        : {}),
+      routeSources,
     } satisfies IntersectionArmSetting;
   });
   base.forEach((source) =>
     base
       .filter((target) => target.directionCode !== source.directionCode)
       .forEach((target) => {
-        if (!source.routes[target.directionCode])
+        if (!source.routes[target.directionCode]) {
           source.routes[target.directionCode] = classifyMovement(
             source.angle,
             target.angle,
           );
+          source.routeSources[target.directionCode] = "angle";
+        } else if (!source.routeSources[target.directionCode]) {
+          /* 舊資料沒有記過來源：既然它已經被存下來，當成角度判定的結果。 */
+          source.routeSources[target.directionCode] = "angle";
+        }
       }),
   );
-  return completeArmTargets(base);
+  return base;
+}
+
+/**
+ * 依「以使用者判定為主」重算一組支線的 routes。
+ *
+ * `manual` 的格子**原封不動**；其餘的依當下角度重新判定。
+ * `force` 為真時連 manual 也重算（＝畫面上那顆「依角度重新判定」按鈕，
+ * 使用者明確要求重來一次時才會走到）。
+ */
+export function reclassifyArmRoutes(
+  settings: IntersectionArmSetting[],
+  force = false,
+): IntersectionArmSetting[] {
+  return settings.map((source) => {
+    const routes: Record<string, TurnKey> = {};
+    const routeSources: Record<string, "angle" | "manual"> = {};
+    for (const target of settings) {
+      if (target.directionCode === source.directionCode) continue;
+      const code = target.directionCode;
+      const keep =
+        !force &&
+        source.routeSources?.[code] === "manual" &&
+        source.routes[code] !== undefined;
+      if (keep) {
+        routes[code] = source.routes[code];
+        routeSources[code] = "manual";
+      } else {
+        routes[code] = classifyMovement(source.angle, target.angle);
+        routeSources[code] = "angle";
+      }
+    }
+    return { ...source, routes, routeSources };
+  });
 }
 /**
  * 目的支線分欄格式（往B、往C…）的調查表沒有左轉／直進／右轉欄位，
@@ -305,7 +353,13 @@ export function deriveDestinationIntersectionRecords<T extends FlowRecord>(
         directionName:
           targetCode === "UNMAPPED"
             ? "未指定駛入路口"
-            : `駛入路口${targetCode}${target?.name && target.name !== `路口${targetCode}` ? `（${target.name}）` : ""}`,
+            : /*
+               * ⚠️ 「有沒有取過名字」要走 isRealArmName()，不可以直接比字串。
+               *   自動命名可能是「路口 A」（中間有半形空格），
+               *   直接比的話會被當成使用者取的名字，
+               *   標籤就變成「駛入路口A（路口 A）」——括號裡重複一次同一個名字。
+               */
+              `駛入路口${targetCode}${isRealArmName(target?.name, targetCode) ? `（${target?.name}）` : ""}`,
         motorcycle: 0,
         small: 0,
         large: 0,
@@ -330,12 +384,15 @@ export function deriveDestinationIntersectionRecords<T extends FlowRecord>(
       }
       output.set(key, current);
     };
-    // 原始檔若逐欄記錄了「往B、往C、往D…」，就照實際目的地分配。
-    //
-    // 舊版一律用「左轉→leftTarget、直行→throughTarget、右轉→rightTarget」，
-    // 也就是每一種轉向只能有一個目的支線。三叉、十字路口成立，但五叉以上
-    // 不成立：七叉路口的 A 左轉可能同時通往 B、C、D，全部被塞進同一個目的
-    // 支線之後，各支線的駛入量就會嚴重失真（雖然總計仍然正確）。
+    /*
+     * 原始檔若逐欄記錄了「往B、往C、往D…」，就照實際目的地分配。
+     *
+     * ⚠️ 這個格式下「同一轉向對到多支」是**正常的**，不是錯：
+     *   七岔路口的 A 左轉本來就可能同時通往 B、C、D，而調查表也逐欄寫明了
+     *   各自多少量，所以完全沒有歧義。轉向判定在這裡只負責貼「左／直／右」
+     *   的標籤，不負責決定車流去哪一支。
+     *   （下方 intersectionTurnConflicts() 因此**不檢查**這個格式。）
+     */
     if (record.destinationCounts) {
       Object.entries(record.destinationCounts).forEach(([vehicle, byDestination]) => {
         Object.entries(byDestination ?? {}).forEach(([destination, count]) => {
@@ -345,12 +402,33 @@ export function deriveDestinationIntersectionRecords<T extends FlowRecord>(
       });
       return;
     }
+    /*
+     * ── 左轉／直進／右轉格式：轉向 → 目的支線 ──────────────────────
+     *
+     * ⚠️ 2026-09-13 起**只認「起點 → 終點轉向判定」**（`routes`）。
+     *   舊版讀 `source[targetField(turn)]`（駛出目的支線），那一組已整組移除。
+     *
+     * ⚠️ 而且**恰好一支**才分配。使用者：
+     *   「調查員不可能在左轉有兩個以上路口時，只有一個左轉欄位帶過，
+     *     這事情絕對不可能發生……一定是判讀失誤。」
+     *   所以 0 支或 2 支以上都不是「要猜一個」，是**設定還沒對**——
+     *   量掛到「未指定駛入路口」讓它在帳面上看得見，
+     *   由 intersectionTurnConflicts() 產生醒目提醒請使用者修正。
+     *   （舊版 bestMovementTarget() 在 2 支以上時默默挑最近的一支，
+     *     使用者完全看不出來它挑過，那正是要拿掉的行為。）
+     */
+    const roadSettings = [...(armMaps.get(record.roadId)?.values() ?? [])];
+    const soleTargetOf = (turn: TurnKey) => {
+      if (!source) return undefined;
+      const targets = turnTargets(source, roadSettings, turn);
+      return targets.length === 1 ? targets[0] : undefined;
+    };
     Object.keys(sourceVehicleCounts).forEach((vehicle) => {
       let distributed = 0;
       (["left", "through", "right"] as TurnKey[]).forEach((turn) => {
         const count = turnData[vehicle]?.[turn] ?? 0;
         distributed += count;
-        addCount(vehicle, turn, count, source?.[targetField(turn)]);
+        addCount(vehicle, turn, count, soleTargetOf(turn));
       });
       /*
        * 總量比轉向明細多出來的部分＝「有這些車，但不知道它們往哪去」，
@@ -376,6 +454,127 @@ export function deriveDestinationIntersectionRecords<T extends FlowRecord>(
   return [...output.values()];
 }
 
+/* ══════════════════════════════════════════════════════════════════
+ * 轉向判定衝突
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-13：
+ *   「調查員不可能在左轉有兩個以上路口時，只有一個左轉欄位帶過，
+ *     這事情絕對不可能發生。如果出現程式判讀有 2 支線落進同一個轉向，
+ *     **一定是判讀失誤**，可以用醒目顏色提醒，或納入匯入異常事件給使用者看到。」
+ *
+ * 他是對的，而且理由在**原始檔的欄位格式**裡，不在路口幾岔：
+ *   調查表寫「左轉／直進／右轉」＝調查員當下就認定每一種轉向只有一個去向，
+ *   否則他根本沒辦法把量分開記，那時報表會改用「往B、往C」的格式。
+ *
+ * ⚠️ 所以這個檢查**只對左轉／直進／右轉格式生效**。
+ *   套到「往X」格式的話，七岔路口會整片假紅字（它本來就該有多支同轉向）。
+ *
+ * ⚠️ 兩個方向都要抓，而且第二種更嚴重：
+ *   ① 一個轉向對到 **2 支以上** → 判定錯了，量進「未指定駛入路口」
+ *   ② 一個轉向**有車量、卻 0 支**對到 → 同樣進「未指定」，
+ *      但它更容易被忽略：畫面上不會有任何一支線「多出來」，只會少。
+ */
+export type IntersectionTurnConflict = {
+  roadId: string;
+  roadName: string;
+  directionCode: string;
+  armName: string;
+  turn: TurnKey;
+  /** 這個轉向對到的支線（0 個或 2 個以上才會成為衝突）。 */
+  targets: string[];
+  /** 這個轉向整季量到的車量（＝會掉進「未指定駛入路口」的量）。 */
+  volume: number;
+  kind: "ambiguous" | "unreachable";
+};
+
+export function intersectionTurnConflicts(
+  records: FlowRecord[],
+  projectId: string,
+  savedSettings: IntersectionArmSetting[],
+): IntersectionTurnConflict[] {
+  /* 只看「左轉／直進／右轉」格式：有任何一筆 destinationCounts 的路口整個跳過。 */
+  const byRoad = new Map<string, FlowRecord[]>();
+  for (const record of records) {
+    if (record.surveyType !== "intersection" && !record.turnData) continue;
+    byRoad.set(record.roadId, [...(byRoad.get(record.roadId) ?? []), record]);
+  }
+  const out: IntersectionTurnConflict[] = [];
+  for (const [roadId, rows] of byRoad) {
+    if (rows.some((record) => record.destinationCounts)) continue;
+    const codes = [...new Set(rows.map((record) => record.directionCode))];
+    /* 只有一支支線的話沒有任何轉向可談，不是衝突。 */
+    if (codes.length < 2) continue;
+    const settings = buildArmSettings(projectId, roadId, codes, savedSettings);
+    out.push(...armTurnConflicts(settings, rows));
+  }
+  return out;
+}
+
+/**
+ * 上面那一支的核心，抽出來讓畫面也能用**當下正在編輯的設定**即時算。
+ *
+ * ⚠️ 抽出來的理由是防分歧：畫面若自己再寫一套判斷，
+ *   總有一天會與匯入提醒說法不一致，使用者看到兩種答案。
+ *
+ * ⚠️ 呼叫端必須自己先排除「往X 格式」的路口——這一支只認 turnData。
+ */
+export function armTurnConflicts(
+  settings: IntersectionArmSetting[],
+  rows: FlowRecord[],
+): IntersectionTurnConflict[] {
+  const out: IntersectionTurnConflict[] = [];
+  for (const source of settings) {
+    const mine = rows.filter(
+      (record) => record.directionCode === source.directionCode,
+    );
+    for (const turn of ["left", "through", "right"] as TurnKey[]) {
+      const volume = mine.reduce(
+        (total, record) =>
+          total +
+          Object.values(record.turnData ?? {}).reduce(
+            (sum, byTurn) => sum + (byTurn?.[turn] ?? 0),
+            0,
+          ),
+        0,
+      );
+      /*
+       * ⚠️ 沒有車量的轉向**不是衝突**。
+       *   三岔路口本來就有一個轉向不存在（調查表上是 `--`），
+       *   那時 0 支對到是正確的，報出來會變成整片假警告。
+       */
+      if (volume < 1) continue;
+      const targets = turnTargets(source, settings, turn);
+      if (targets.length === 1) continue;
+      out.push({
+        roadId: source.roadId,
+        roadName: mine[0]?.roadName ?? source.roadId,
+        directionCode: source.directionCode,
+        armName: source.name,
+        turn,
+        targets,
+        volume,
+        kind: targets.length === 0 ? "unreachable" : "ambiguous",
+      });
+    }
+  }
+  return out;
+}
+
+/** 衝突的一句話說明，畫面與匯入提醒共用同一段文字。 */
+export function describeTurnConflict(conflict: IntersectionTurnConflict) {
+  const turn = TURN_LABELS[conflict.turn];
+  const volume = Math.round(conflict.volume).toLocaleString("zh-TW");
+  return conflict.kind === "unreachable"
+    ? `${conflict.roadName}　路口${conflict.directionCode} 的「${turn}」量到 ${volume} 輛，` +
+        `但轉向判定裡沒有任何一支線被判成${turn}——這些車目前掛在「未指定駛入路口」。` +
+        `請到「路口設定」把${turn}指向正確的支線。`
+    : `${conflict.roadName}　路口${conflict.directionCode} 的「${turn}」量到 ${volume} 輛，` +
+        `但轉向判定把 ${conflict.targets.map((code) => `路口${code}`).join("、")} ` +
+        `都判成${turn}。調查表只寫了一欄${turn}，代表只會有一個去向，` +
+        `所以這是判定失誤；這些車目前掛在「未指定駛入路口」。請到「路口設定」修正。`;
+}
+
 export function legacyAngle(position?: IntersectionArmSetting["position"]) {
   return ({ 北: -90, 東: 0, 南: 90, 西: 180 } as Record<string, number>)[
     position ?? ""
@@ -389,7 +588,7 @@ export function legacyAngle(position?: IntersectionArmSetting["position"]) {
  * ── 為什麼需要這一段（實測出來的問題）───────────────────────
  *
  * 三岔路口的預設角度是 defaultArmAngle(index, 3) ＝ [-90, 0, 180]。
- * 用這組角度跑 classifyMovement()／bestMovementTarget() 會得到：
+ * 用這組角度跑 classifyMovement()／turnTargets() 會得到：
  *
  *     路口A(-90°)：左轉→B　直進→**沒有目的地**　右轉→C
  *     路口B(  0°)：左轉→**沒有目的地**　直進→C　右轉→A

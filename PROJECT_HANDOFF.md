@@ -16,8 +16,8 @@
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
-| 交接前正式程式 commit | `f77328c42131452bccdd3ef5da125da5ab8b9bf8`，`Release DailyTraffic v20.63` |
-| 正式版本 | `v20.63`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-09 |
+| 本次 v20.80 發布前基準 | `c75385e9f516402d7e82f32def32b552b9113a3f`；此前正式程式版為 `f77328c42131452bccdd3ef5da125da5ab8b9bf8`（v20.63） |
+| 正式版本 | `v20.80`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-19；正式 release commit 以本次發布紀錄及 `git log` 為準 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線
@@ -38,7 +38,7 @@
 - 一般 PCU 與各車種轉向 PCU 可由使用者依計畫調整。
 - 路口幾何角度、對向支線與左轉／直行／右轉自動判定及人工覆核。
 - 歷季趨勢、跨計畫比較、報告草稿、結論範本、自訂比較報表、資料品質與定稿流程。
-- 可編輯 Excel 報表、JSON 完整備份／還原、新手 PDF／Word 手冊。
+- 可編輯 Excel 報表、JSON 完整備份／還原、新手 PDF 手冊。
 - 本機 IndexedDB 永久保存；重新整理或關閉瀏覽器後資料應保留。
 
 不具備、也不得誤稱已具備：
@@ -79,6 +79,11 @@ Excel 檔案
 - `app/chart-notes.ts`：只根據已算好的顯示資料產生圖表說明，不得另做一套交通計算。
 - `app/conclusion.ts`：結論產生器、選項及範本。
 - `app/report-draft.ts`：分析報告草稿章節與趨勢敘述。
+- `app/main-filters.ts`：主工具列篩選條件模型、鏡子／脫離／回歸及季度區間語意。
+- `app/factor-scope.ts`：PCU 係數的全計畫、季度與調查點範圍覆寫及優先順序。
+- `app/chart-png.ts`：各圖表高解析 PNG 的共用繪圖／下載邏輯；下載圖不含畫面說明文字或 hover 數值標籤。
+- `app/vehicle-colors.ts`：畫面、PNG 與 Excel 車種配色的共同來源。
+- `app/view-scroll.ts`：14 個大分頁的首次頁首與返回位置保存。
 - `app/app-fetch.ts`：GitHub Pages 離線 API 相容層，使用 IndexedDB `traffic-analysis-github-pages`（版本 2）。
 - `app/workflow-store.ts`：品質／定稿工作流程 IndexedDB `traffic-analysis-workflow`；以共用佇列、入列前快照、失敗後可續行、按計畫隔離，避免重新整理或快速操作造成寫入競態。
 - `app/page.tsx`：應用入口，可接受使用者資訊但不要求登入；由 Error Boundary 保護 Dashboard。
@@ -204,6 +209,10 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - 分母為 0 時依呈現語意顯示 0.0% 或無資料；不得產生 Infinity／NaN。
 - 平日與假日各自保留序列。選擇「平日＋假日」是並列／比較，不是把兩天加成單日。
 - 歷季缺資料用空值斷線，不以 0 取代。
+- 歷季「單一車種佔比」與「大車比例」選到多個調查點時，必須一個調查點一條線、逐點各自計算，
+  不得跨調查點合併，也不得把各點百分比算術平均；每一點均以該點自己的分子總和除以分母總和。
+- Excel「歷季組成圖表資料」必須保留季度 × 調查點 × 日別維度；平日＋假日是分列，不跨點也不跨日相加。
+- Excel「歷季車種組成」本來就是逐調查點、逐日別明細，不得因上述變更誤改其算法。
 - 跨計畫彙整指標須使用程式既有的加權／分母規則，不得把百分比直接算術平均。
 
 ### 精度與四捨五入
@@ -247,7 +256,7 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - 圖表應保持專業、無文字重疊、無遮住資料表；Excel 圖表須為可編輯的原生圖表並連結數值範圍。若舊 Excel 不支援某項原生圖表，需提供數值表和清楚提示。
 - 圓環圖避免把長標籤全部塞在扇區內；使用圖例／旁側數值區顯示車種、數量和比例。
 - Excel 匯出必須帶出繪圖用資料、單位與可追溯明細，不可只嵌入圖片。
-- 新手手冊是正式功能；手冊連結必須帶版本號，且發布時同步 DOCX、PDF 與程式版號。
+- 新手 PDF 手冊是正式功能；手冊連結必須帶版本號，且發布時同步 PDF 與程式版號。
 - 異常、資料不完整、日期矛盾、混合時間格、係數異常與儲存失敗要可見，不能靜默修正或默認正常。
 
 ## 9. 重要技術決策與曾放棄方案
@@ -292,8 +301,10 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 | v20.61–20.62 | 圖表座標、分區排版、圖表說明、對比、工作流程儲存競態 | 說明不得重算；視覺可讀；IndexedDB 共用佇列與 project isolation |
 | v20.63 | 風險導向複查發現持久化、趨勢、報表、圖表與發布守門缺口 | 358 pass／0 fail／1 skipped；持久化寫入完成、缺季、平假日、報表／圖表與 release guard 均須保留 |
 | v20.63 交接驗收 | Repository 另有兩支未納入正式 `npm run e2e` 的舊腳本，已與目前單位文字及 MultiPicker UI 脫節 | 正式掛鉤的 15 支 E2E 腳本仍為 15／15 通過；未掛鉤腳本須另列結果，不得據此宣稱 Repository 內所有 E2E 全部通過 |
+| v20.64–20.79 | 14 個大分頁、主工具列三態、PCU 範圍、匯入／備份／圖表／草稿／Excel 與測試大幅擴充 | 此段是 Claude 累積候選，未逐版發布；v20.80 以可驗證的 v20.63 正式版為基準做全專案高風險複查 |
+| v20.80 | 使用者裁示歷季佔比逐調查點計算；Excel 組成圖表資料原先仍跨點、跨日合併；一支 E2E 寫死 Linux Chromium 路徑；搬遷後試用版輸出目錄尚未建立 | 趨勢圖／PNG／草稿／Excel 改為逐點；圖表資料保留日別；`e2e-text-wrap` 改用跨平台啟動器；移除過時 DOCX 建置腳本；試用版建置自動建立輸出目錄；535 pass／0 fail／1 skipped、正式 E2E 56／56、試用版 smoke 1／1 |
 
-最容易復發的問題：Parser 改動只驗新格式、UI 篩選改動未同步 Excel、平假日或缺季被 0 污染、路口 A-G 被硬編四支線、每計畫設定錯用全域值、IndexedDB 寫後立即讀出舊資料、發布根目錄還留舊 hash 資產、畫面版號與手冊／驗證檔名不同，以及 UI 元件或正式單位文字改版後未同步更新未掛鉤的 E2E 腳本。後者會造成 false negative 或使高價值回歸案例在中途停止；複查時必須同時盤點 `package.json` 已掛鉤腳本與 Repository 內其他 `scripts/e2e-*.mjs`。
+最容易復發的問題：Parser 改動只驗新格式、UI 篩選改動未同步 Excel、平假日或缺季被 0 污染、路口 A-G 被硬編四支線、每計畫設定錯用全域值、IndexedDB 寫後立即讀出舊資料、發布根目錄還留舊 hash 資產、畫面版號與手冊／驗證檔名不同，以及 UI 元件或正式單位文字改版後未同步更新 E2E 腳本。後者會造成 false negative 或使高價值回歸案例在中途停止；複查時必須同時盤點 `package.json` 已掛鉤腳本與 Repository 內其他 `scripts/e2e-*.mjs`，避免新腳本漏掛。
 
 ## 11. 測試、Build 與最後實際驗證證據
 
@@ -307,7 +318,34 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - `npm run build:pages`：GitHub Pages 建置到 `github-pages/dist`。
 - `npm run e2e`：完整 Playwright／樣本／Pages E2E 流程。
 
-### v20.63／`f77328c` 已實際完成的發布驗證
+### v20.80（2026-09-19）本次獨立驗證
+
+- 風險等級：**高**。候選由可驗證的 v20.63 累積到 v20.80，涉及 Parser、PCU 範圍、
+  歷季趨勢、主工具列、Excel、UI 與大量跨模組資料流，因此採全專案複查。
+- `npm test`：536 項，535 通過、0 失敗、1 skipped；lint 0 warnings、TypeScript、字形守門、
+  production build 全部通過。唯一 skipped 是沒有真實公司檔名附件時的條件式測試。
+- `npm run e2e`：56 支可執行 Playwright 腳本**不可並行**、完整串行跑完，56／56 通過。
+- Repository 內共有 58 個 `e2e-*.mjs`：除上述 56 支外，`e2e-nav.mjs` 是共用 helper，
+  `e2e-tryout-smoke.mjs` 由 `npm run e2e:tryout` 獨立執行且 1／1 通過；不得再把檔案數誤寫成正式測試數。
+  `e2e-report-draft.mjs` 與 `e2e-xlsx-repair.mjs` 已修復並正式掛鉤；前者支援目前單位，
+  後者支援 MultiPicker 且完成僅路口 OOXML／圖表驗證。
+- 守門反證：更新後的歷季逐點比例斷言在舊 v20.79 邏輯上 3 項紅；更新後的 Excel
+  調查點 × 日別斷言在舊邏輯上 2 項紅；修正後兩支針對測試與完整 E2E 均綠。
+- 黃金值仍由 `tests/traffic-parser.test.mjs` 驗得 688,205 輛／日、530,122 PCU／日。
+- 1536×864 與 1366×768 各自逐頁檢查 14 個大分頁；沒有橫向溢出、按鈕裁切、
+  文字／圖表越界。多調查點歷季圖線尾無名稱，圖例在圖下方且不與 X 軸名稱重疊；
+  下載 PNG 相同。平假日長條圖 PNG 無靜態數值標籤。
+- 本機 Microsoft Excel 16.0 唯讀開啟 20 張工作表：「目前車種組成」只有平日／假日、
+  無合計；「假日相較平日（%）」為 `0.0%` 百分比格式；7 張原生圖表都有標題、
+  有效尺寸與資料序列。
+- v20.80 PDF 手冊兩份 SHA-256 一致，30 頁已逐頁轉圖檢查，未見裁切、重疊或破頁。
+- 正式工作區另通過 `npm run build:tryout`、試用版 `file://` 核心流程 smoke test 與
+  `npm run build:pages`；建置腳本已補上輸出資料夾不存在時的建立流程。
+- 真實公司五份路段＋五份路口附件未包含在本次交付，故不能宣稱 GPT 已獨立重跑該項；
+  Parser 未來若再改，仍需使用者提供去識別樣本補驗。
+- 詳細證據在 `VALIDATION_v20.80.md`；GitHub Actions、Pages 與線上 hash 在 push 後再依本節發布規則核對。
+
+### v20.63／`f77328c` 歷史發布證據
 
 - 乾淨完整單元／回歸：359 項，358 通過、0 失敗、1 skipped。
 - 完整 E2E：1 支基礎流程加 14 支專項腳本（共 15 支正式掛鉤腳本）、316 checks，全數通過，無 JavaScript error。
@@ -315,18 +353,21 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - GitHub Actions「建置與測試」：對 `f77328c` 成功。
 - GitHub Pages deployment：對 `f77328c` 成功。
 - 線上 cache-busted 驗證：根頁引用 `assets/index-Bx-GX3tF.js`、`assets/index-D4nDRD8q.css`；v20.63 版號手冊、驗證檔及主資產皆回應 200。
-- 詳細證據在 `VALIDATION_v20.63.md` 與發布 commit 中。
+- 詳細證據保留於 Git history 的 `VALIDATION_v20.63.md` 與發布 commit 中。
 
-上述是 **v20.63 正式程式 commit 的既有實測證據**。建立本交接文件是純文件變更，合理檢查為 Git diff、Markdown／路徑一致性與乾淨 push；不應把沒有重新執行的完整測試說成在交接 commit 又跑一次。
+上述是 **v20.63 正式程式 commit 的歷史證據**，不可冒充 v20.80 的本次結果。
 
-### 2026-09-13 新 GPT 交接驗收的 E2E 現況
+### 2026-09-13 交接驗收時的 E2E 歷史現況（已由 v20.80 解決）
 
 - 目前 `package.json` 的正式 `npm run e2e` 依序掛鉤 15 支 Playwright 腳本。交接驗收實際重跑 Pages build 及這 15 支腳本，結果為 **15／15 支成功、0 支失敗，沒有未捕捉 JavaScript 例外**。
 - Repository 內另有 `scripts/e2e-report-draft.mjs` 與 `scripts/e2e-xlsx-repair.mjs` 兩支未被 `npm run e2e` 呼叫的舊腳本。它們不是上述 15／15 的一部分，目前都需要維護。
 - `e2e-report-draft.mjs` 的「時段車種分析合計＝全範圍合計」檢查仍以舊文字格式比對 `PCU、輛`；正式草稿已改為 `PCU/日、輛/日`，使正規表示式抓不到數值而產生 false negative。當次輸出中的整體全日量與時段全日量實際都為 115,873，且兩個調查點的分項合計也一致，未證明正式計算錯誤。
 - `e2e-xlsx-repair.mjs` 第一階段已成功產生 9 張原生圖表，並確認完整匯出檔的 OOXML 結構無問題；第二階段仍把 `#roadFilterSelect` 當成 `<select>` 呼叫 `selectOption()`。目前該元件已改為 MultiPicker `<button>`，腳本因此中止，**「僅路口 Excel」的第二階段 OOXML／圖表驗證未完成**。
-- 正確結論是：**目前正式掛鉤的 E2E 15／15 通過，但 Repository 內另有兩支未掛鉤舊腳本需要維護；目前不能宣稱 Repository 內所有 E2E 全部通過。**
-- 未來 UI 元件、文字或單位格式變更時，除了跑正式 `npm run e2e`，還要確認未掛鉤腳本是否仍有效；未執行到的子情境必須明列「未完成／未驗證」，不能以同一腳本較早階段的通過取代。
+- 當時的正確結論是：正式掛鉤 15／15 通過，但不能宣稱 Repository 內所有 E2E 通過。
+  **v20.80 已修復兩支舊腳本、加強斷言並納入 `npm run e2e`；目前正式清單為 56 支，56／56 通過。**
+  Repository 的 58 個 E2E 命名檔另含 1 支共用 helper 與 1 支獨立試用版 smoke；試用版 smoke 亦已通過。
+- 未來 UI 元件、文字或單位格式變更時，仍須盤點 `scripts/e2e-*.mjs` 與 `package.json` 的掛鉤清單；
+  未執行到的子情境必須明列「未完成／未驗證」，不能以同一腳本較早階段通過取代。
 
 ### 依賴安全狀態
 
@@ -334,10 +375,10 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - 包含開發工具鏈的 `npm ci` 曾列出 25 vulnerabilities（1 low、8 moderate、16 high），多位於 dev dependency chain。不得把 production audit 的結果誤報成整棵依賴樹零漏洞。
 - 禁止為消除數字而使用可能破壞 ExcelJS 的強制 downgrade／override；升級前須重跑 Excel 匯入／匯出與完整 E2E。
 
-### 手冊驗證限制
+### 手冊驗證
 
-- v20.63 PDF 手冊共 26 頁，已逐頁視覺檢查。
-- DOCX 與 PDF 由同一 HTML 來源產生，但當次環境沒有 LibreOffice，因此 DOCX 沒有獨立渲染成圖片做視覺驗證。這是已知驗證限制，不得宣稱 DOCX 已完整視覺通過。
+- v20.80 正式交付手冊為 PDF；Repository 不再附帶舊版 DOCX。
+- PDF 共 30 頁，兩個正式位置的 SHA-256 一致，已逐頁轉圖做視覺檢查。
 
 ## 12. 發布、GitHub Pages 與交付規則
 
@@ -389,17 +430,25 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 
 - `README.md` 是通用 starter 說明，容易誤導；實際維護先信本文件和程式碼。是否另行重寫 README 待使用者未來指示。
 - ExcelJS transitive uuid 的 2 項 moderate production audit 尚無相容上游修正；持續監控，不做破壞性強制替換。
-- DOCX 未在具 LibreOffice 的環境獨立視覺渲染；若未來手冊樣式改動，應在可用環境補做。
 - CSV 能力沒有和兩類真實 Excel 樣本等量的完整證據，新增／變更時需補測。
-- `scripts/e2e-report-draft.mjs` 尚未支援正式草稿的 `PCU/日、輛/日` 單位文字，現況會 false negative；它未納入正式 `npm run e2e`。
-- `scripts/e2e-xlsx-repair.mjs` 尚未支援路段／路口篩選器的 MultiPicker，會在第二階段呼叫 `selectOption()` 時中止；「僅路口 Excel」的 OOXML／圖表子情境尚未完成驗證，且該腳本未納入正式 `npm run e2e`。
+- 本次沒有取得 Claude 所述的五份真實路段與五份真實路口公司附件；自動樣本與黃金值已通過，
+  但不得把未取得的真實檔測試寫成 GPT 已重跑通過。
+- 「大車比例」目前依程式既有分類規則排除機車與小型車；未歸類的自訂車種是否應納入，
+  仍取決於車種分類設定。這與 v20.80 的「逐調查點、不跨點合併」是兩個不同議題，
+  未經使用者裁示不得順手改其車種定義。
+- PCU 範圍覆寫目前依 `季度 × 調查點` → `季度 × 全調查點` → `全季度 × 調查點`
+  → 全計畫預設的順序取值。若未來要改優先權，屬計算範圍規則變更，須另行裁示及反證。
 
 ### 後續測試維護待辦
 
-1. 更新 `e2e-report-draft.mjs` 的比對規則，使其驗證目前正式的 `PCU/日、輛/日` 文字，同時繼續核對整體、時段與各調查點合計守恆。
-2. 更新 `e2e-xlsx-repair.mjs` 的篩選操作，改以 MultiPicker 的按鈕及選項完成「僅路口」篩選，再重跑第二階段 OOXML、前兩張圖表資料來源及資料點驗證。
-3. 兩支腳本修復並穩定通過後，評估納入 `npm run e2e`，避免未掛鉤的高價值回歸案例再次漂移。
-4. 在上述待辦完成前，測試報告必須分開列出正式掛鉤 15 支與兩支未掛鉤腳本，不得使用「所有 E2E 全部通過」的概括敘述。
+1. 每次新增 `scripts/e2e-*.mjs` 時同步加入 `package.json`，並在 review 時比較腳本總數與掛鉤清單，
+   避免再次出現高價值但未執行的舊腳本。
+2. UI 元件、文字與單位格式變更時，同步更新守門且先在舊邏輯上做紅燈反證；不得只放寬正規表示式。
+3. 真實公司去識別附件可取得時，補跑路段、路口、舊 Excel 變體與檔名身分案例，並把結果寫進
+   當版 `VALIDATION_v*.md`；沒有附件時必須明列未執行。
+4. 依賴升級須優先處理目前 dev/build chain 的 16 high，並完整重跑 Excel、56 支正式 E2E
+   與獨立試用版 smoke；
+   禁止只為降低 audit 數字而強制覆寫 ExcelJS 相依版本。
 
 ### 待確認
 
@@ -516,10 +565,14 @@ Claude 的範圍描述不是 reviewer 的界線。若 GPT 修改了 Claude 包�
 - 兩種調查格式、動態車種、路口幾何、PCU、尖峰、平假日、部分日、缺季、精度與資料隔離。
 - 輸入、解析、驗證、儲存、計算、UI、匯出及備份的完整資料流。
 - IndexedDB 競態、重複匯入、身分、歷史重大 regression 與禁止復發事項。
-- 測試命令、v20.63 實際數量、未驗證限制、安全 audit 與部署證據。
-- 正式掛鉤 E2E 15／15 通過，以及兩支未掛鉤舊腳本的 false negative、MultiPicker 相容問題、未完成驗證範圍與後續維護待辦。
+- 測試命令、v20.80 的 535／0／1、正式 E2E 56／56 與試用版 smoke 1／1、
+  未驗證限制、安全 audit 及發布證據要求。
+- 兩支舊 E2E 的歷史 false negative／MultiPicker 問題、v20.80 修復與正式掛鉤結果，以及未來腳本盤點規則。
 - 完整風險導向規則、Claude／GPT 分工、Pages 發布、備份及下一代對話 gate。
 
 ### 新 GPT 接手後最合理的下一步
 
-只做唯讀驗收：確認目前路徑仍是本文件第 1 節所列 DailyTraffic、`origin` 仍為 `BaoToast/DailyTraffic`、branch／HEAD／正式版本與 Pages 是否一致，完整閱讀本文件後向使用者回報差異；並以本文件第 11、13 節記錄的兩支未掛鉤 E2E 待辦作為後續測試維護基準。**完成回報後等待使用者明確說「交接確認完成」；在此以前停止，不得開始新功能、修正、commit、push 或發布。**
+只做唯讀驗收：確認目前路徑仍是本文件第 1 節所列 DailyTraffic、`origin` 仍為
+`BaoToast/DailyTraffic`、branch／HEAD／正式版本與 Pages 是否一致，完整閱讀本文件後向使用者
+回報差異；以第 11、13 節的 v20.80 驗證、真實附件限制、依賴維護與 E2E 掛鉤盤點作為後續基準。
+**完成回報後等待使用者明確說「交接確認完成」；在此以前停止，不得開始新功能、修正、commit、push 或發布。**

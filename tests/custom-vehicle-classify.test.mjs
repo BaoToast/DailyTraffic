@@ -321,3 +321,121 @@ test("算 PCU 只能有一份實作，period-analysis 不可以再自己寫一�
     "period-analysis 又自己實作了一次自訂車種的取法",
   );
 });
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  分析用的畫面一律用「歸類後的類型」，不可以用歸類前的原始車種
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-15 定義（原話）：
+ *   「基本 4 個原車種類型，就是機車、小型車、大型車、特種車，剩下就是看
+ *     使用者是要把新車種自動歸類成 1 個新類型，**或是要併入 4 個原車種類型裡**，
+ *     所以大型車類型就是指原車種類型的大型車，以及任何把新車種併入到大型車
+ *     裡面的車種……依此類推。」
+ *
+ * ⚠️ 2026-09-15 大檢查查到的錯：歷季趨勢的「單一車種車輛數／佔比」
+ *   用的是 rawVehicleCounts／rawVehicleLabels（**歸類前**），
+ *   而「車種組成」那一塊用的是 analysisVehicleCatalog（**歸類後**）。後果：
+ *
+ *     使用者把「電動機車」併進機車 →
+ *       ・車種組成的「機車」＝ 原生機車 ＋ 電動機車
+ *       ・歷季趨勢選「機車」  ＝ **只有原生機車**
+ *     兩塊掛著同一個標籤、給出兩個不同的數字，畫面上一個字都沒說；
+ *     而且下拉裡還列得出「電動機車」——一個已經宣告不再獨立存在的類型。
+ *
+ * ⚠️ 為什麼用掃原始碼：這一段是寫在元件裡的 useMemo，沒有辦法單獨呼叫。
+ *   端對端測得到數字，但測不到「下拉列的是哪一組鍵」——
+ *   而那正是這個錯的源頭（選項與取值用了不同的鍵空間）。
+ */
+test("歷季趨勢的車種下拉與取值都要用歸類後的類型", () => {
+  const source = readFileSync(
+    new URL("../app/DashboardClient.tsx", import.meta.url),
+    "utf8",
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  /*
+   * ⚠️ 這一段是**兩塊**程式：
+   *   ・下拉選項：元件裡的 trendVehicleOptions
+   *   ・逐季取值：模組層的 buildTrendRows（2026-09-16 為了「一個調查點
+   *     一條線」抽出來的，一個調查點呼叫一次）
+   *   兩塊要一起驗——只驗其中一塊的話，「下拉走一套、取值走另一套」
+   *   這個錯（正是本項要守的東西）就會從另一塊溜過去。
+   */
+  const optionsBlock = source.slice(
+    source.indexOf("const trendVehicleOptions = useMemo("),
+    source.indexOf("const trendCoverageByQuarter = useMemo("),
+  );
+  const valuesBlock = source.slice(
+    source.indexOf("export function buildTrendRows("),
+    source.indexOf("function ProfessionalLineChart("),
+  );
+  assert.ok(
+    optionsBlock.length > 500,
+    "找不到歷季趨勢那一段（trendVehicleOptions ～ trendCoverageByQuarter）",
+  );
+  assert.ok(
+    valuesBlock.length > 500,
+    "找不到 buildTrendRows（歷季趨勢逐季取值那一支）",
+  );
+  const block = optionsBlock + valuesBlock;
+  assert.match(
+    block,
+    /effectiveVehicleCounts\(record, vehicleClassSettings\)/,
+    "車種下拉的選項要來自歸類後的類型",
+  );
+  assert.match(
+    block,
+    /effectiveVehicleLabel\(record, key, vehicleClassSettings\)/,
+    "車種下拉的標籤要走 effectiveVehicleLabel（併入之後顯示的是目標類型的名稱）",
+  );
+  assert.match(
+    block,
+    /const counts = effectiveVehicleCounts\(r, vehicleClassSettings\)/,
+    "取值要用歸類後的類型，否則選了「機車」只會拿到原生機車",
+  );
+  /*
+   * ⚠️ 反面：這一段裡**一個** rawVehicleCounts／rawVehicleLabels 都不可以有。
+   *   只驗「有沒有 effectiveVehicleCounts」是不夠的——兩者並存時，
+   *   下拉走一套、取值走另一套，正是舊版的樣子。
+   */
+  assert.doesNotMatch(
+    block,
+    /rawVehicleCounts|rawVehicleLabels/,
+    "歷季趨勢那一段還在用歸類前的原始車種",
+  );
+});
+
+test("需要原始車種的地方仍然要用原始車種（不可以一起改掉）", () => {
+  /*
+   * ⚠️ 上面那一條改的是**分析用**的畫面。有兩個地方要的正好相反，
+   *   把它們一起改掉會讓功能壞掉，而且壞得很安靜：
+   *
+   *   ・車種分類與當量管理（activeVehicleSourceCatalog）——它要問的正是
+   *     「每一個**原始**車種歸到哪裡」。改成歸類後的話，已經併走的車種
+   *     會從設定畫面消失，使用者再也改不回來。
+   *   ・Excel 的「原始來源追溯」——欄名就叫「原始車種與數量」，
+   *     它存在的理由就是追回原始檔。
+   */
+  const source = readFileSync(
+    new URL("../app/DashboardClient.tsx", import.meta.url),
+    "utf8",
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const catalog = source.slice(
+    source.indexOf("const activeVehicleSourceCatalog = useMemo("),
+    source.indexOf("const analysisVehicleCatalog = useMemo("),
+  );
+  assert.ok(catalog.length > 200, "找不到 activeVehicleSourceCatalog 那一段");
+  assert.match(
+    catalog,
+    /rawVehicleCounts\(record\)/,
+    "車種分類設定畫面必須列出**原始**車種，否則已併走的車種會消失、改不回來",
+  );
+  assert.match(
+    source,
+    /"原始車種與數量"/,
+    "Excel 的原始來源追溯欄名不見了",
+  );
+});

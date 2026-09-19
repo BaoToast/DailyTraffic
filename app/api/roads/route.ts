@@ -16,7 +16,26 @@ type RoadBody = {
   surveyType?: "road" | "intersection";
 };
 
+/*
+ * ⚠️ 兩種清理，用途不同，不可以混用。
+ *
+ *   clean()      ── 給「識別用」的欄位（projectId、roadId）：NFKC ＋ 去頭尾空白。
+ *   cleanLabel() ── 給「使用者打的名字」：**只去頭尾空白，不做 NFKC**。
+ *
+ * 為什麼名字不能做 NFKC：NFKC 會把全形括號「（）」換成半形「()」、
+ * 全形英數換成半形。使用者 2026-09-12 實測打「中山路（改名後）」，
+ * 存進去變成「中山路(改名後)」——他看得出來自己打的字被改掉了。
+ *
+ * 專案早就定過這條分界（使用者原話）：
+ *   「空格看不出來要吸收（排版雜訊），大小寫看得出來不吸收（內容）」。
+ * 全半形括號**看得出來**，屬於內容，不該被系統改掉。
+ *
+ * ⚠️ 比對完全不受影響：別名鍵與路段比對走的是 roadNameMatchKey()，
+ *   那一支自己就做 NFKC、統一括號與破折號、去掉空白與標點。
+ *   「顯示保留原樣、比對才正規化」是這個專案一貫的做法。
+ */
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
+const cleanLabel = (value: unknown) => String(value ?? "").trim();
 
 async function saveAlias(projectId: string, aliasName: string, roadId: string) {
   const aliasKey = roadNameMatchKey(aliasName);
@@ -44,25 +63,25 @@ export async function POST(request: Request) {
     if (!projectId || !(await canAccessProject(projectId, user.userId, true))) return Response.json({ error: "沒有編輯權限" }, { status: 403 });
 
     if (body.action === "alias") {
-      const aliasName = clean(body.aliasName), roadId = clean(body.roadId);
+      const aliasName = cleanLabel(body.aliasName), roadId = clean(body.roadId);
       if (!aliasName || !roadId) return Response.json({ error: "請輸入別名並選擇對應路段" }, { status: 400 });
       await saveAlias(projectId, aliasName, roadId);
       return Response.json({ saved: true });
     }
 
     if (body.action === "rename") {
-      const roadId = clean(body.roadId), roadName = clean(body.roadName), directionA = clean(body.directionA) || "方向A", directionB = clean(body.directionB) || "方向B";
+      const roadId = clean(body.roadId), roadName = cleanLabel(body.roadName), directionA = cleanLabel(body.directionA) || "方向A", directionB = cleanLabel(body.directionB) || "方向B";
       if (!roadId || !roadName) return Response.json({ error: "路段名稱不可空白" }, { status: 400 });
       const old = await env.DB.prepare("SELECT road_name AS roadName FROM traffic_records WHERE project_id=? AND road_id=? LIMIT 1").bind(projectId, roadId).first<{ roadName: string }>();
       if (body.surveyType === "intersection") await env.DB.prepare("UPDATE traffic_records SET road_name=? WHERE project_id=? AND road_id=?").bind(roadName, projectId, roadId).run();
       else await env.DB.prepare("UPDATE traffic_records SET road_name=?,direction_name=CASE direction_code WHEN 'A' THEN ? WHEN 'B' THEN ? ELSE direction_name END WHERE project_id=? AND road_id=?").bind(roadName, directionA, directionB, projectId, roadId).run();
       if (old?.roadName && old.roadName !== roadName) await saveAlias(projectId, old.roadName, roadId);
-      if (clean(body.aliasName)) await saveAlias(projectId, clean(body.aliasName), roadId);
+      if (cleanLabel(body.aliasName)) await saveAlias(projectId, cleanLabel(body.aliasName), roadId);
       return Response.json({ roadId, roadName, directionA, directionB });
     }
 
     if (body.action === "merge") {
-      const sourceRoadId = clean(body.sourceRoadId), targetRoadId = clean(body.targetRoadId), targetRoadName = clean(body.targetRoadName), directionA = clean(body.directionA) || "方向A", directionB = clean(body.directionB) || "方向B";
+      const sourceRoadId = clean(body.sourceRoadId), targetRoadId = clean(body.targetRoadId), targetRoadName = cleanLabel(body.targetRoadName), directionA = cleanLabel(body.directionA) || "方向A", directionB = cleanLabel(body.directionB) || "方向B";
       if (!sourceRoadId || !targetRoadId || sourceRoadId === targetRoadId || !targetRoadName) return Response.json({ error: "請選擇不同的來源與目標路段" }, { status: 400 });
       const old = await env.DB.prepare("SELECT road_name AS roadName FROM traffic_records WHERE project_id=? AND road_id=? LIMIT 1").bind(projectId, sourceRoadId).first<{ roadName: string }>();
       /*

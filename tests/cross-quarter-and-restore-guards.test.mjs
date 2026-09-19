@@ -81,10 +81,21 @@ test("寫不進去的時候不可以回報成功", () => {
     /if \(!projectId\) return true;/,
     "projectId 為空時回傳 true 等於謊報寫入成功",
   );
+  /*
+   * ⚠️ 這裡原本寫死「必須剛好 2 個」。v20.65 新增
+   *   writeProjectPcuScopes（依季別／路段的係數覆寫）之後變成 3 個，
+   *   這一條就紅了——**而那是正確的行為**，寫死的數字才是過期的。
+   *
+   *   改成「**每一個** writeProject… 函式都要有這道防線」，
+   *   日後再新增依計畫儲存的寫入函式時，這一條會自動涵蓋到，
+   *   不必有人記得回來改數字；漏寫防線時照樣會紅。
+   */
+  const writers = (block.match(/^function writeProject\w+\(/gm) ?? []).length;
+  assert.ok(writers >= 2, `只找到 ${writers} 個寫入函式，這一條等於沒做`);
   assert.equal(
     (block.match(/if \(!projectId\) return false;/g) ?? []).length,
-    2,
-    "路段與轉向兩個寫入函式都要在沒有計畫時回報 false",
+    writers,
+    `${writers} 個依計畫儲存的寫入函式，都要在沒有計畫時回報 false`,
   );
 });
 
@@ -107,23 +118,39 @@ test("PCU 係數寫入失敗時要保留警告到還原流程結束", () => {
   );
 });
 
-test("恢復預設與套用範本不得用成功訊息蓋掉儲存失敗", () => {
+test("恢復預設不得用成功訊息蓋掉儲存失敗", () => {
+  /*
+   * ⚠️ 這一項原本還驗 applyProjectTemplate（套用設定範本）。
+   * 設定範本已於 v20.64 整個移除（使用者 2026-09-09 授權），
+   * 那半段跟著拿掉——**不是把斷言放寬，是它守的函式不存在了**。
+   * 「恢復預設」這一半完全沒有變，仍然要守。
+   */
   const reset = blockFrom("const resetPcuFactors = () => {", "\n  /**");
   assert.match(reset, /const savedRoad = writeProjectPcuFactors/);
   assert.match(reset, /const savedTurn = writeProjectTurnPcuFactors/);
   assert.match(reset, /savedRoad && savedTurn\s*\?\s*"已恢復/);
+});
 
-  const template = blockFrom(
-    "async function applyProjectTemplate(",
-    "\n  function saveComparisonReport",
-  );
-  assert.match(template, /if \(!activeProject\)/, "沒有計畫時要說清楚，不能誤報空間已滿");
-  assert.match(template, /const templateWarnings: string\[\] = \[\]/);
-  assert.match(
-    template,
-    /templateWarnings\.length\s*\?\s*`已套用設定範本/,
-    "範本寫入失敗警告不能被函式末尾的成功訊息蓋掉",
-  );
+test("設定範本已移除，程式碼裡不可以再長回來", () => {
+  /*
+   * 移除類的守門要**翻面**：刪掉舊斷言而不補這一條的話，
+   * 日後有人把功能加回來，沒有任何測試會有反應。
+   * 只查程式碼，不查註解——移除的說明本身就會提到這些字。
+   */
+  const codeOnly = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "");
+  for (const gone of [
+    "saveProjectTemplate",
+    "applyProjectTemplate",
+    "showTemplateCenter",
+    "設定範本",
+  ])
+    assert.equal(
+      codeOnly.includes(gone),
+      false,
+      `設定範本已於 v20.64 移除，程式碼裡不可以再出現「${gone}」`,
+    );
 });
 
 /* ────────────────────────────────────────────────────────────
@@ -217,6 +244,31 @@ test("歷季趨勢分開標示平日與假日的調查涵蓋", () => {
   assert.match(block, /\.get\(r\.quarter\)\?\.holiday/);
 });
 
+test("歷季佔比趨勢與 Excel 圖表資料都逐調查點、逐日別，不跨點合併", () => {
+  const trend = blockFrom(
+    "const TREND_PER_ROAD_METRICS",
+    "const trendRoadIds",
+  );
+  assert.match(trend, /"vehicleShare"/, "單一車種佔比必須逐調查點畫線");
+  assert.match(trend, /"heavyShare"/, "大車比例必須逐調查點畫線");
+
+  const rows = blockFrom(
+    "const compositionTrendRows = useMemo(",
+    "const hourlyExportRows",
+  );
+  assert.match(rows, /r\.quarter.*r\.roadId.*r\.dayType/s, "分組鍵必須同時包含季度、調查點與日別");
+  assert.match(rows, /roadId: r\.roadId/);
+  assert.match(rows, /dayType: r\.dayType/);
+
+  const sheet = blockFrom(
+    'wb.addWorksheet("歷季組成圖表資料"',
+    'wb.addWorksheet("每小時趨勢"',
+  );
+  for (const header of ["季度", "調查點編號", "調查點", "日別"])
+    assert.match(sheet, new RegExp(`"${header}"`), `缺少 ${header} 欄`);
+  assert.match(sheet, /hct\.getColumn\(6 \+ index\)/, "百分比欄必須從新增的五個識別欄之後開始");
+});
+
 test("舊版 .xls 匯出的歷季表也要跟著改", () => {
   const block = blockFrom("async function exportLegacy()", "\n  async function ");
   assert.match(block, /調查涵蓋: r\.coverageLabel/, "歷季全日交通量要有調查涵蓋欄");
@@ -239,8 +291,8 @@ test("舊版 .xls 匯出的歷季表也要跟著改", () => {
 test("匯出範圍說明不得宣稱歷季全日交通量會被篩選", () => {
   /*
    * historicalDailyRows／historicalCompositionRows 走的是未經任何篩選的
-   * analysisRecords（刻意如此，那兩張是明細底稿），只有「歷季趨勢」與
-   * 「歷季組成圖表資料」才吃 trendMode／trendRoad。說明寫成
+   * analysisRecords（刻意如此，那兩張是明細底稿），只有「歷季趨勢」
+   * 吃 trendMode／trendRoad；「歷季組成圖表資料」另依主工具列逐點逐日輸出。說明寫成
    * 「歷季全日量與趨勢依歷季分析面板的…」會讓使用者以為範圍已經縮小了。
    */
   const rows = blockFrom("const historicalDailyRows = useMemo(", "const historicalCompositionRows");
@@ -297,11 +349,38 @@ test("compareQuarters 在混用民國與西元時仍排得對", () => {
  * ──────────────────────────────────────────────────────────── */
 
 test("刪除計畫會清掉依計畫存放的 localStorage", () => {
-  const block = blockFrom("async function deleteProject()", "\n  async function ");
+  /*
+   * ⚠️ 定位方式與斷言在 2026-09-11 都改過，理由值得寫下來。
+   *
+   *   ① 錨點原本寫死成 "async function deleteProject()"。
+   *      「建立與管理計畫」那一頁每一列都有刪除鈕，要刪的不一定是目前這一個，
+   *      所以函式加了一個 target 參數，錨點就找不到了——而錯誤訊息是
+   *     「找不到 async function deleteProject()」，看起來像函式被刪掉了。
+   *      改成只認函式名與左括號。
+   *
+   *   ② 斷言原本寫死成 dropProjectScopedStorage(selectedProject.id)。
+   *      那是**某一種實作的長相**，不是行為。現在改成守真正要守的事：
+   *      清儲存空間用的 id，必須和送 DELETE 請求用的**同一個**。
+   *      這比寫死字面值更嚴格——兩處若不一致（例如一個用 victim.id、
+   *      一個還留著 selectedProject.id），就會刪掉 A 的資料卻清掉 B 的設定，
+   *      而那正是最難發現的一種錯。
+   */
+  const block = blockFrom("async function deleteProject(", "\n  async function ");
+  const deleteId = /\/api\/projects\/\$\{encodeURIComponent\(([A-Za-z0-9_.]+)\)\}/.exec(block);
+  assert.ok(deleteId, "找不到刪除計畫的 API 呼叫，這一則守門要重看");
   assert.match(
     block,
-    /dropProjectScopedStorage\(selectedProject\.id\)/,
-    "刪掉計畫卻留著它的 PCU 係數與結論範本，會一直占用瀏覽器儲存空間",
+    new RegExp(
+      "dropProjectScopedStorage\\(" + deleteId[1].replace(/\./g, "\\.") + "\\)",
+    ),
+    `清掉的必須是剛剛刪掉的那一個（API 用的是 ${deleteId[1]}）——` +
+      "刪掉計畫卻留著它的 PCU 係數與結論範本，會一直占用瀏覽器儲存空間；" +
+      "清錯一個更糟，會把另一個計畫的設定清掉。",
+  );
+  assert.match(
+    block,
+    new RegExp("deleteWorkflow\\(" + deleteId[1].replace(/\./g, "\\.") + "\\)"),
+    "IndexedDB 裡的工作流程狀態也要清掉同一個計畫的",
   );
   const helper = blockFrom("const PROJECT_SCOPED_KEYS = [", "\n\n");
   for (const key of [

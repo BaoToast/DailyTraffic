@@ -286,8 +286,10 @@ export async function checkWorkbook(bytes) {
   const defaults = [...ct.matchAll(/<Default Extension="([^"]+)"/g)].map((m) =>
     m[1].toLowerCase(),
   );
-  const overrides = new Set(
-    [...ct.matchAll(/<Override PartName="([^"]+)"/g)].map((m) => m[1]),
+  const overrides = new Map(
+    [...ct.matchAll(/<Override PartName="([^"]+)" ContentType="([^"]+)"/g)].map(
+      (m) => [m[1], m[2]],
+    ),
   );
   for (const name of names) {
     if (name === "[Content_Types].xml") continue;
@@ -295,6 +297,44 @@ export async function checkWorkbook(bytes) {
     const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
     if (!defaults.includes(ext))
       issues.push(`[Content_Types].xml 沒有涵蓋 ${name}`);
+  }
+
+  /*
+   * 2b) 有些 part **一定要有自己的 Override**，光靠 Default 不算數。
+   *
+   * ⚠️ 這個洞是 2026-09-10 實測抓出來的：把 chart1.xml 的 <Override> 從
+   * [Content_Types].xml 刪掉，上面那一段**完全沒有反應**——因為 ExcelJS
+   * 會寫一條 `<Default Extension="xml" ContentType="application/xml"/>`，
+   * chart1.xml 就靠這條「過關」了。
+   *
+   * 但對 Excel 來說完全不是這麼回事：它會把那個 part 當成一份普通的
+   * application/xml，找不到圖表該有的型別，於是判定檔案損毀、
+   * 跳出「部分內容有問題，是否修復」，修復後圖表整批消失。
+   *
+   * 也就是說：**這一支腳本原本的第 2 項檢查對最常出事的那一種情形是無效的**。
+   * 這裡逐一比對「這個 part 應該是什麼型別」，缺 Override 或型別寫錯都要報。
+   */
+  const REQUIRED_TYPES = [
+    [/^xl\/charts\/chart\d+\.xml$/, "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"],
+    [/^xl\/drawings\/drawing\d+\.xml$/, "application/vnd.openxmlformats-officedocument.drawing+xml"],
+    [/^xl\/worksheets\/sheet\d+\.xml$/, "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"],
+    [/^xl\/workbook\.xml$/, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"],
+    [/^xl\/styles\.xml$/, "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"],
+    [/^xl\/sharedStrings\.xml$/, "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"],
+    [/^xl\/theme\/theme\d+\.xml$/, "application/vnd.openxmlformats-officedocument.theme+xml"],
+  ];
+  for (const name of names) {
+    const rule = REQUIRED_TYPES.find(([pattern]) => pattern.test(name));
+    if (!rule) continue;
+    const declared = overrides.get("/" + name);
+    if (!declared)
+      issues.push(
+        `[Content_Types].xml 缺少 ${name} 的 <Override>（只有 Default 不夠，Excel 會判定檔案損毀）`,
+      );
+    else if (declared !== rule[1])
+      issues.push(
+        `[Content_Types].xml 把 ${name} 宣告成 ${declared}，應該是 ${rule[1]}`,
+      );
   }
 
   // 3) .rels 指到的 part 必須存在

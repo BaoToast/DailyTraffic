@@ -479,6 +479,118 @@ export function parseTrafficSheetValues(
       columns.slice(order * vehicleCount, order * vehicleCount + vehicleCount),
     );
   }
+  /*
+   * ══════════════════════════════════════════════════════════════
+   *  ⚠️ X-66：表頭層級的兩種「說不通」，要在這裡一次算好
+   * ══════════════════════════════════════════════════════════════
+   *
+   * 使用者 2026-09-17 問三支程式「欄位換位讀得到嗎、重複會不會指出異常」。
+   * 查出來這一支有兩個完全安靜的洞：
+   *
+   * 一、**同一個方向裡同一個車種出現不只一次**。
+   *   兩種來源，症狀不同但都不會出聲：
+   *   ・調查員誤植（表頭兩欄都寫「機車」）→ 車輛數累加，但 turnData 是
+   *     **指派**，後面那一組蓋掉前面那一組，於是同一筆紀錄的總量與
+   *     轉向明細互相矛盾，而沒有任何地方比對這兩者。
+   *   ・**方向切割失敗**——這個更可怕。方向是靠「車種標題重複的週期」切的，
+   *     只要其中一個方向的車種順序被調換，週期就找不到，
+   *     `repeatedVehicleCount()` 回傳整個欄數 → directionCount 變成 1 →
+   *     兩個方向的欄位被當成同一個方向**相加**，少掉的那一筆
+   *     整個消失，匯入照樣報成功。實測：北向 1,2,3,4／南向 10,20,30,40
+   *     變成一筆「11,22,33,44」。
+   *   兩種來源的共同症狀就是「一個方向裡同一個車種鍵出現在兩個 run」，
+   *   所以一條檢查同時接住。連續同名（合併儲存格）不算——那被 runs 收成
+   *   同一組，本來就是正常的版型。
+   *
+   * 二、**左／直／右是靠欄位順序決定的，從來沒有讀過子標題**。
+   *   「左轉」「右轉」這幾個字只被用來判斷「這是不是路口表」。
+   *   子標題寫 `右轉|直進|左轉` 時，右轉的數字會被記成左轉，零提示。
+   *   ⚠️ 這裡**不自動改讀法**——依欄名重排等於系統替調查資料做決定，
+   *   而且合併儲存格、跨欄標題那些版型會被改壞。改成：子標題讀得到、
+   *   但順序與 左→直→右 對不上時**說出來**，請使用者核對。
+   */
+  const headerWarnings: string[] = [];
+  groups.forEach((group, order) => {
+    const seen = new Map<string, number>();
+    let previousKey = "";
+    const repeated = new Set<string>();
+    group.forEach((column) => {
+      const key = vehicleKeyForLabel(column.label);
+      if (key !== previousKey) {
+        const times = (seen.get(key) ?? 0) + 1;
+        seen.set(key, times);
+        if (times > 1) repeated.add(column.label);
+      }
+      previousKey = key;
+    });
+    if (repeated.size)
+      headerWarnings.push(
+        `第 ${order + 1} 組欄位裡「${[...repeated].join("、")}」出現不只一次。` +
+          "這通常是原始調查表的表頭打錯字，也可能是方向欄位的順序被調換" +
+          "而讓系統切不出方向（兩個方向會被合併成一筆並相加）。" +
+          "系統不會自行挑選要用哪一欄，請核對原始檔的表頭。",
+      );
+  });
+  if (isIntersection) {
+    const TURN_TEXT: [TurnKey, RegExp][] = [
+      ["left", /左轉|左彎/],
+      ["through", /直進|直行/],
+      ["right", /右轉|右彎/],
+    ];
+    const turnAt = (index: number) => {
+      const text = String(subHeader[index] ?? "")
+        .normalize("NFKC")
+        .replace(/\s+/g, "");
+      const hit = TURN_TEXT.find(([, re]) => re.test(text));
+      return hit ? hit[0] : null;
+    };
+    const mismatched = new Set<string>();
+    groups.forEach((group, groupOrder) => {
+      /* ⚠️ runs 與 turnCells 的算法要與下面真正讀值的那一段**逐字相同**，
+         否則守門守的是另一套邏輯，改壞了也不會紅。 */
+      const runs: number[][] = [];
+      let previousKey = "";
+      group.forEach((column) => {
+        const key = vehicleKeyForLabel(column.label);
+        if (key === previousKey && runs.length)
+          runs[runs.length - 1].push(column.index);
+        else runs.push([column.index]);
+        previousKey = key;
+      });
+      runs.forEach((run, runIndex) => {
+        const nextColumn =
+          runs[runIndex + 1]?.[0] ??
+          groups[groupOrder + 1]?.[0]?.index ??
+          Number.POSITIVE_INFINITY;
+        const firstIndex = run[0];
+        const turnCells =
+          run.length >= 3
+            ? run.slice(0, 3)
+            : [firstIndex, firstIndex + 1, firstIndex + 2].filter(
+                (index) => index < nextColumn,
+              );
+        const order = turnCells.map((index) => turnAt(index));
+        /* 三格都讀不到轉向文字＝這個版型沒寫子標題，不是矛盾，不報。 */
+        if (order.every((turn) => turn === null)) return;
+        const expected: TurnKey[] = ["left", "through", "right"];
+        order.forEach((turn, position) => {
+          if (turn && turn !== expected[position])
+            mismatched.add(
+              `第 ${turnCells[position] + 1} 欄寫的是「${String(subHeader[turnCells[position]] ?? "").trim()}」`,
+            );
+        });
+      });
+    });
+    if (mismatched.size)
+      headerWarnings.push(
+        `轉向欄的子標題與欄位順序對不起來：${[...mismatched].slice(0, 4).join("、")}` +
+          `${mismatched.size > 4 ? " 等" : ""}。` +
+          "系統是照「每個車種的前三欄＝左轉、直進、右轉」讀的，" +
+          "不會自行依標題重排（那等於替調查資料做決定），" +
+          "請核對原始檔的轉向欄順序，確認無誤再匯入。",
+      );
+  }
+
   const parsed: ParsedTrafficRow[] = [];
 
   for (
@@ -517,7 +629,8 @@ export function parseTrafficSheetValues(
       const turnData = emptyTurns();
       const vehicleLabels: VehicleLabels = {};
       const vehicleCounts: VehicleCounts = {};
-      const sourceWarnings: string[] = [];
+      /* 表頭層級的警告要跟著每一筆走（下面會去重），否則只有第一筆看得到。 */
+      const sourceWarnings: string[] = [...headerWarnings];
       /*
        * 逐轉向記「寫了數字」與「畫了橫線」各幾格。
        * 數值本身完全不動（`--` 一樣是 0），這份記帳只給示警與預填幾何用。

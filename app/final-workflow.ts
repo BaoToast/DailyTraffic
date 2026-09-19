@@ -42,6 +42,17 @@ export type AnomalyThresholds = {
   zeroHourLimit: number;
 };
 
+/**
+ * @deprecated 設定範本已於 v20.64 移除（使用者 2026-09-09 授權：
+ * 「套用後，為確保正確性還是會逐一確認，那跟逐一重新設定沒什麼不同了，
+ *   所以設定範本功能沒有用處，請幫我移除」）。
+ *
+ * ⚠️ 型別與 WorkflowState.templates 欄位**刻意保留**。
+ * 使用者硬碟裡已經存好的舊備份 JSON 一定帶著 templates 陣列；
+ * 還原時如果因為「不認得的欄位」而失敗，他過去所有的備份就全部還原不了。
+ * 做法：還原時**忽略內容、但不可以因為它存在而失敗**。
+ * 由 tests/backup-completeness.test.mjs 釘住（拿含 templates 的舊備份還原必須成功）。
+ */
 export type ProjectTemplate = {
   id: string;
   name: string;
@@ -58,7 +69,16 @@ export type ComparisonReportTemplate = {
   id: string;
   name: string;
   createdAt: string;
-  compareProjectIds: string[];
+  /**
+   * @deprecated 跨計畫比較已於 v20.64 移除（使用者 2026-09-09 授權）。
+   *
+   * 這個欄位**只保留為選填**，因為使用者硬碟裡已經存好的舊範本一定帶著它。
+   * 讀到要忽略、不可以炸掉；新存的範本不再寫入。
+   * ⚠️ 不可以整個刪掉型別欄位——刪掉之後舊範本在 TypeScript 這一側就變成
+   * 「多出來的欄位」，而畫面上讀 `report.compareProjectIds.length` 會直接
+   * 拋 undefined。要留著、標記，並且讓所有讀取端都做存在性檢查。
+   */
+  compareProjectIds?: string[];
   quarter: string;
   dayType: string;
   /**
@@ -109,9 +129,27 @@ export type WorkflowState = {
   statuses: Record<string, ReviewStatus>;
   checkedQuarters: string[];
   thresholds: AnomalyThresholds;
+  /** @deprecated 見 ProjectTemplate；只為相容舊備份而保留，新資料一律空陣列。 */
   templates: ProjectTemplate[];
   comparisonReports: ComparisonReportTemplate[];
   history: ImportHistoryEntry[];
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  已經人工確認過、下次檢查不再提醒的異常（使用者 2026-09-17）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 「如果已經回報了，要怎麼按確認，來讓這項問題，在下次異常檢查時，
+   *   不會再次回報異常呢?」
+   *
+   * ⚠️ 鍵是那一筆異常的**指紋**，而指紋必須包含它的數值。
+   *   只用「季度＋調查點＋類型」當鍵的話，確認過「全日量變動 22%」之後，
+   *   下一次變成 80% 也會被同一把鑰匙消音——那是把一個更嚴重的問題藏起來。
+   *   數值變了 → 指紋變了 → 重新出現，這是刻意的。
+   * ⚠️ 只有「人工確認」類可以確認。「重新匯入」是原始檔真的有錯，
+   *   給它一顆按掉的鈕，等於提供一個把資料錯誤藏起來的開關。
+   * ⚠️ 舊備份沒有這個欄位，讀進來是 undefined——所有讀取端都要當成空的。
+   */
+  ackedAnomalies?: Record<string, { at: string }>;
 };
 
 export const DEFAULT_THRESHOLDS: AnomalyThresholds = {
@@ -131,7 +169,36 @@ export function emptyWorkflowState(): WorkflowState {
     templates: [],
     comparisonReports: [],
     history: [],
+    ackedAnomalies: {},
   };
+}
+/**
+ * 一筆異常提醒的指紋——「已確認」記在這把鑰匙上。
+ *
+ * ⚠️ 一定要帶數值。它一變指紋就變，上一次的確認**自動失效**、
+ *   這一筆會重新出現。少了它，確認過一次之後同一個調查點就再也不提醒。
+ */
+export function anomalyFingerprint(item: {
+  type: string;
+  fromQuarter: string;
+  toQuarter: string;
+  roadId: string;
+  dayType: string;
+  direction?: string;
+  vehicle?: string;
+  value: number;
+}): string {
+  return JSON.stringify([
+    item.type,
+    item.fromQuarter,
+    item.toQuarter,
+    item.roadId,
+    item.dayType,
+    item.direction || "",
+    item.vehicle || "",
+    /* 小數點後一位就夠了；再細會因為浮點誤差讓指紋每次都不一樣。 */
+    Number(item.value).toFixed(1),
+  ]);
 }
 
 export function trafficIdentity(record: TraceableTrafficRecord) {
@@ -181,6 +248,25 @@ export function validateImport(
   const duplicateKeys = new Set<string>();
   const invalidRows: string[] = [];
   const warnings: string[] = [];
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  逐筆的「需注意」清單（帶類型），給畫面做標籤篩選用
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者 2026-09-13（附兩張截圖）：
+   *   「全日交通量資料匯入了，有 22 筆提醒項目，但底下列出的並沒有這麼多，
+   *     感覺只是展示前幾筆而已……能像『歷季異常提醒』那樣，列表展示當前匯入
+   *     有異常的項目，並且有篩選功能，可以明顯看到發生了 ABCD 四個類型資料異常，
+   *     點了 A 標籤就列出 A 異常的事件，如果都沒點任何標籤，表格就全列出全部。」
+   *   「我可以很直觀知道異常有幾個種類，可以**選擇最重大的異常先挑出來看**哪幾筆，
+   *     也不會因為筆數太多而沒注意到細節。」
+   *
+   * ⚠️ `warnings`（一句一種、把筆數寫在句子裡）**保留不動**——
+   *   既有的匯出、草稿與測試都讀它。這裡另外給一份**逐筆展開**的，
+   *   聚合型的訊息（「N 組方向未滿 24 小時」）在這裡是 N 列，不是 1 列。
+   *   兩者的關係要成立：每一種類型的筆數加總 ＝ 畫面上列得出來的列數。
+   */
+  const warningItems: { type: string; text: string }[] = [];
   const hoursByGroup = new Map<string, Set<string>>();
   let totalVehicles = 0;
   records.forEach((record, index) => {
@@ -277,7 +363,7 @@ export function validateImport(
       .join("；");
     warnings.push(
       `「${roadName}」各方向／支線的車種名稱不一致：${detail}。` +
-        `這通常是原始調查表打錯字。確認無誤才按下面的確認鈕；` +
+        `這通常是原始調查表打錯字。確認無誤才按「確認匯入」；` +
         `系統會照原名稱匯入，不會自動把它們併成同一類。`,
     );
   }
@@ -340,6 +426,27 @@ export function validateImport(
     warnings.push(`匯入檔內有 ${duplicateKeys.size} 組重複鍵值`);
   if (incompleteGroups.length)
     warnings.push(`${incompleteGroups.length} 組方向未滿 24 小時`);
+  /*
+   * ⚠️ 逐筆展開。聚合訊息說「N 組」，這裡就要有 N 列——
+   *   否則使用者看到「22 項」卻只數得出十幾列，會以為自己看錯。
+   */
+  for (const key of duplicateKeys)
+    warningItems.push({
+      type: "重複鍵值",
+      text: `${key.replaceAll("|", "／")}：這一組在匯入檔裡出現不只一次`,
+    });
+  for (const item of incompleteGroups)
+    warningItems.push({ type: "未滿 24 小時", text: item });
+  for (const { roadName, byShape } of shapesByRoad.values()) {
+    if (byShape.size < 2) continue;
+    for (const [shape, arms] of byShape)
+      warningItems.push({
+        type: "車種名稱不一致",
+        text: `「${roadName}」的 ${[...new Set(arms)].sort().join("、")}：${shape}`,
+      });
+  }
+  for (const item of mixedIntervalGroups)
+    warningItems.push({ type: "混用時間格", text: item });
   const replacedRows = records.filter((record) =>
     existingKeys.has(trafficIdentity(record)),
   ).length;
@@ -370,6 +477,7 @@ export function validateImport(
     valid: invalidRows.length === 0 && records.length > 0,
     invalidRows,
     warnings,
+    warningItems,
     incompleteGroups,
     replacedRows,
     addedRows: records.length - replacedRows,
@@ -471,6 +579,73 @@ export const ANOMALY_TYPES = [
   "零流量時段",
 ] as const;
 export type AnomalyType = (typeof ANOMALY_TYPES)[number];
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  X-49：每一種異常的「解決方式」（使用者 2026-09-16）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者原話：
+ *   「我建議在檢查結果表中，新增一欄"解決方式"(例如重新匯入檔案、
+ *     指引前往某分頁進行人工確認等)」
+ *   「如果這個異常狀況真的只能靠重新匯入解決，那就請在檢查結果表中，
+ *     標註說明請重新匯入該筆檔案」
+ *
+ * ⚠️ `kind` 是給使用者的**期待管理**，不是分類標籤：
+ *   ・畫面修正 → 程式裡真的有地方可以改，改完重按檢查**就會消失**
+ *   ・重新匯入 → 錯在原始檔、畫面上沒有入口，一直按檢查也不會消失
+ *   ・人工確認 → 不一定是錯，要有人看過並判定
+ *   標成「畫面修正」卻其實改不掉，就是對使用者謊報。
+ *
+ * ⚠️ 這一支程式的五種異常**全部是趨勢類**（相鄰兩季變動超過門檻），
+ *   本質上都是「提醒」而不是「錯」——所以多數是「人工確認」。
+ *   把它們寫成「請修正資料」會逼使用者去改一份沒有錯的檔。
+ *
+ * ⚠️ 用 Record<AnomalyType, …> 宣告：新增一種異常卻忘了寫解決方式時，
+ *   TypeScript 當場就會擋下來，不會等到畫面上出現空格子才發現。
+ */
+export type AnomalyResolution = {
+  kind: "畫面修正" | "重新匯入" | "人工確認";
+  /** 使用者實際要做的那件事，一句話講完。 */
+  text: string;
+  /** 可以直接跳過去的區塊錨點（對應 PAGE_ZONES 的 anchor）。 */
+  anchor?: string;
+  /** 那一塊在側欄上的名字，拿來寫按鈕文字。 */
+  anchorLabel?: string;
+};
+
+export const ANOMALY_RESOLUTIONS: Record<AnomalyType, AnomalyResolution> = {
+  全日量變動: {
+    kind: "人工確認",
+    text: "這是提醒，不是判定資料有錯。相鄰兩季的全日交通量變動超過門檻，可能是真的車流改變（道路改建、周邊開發、連假），也可能是這一季漏匯了部分時段。請到「可追溯明細」核對這兩季的調查時數與筆數：確實是現地變化就在報告中說明，這一項會一直列著；如果是漏匯或時段不全，補齊原始檔後重新匯入該季。覺得門檻太敏感可在「異常提醒門檻」調整。",
+    anchor: "block-detail",
+    anchorLabel: "可追溯明細",
+  },
+  PCU變動: {
+    kind: "人工確認",
+    text: "先看同一筆的「全日量變動」有沒有一起出現：兩個都變＝車流本身變了，只有 PCU 變＝多半是車種歸類或 PCU 當量改過。後者請到「PCU 當量係數」與「車種分類與當量管理」確認是不是刻意調整的——是的話這一項屬正常，在報告中說明即可；不是的話把設定改回來，重按檢查就會消失。",
+    anchor: "block-pcu",
+    anchorLabel: "PCU 當量係數",
+  },
+  尖峰時段位移: {
+    kind: "人工確認",
+    text: "尖峰小時的起點相對前一季移動超過門檻。真實原因常見的是學期、連假、施工改道；資料原因常見的是原始檔的時間欄位錯位或時間格混用。請到「24小時型態」比對這兩季的曲線形狀：形狀合理就在報告中說明；曲線明顯錯位才回原始檔更正時間欄位後重新匯入該季。",
+    anchor: "block-hourly",
+    anchorLabel: "24小時型態",
+  },
+  車種占比變動: {
+    kind: "人工確認",
+    text: "某一個車種的占比相對前一季變動超過門檻（單位是百分點，不是百分比）。最常見的原因是車種歸類改過——同一個原始車種這一季被歸到別的分析分類。請到「車種分類與當量管理」確認兩季的歸類是否一致：一致就代表是真的組成改變，在報告中說明即可；不一致請改回來，重按檢查就會消失。",
+    anchor: "card-vehicle-class",
+    anchorLabel: "車種分類與當量管理",
+  },
+  零流量時段: {
+    kind: "重新匯入",
+    text: "整段時間格的流量是 0，而且換算成實際涵蓋時數之後仍然超過上限。深夜本來就可能是 0，所以先確認原始檔那幾個時段是「量到 0」還是「根本沒填」：沒填的要補齊後重新匯入該季（本系統不提供逐格補值，也不會把空白當成 0）；現場確實整段沒有車流的話，把「異常提醒門檻」的「零流量時段上限」調高即可。",
+    anchor: "quality-thresholds",
+    anchorLabel: "異常提醒門檻",
+  },
+};
 
 export function detectAnomalies(
   records: TraceableTrafficRecord[],

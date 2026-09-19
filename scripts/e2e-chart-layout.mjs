@@ -46,6 +46,8 @@ import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
 import { launchOptions } from "./chrome-path.mjs";
+import { ensureToolbarOpen } from "./e2e-nav.mjs";
+import { gotoBlock } from "./e2e-nav.mjs";
 
 XLSX.set_fs(fs);
 
@@ -153,6 +155,9 @@ page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "N" : ""));
 
 try {
   await page.goto("http://localhost:8137/");
+  /* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+  await page.waitForTimeout(1200);
+  await ensureToolbarOpen(page);
   await page.waitForTimeout(800);
 
   await page.getByRole("button", { name: "＋" }).first().click().catch(() => {});
@@ -204,6 +209,29 @@ try {
   for (let i = 0; i < FILES.length; i += 1) await importFile(FILES[i], QUARTERS[i]);
   await page.waitForTimeout(1200);
 
+  /* 歷季趨勢圖在「圖表」分頁上——v20.64 起別頁的元素不在 DOM 裡。 */
+  /* ⚠️ X-63：歷季分析（trend-canvas）現在自己一個大分頁。 */
+  await gotoBlock(page, "block-trend");
+  /*
+   * ⚠️ 日別要**明確切到「平日＋假日」**，不可以靠預設值。
+   *
+   * v20.68 起歷季趨勢圖跟著上方共同功能列的日別走（使用者 2026-09-12
+   * 指定：「篩選錯誤和計算錯誤是一樣嚴重」），而共同功能列的預設是「平日」。
+   * 舊版趨勢圖有自己的 trendMode、預設「平日＋假日」，所以這支測試以前
+   * 不必設就有兩條線。現在不設就只有一條線，下面「假日折線的顏色要出現」
+   * 那幾條會紅——那不是程式壞了，是測試依賴了一個已經不存在的預設值。
+   */
+  await page.evaluate(() => {
+    const day = [...document.querySelectorAll(".filters label")].find((el) =>
+      (el.childNodes[0]?.textContent || "").includes("日別"),
+    );
+    const select = day?.querySelector("select");
+    if (select) {
+      select.value = "平日＋假日";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(900);
   const canvas = page.locator("canvas.trend-canvas").first();
   await canvas.scrollIntoViewIfNeeded();
   await page.waitForTimeout(600);
@@ -364,8 +392,15 @@ try {
   await page.waitForTimeout(900);
   const shareScript = await page.locator("#trendScript").innerText();
   ok(
-    "換成「大型車比例」之後，說明裡的指標與單位要跟著變",
-    shareScript.includes("大型車比例") && shareScript.includes("%"),
+    /*
+     * ⚠️ 指標名是「大車比例」不是「大型車比例」（使用者 2026-09-15 指名改名，
+     *   舊名讓人誤以為只算內建的那一個「大型車」車種）。
+     *   這裡順便把舊名擋掉：留著舊名會讓下一個人以為兩種寫法都可以。
+     */
+    "換成「大車比例」之後，說明裡的指標與單位要跟著變（而且不可以再出現舊名「大型車比例」）",
+    shareScript.includes("大車比例") &&
+      shareScript.includes("%") &&
+      !shareScript.includes("大型車比例"),
     shareScript.slice(0, 60).replace(/\s+/g, " "),
   );
   ok(
@@ -385,8 +420,11 @@ try {
     .split(/\r?\n/)
     .find((line) => line.includes("歷季趨勢（")) ?? "";
   ok(
-    "報表草稿的歷季趨勢要跟著目前選擇顯示大型車比例（%）",
-    historyLine.includes("大型車比例") && historyLine.includes("%") && !historyLine.includes("PCU"),
+    "報表草稿的歷季趨勢要跟著目前選擇顯示大車比例（%）",
+    historyLine.includes("大車比例") &&
+      historyLine.includes("%") &&
+      !historyLine.includes("PCU") &&
+      !historyLine.includes("大型車比例"),
     historyLine,
   );
   ok(

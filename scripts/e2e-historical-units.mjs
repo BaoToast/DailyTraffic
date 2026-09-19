@@ -26,6 +26,8 @@ import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
 import { launchOptions } from "./chrome-path.mjs";
+import { ensureToolbarOpen } from "./e2e-nav.mjs";
+import { gotoBlock } from "./e2e-nav.mjs";
 
 // SheetJS 0.20.x 的 ESM 版本需要明確綁定 Node.js 檔案系統才能輸出樣本。
 XLSX.set_fs(fs);
@@ -143,6 +145,9 @@ page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "N" : ""));
 
 try {
   await page.goto("http://localhost:8101/");
+  /* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+  await page.waitForTimeout(1200);
+  await ensureToolbarOpen(page);
   await page.waitForTimeout(800);
 
   // ── 建立計畫（流程與 e2e-period.mjs 相同）──────────────────
@@ -199,12 +204,35 @@ try {
    * 刻意把畫面停在「完整 24 小時」的那一季再匯出——這正是舊版會把
    * 另一季（只調查 4 小時）標成「輛/日」的情形。
    */
-  const quarterSelect = page.locator('.filters label:has-text("季度") select').first();
+  /*
+   * ⚠️ 選擇器不可以用「第一個叫做季度的下拉」。
+   *   v20.74 的主工具列把季度改成**起訖區間**，於是第一顆變成「季度（起）」。
+   *   照舊寫法選下去，等於把區間拉成 115Q1～115Q2（迄仍是最新一季），
+   *   平假日比較就會把兩季併在一起算——平日拿 115Q1 的完整 24 小時、
+   *   假日拿 115Q2 的完整 24 小時，兩欄都變成「完整24小時」，
+   *   而且真的算出一個跨季的差值。這一段要的是「畫面停在 115Q1 這一季」，
+   *   所以要動的是**迄**（起會跟著被拉回來，這是主工具列自己的規則）。
+   */
+  const quarterSelect = page.locator('[data-testid="mt-quarter-to"]');
   await quarterSelect.selectOption("115Q1");
   await page.waitForTimeout(1000);
   const shownQuarter = await quarterSelect.inputValue();
   ok("畫面停在完整 24 小時的 115Q1", shownQuarter === "115Q1", `實際「${shownQuarter}」`);
 
+  /*
+   * ⚠️ 日別要明確切到「平日＋假日」。
+   *
+   *   v20.68 起歷季分析的日別跟著上方共同功能列走（使用者 2026-09-12 指定：
+   *   「使用者會依自己的需求去作切換，不然……被強制換成平日+假日反而奇怪」），
+   *   而共同功能列的預設是「平日」。這一段要驗的是「兩種日別各自的調查涵蓋
+   *   都標對」，所以必須先把兩種都選進來——不設的話量到的是「假日欄被篩掉」，
+   *   那是另一件事（下面另有一段專門驗它）。
+   */
+  const dayTypeSelect = page.locator('[data-testid="mt-day"]');
+  await dayTypeSelect.selectOption({ label: "平日＋假日" });
+  await page.waitForTimeout(900);
+
+  await gotoBlock(page, "periodAnalysis");
   await page.locator('#periodAnalysis button:has-text("設定匯出項目")').click();
   await page.waitForTimeout(500);
   const dl = page.waitForEvent("download");
@@ -337,6 +365,49 @@ try {
       `單季工作表不得誤標成部分時段`,
       !headers.some((h) => /調查時段/.test(h)),
       headers.filter((h) => /調查時段/.test(h)).join("、"),
+    );
+  }
+
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  被日別篩掉的那一欄，要寫「未選此日別」，不可以寫「—」
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * v20.68 起歷季分析的日別跟著上方共同功能列走，而共同功能列預設「平日」。
+   * 這時匯出的 Excel 仍然有「假日調查涵蓋」那一欄，但它是空的——原本寫「—」，
+   * 而「—」在這整套程式裡一律代表「這一季沒有這種資料」。讀報告的人會以為
+   * 根本沒做假日調查，**實際上只是畫面上篩掉了**。
+   *
+   * ⚠️ 空白的原因不同，寫法就必須不同。這一段就是守這件事。
+   */
+  console.log("\n══ 日別篩掉的那一欄要說明原因 ══");
+  await page.locator('[data-testid="mt-day"]')
+    .selectOption({ label: "平日" });
+  await page.waitForTimeout(900);
+  await page.locator('#periodAnalysis button:has-text("設定匯出項目")').click();
+  await page.waitForTimeout(500);
+  const dl2 = page.waitForEvent("download");
+  await page.locator('.modal-backdrop button:has-text("匯出所選內容")').click();
+  const download2 = await dl2;
+  const file2 = join(downloads, "weekday-only.xlsx");
+  await download2.saveAs(file2);
+  const book2 = XLSX.read(readFileSync(file2), { type: "buffer" });
+  const trend2 = book2.Sheets["歷季趨勢"];
+  if (trend2) {
+    const rows2 = XLSX.utils.sheet_to_json(trend2, { header: 1, defval: "" });
+    const headers2 = rows2[0].map((v) => String(v ?? ""));
+    const holidayCol = headers2.indexOf("假日調查涵蓋");
+    const cell = String(rows2[1]?.[holidayCol] ?? "");
+    ok(
+      "⚠️ 日別選「平日」時，假日調查涵蓋要寫「未選此日別」而不是「—」",
+      cell.includes("未選此日別"),
+      `實際寫的是「${cell}」——寫「—」會讓人以為根本沒做假日調查`,
+    );
+    const weekdayCol = headers2.indexOf("平日調查涵蓋");
+    ok(
+      "而且被選到的那一邊仍然照實寫出調查涵蓋",
+      String(rows2[1]?.[weekdayCol] ?? "") === "完整24小時",
+      `實際「${rows2[1]?.[weekdayCol]}」`,
     );
   }
 

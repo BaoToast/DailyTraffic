@@ -136,6 +136,29 @@ test("建置、端對端測試與 GitHub 發布來源都完整", async () => {
   }
 });
 
+test("每一支可執行的 e2e 腳本都有正式入口", async () => {
+  const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  const hooked = new Set(
+    Object.entries(pkg.scripts ?? {})
+      .filter(([name]) => name === "e2e" || name.startsWith("e2e:"))
+      .flatMap(([, command]) =>
+        [...String(command).matchAll(/scripts\/(e2e-[\w-]+\.mjs)/g)].map(
+          (match) => match[1],
+        ),
+      ),
+  );
+  const files = (await readdir(new URL("scripts/", root)))
+    .filter((name) => /^e2e-[\w-]+\.mjs$/.test(name))
+    .sort();
+  /* e2e-nav 只匯出共用導覽函式，不是可單獨執行的測試。 */
+  const helpers = new Set(["e2e-nav.mjs"]);
+  assert.deepEqual(
+    files.filter((name) => !helpers.has(name) && !hooked.has(name)),
+    [],
+    "有可執行的 e2e 腳本沒有掛進 npm 的正式測試入口",
+  );
+});
+
 test("lock 檔和 package.json 宣告的依賴一致", async () => {
   const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
   const lock = JSON.parse(await readFile(new URL("package-lock.json", root), "utf8"));
@@ -264,6 +287,14 @@ test("交付包裡沒有任何試算表檔案（避免真實調查資料被提�
           ".samples-coverage",
           /* v20.59：e2e-chart-layout.mjs 產生的匿名樣本，同樣不會被提交。 */
           ".samples-chart-layout",
+          /* v20.68：e2e-chart-png.mjs 產生的匿名樣本，同樣不會被提交。 */
+          ".samples-chart-png",
+          /* v20.68：e2e-peak-directions.mjs 產生的匿名樣本。 */
+          ".samples-peak-directions",
+          /* v20.68：e2e-filter-sync.mjs 產生的匿名樣本。 */
+          ".samples-filter-sync",
+          /* v20.68：e2e-noon-straddle.mjs 產生的匿名樣本。 */
+          ".samples-noon-straddle",
         ].includes(entry.name)
       )
         continue;

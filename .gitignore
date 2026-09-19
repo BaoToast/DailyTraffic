@@ -36,13 +36,23 @@ yarn-error.log*
 
 /dist/
 /github-pages/dist/
+/github-pages/.tryout/
 /.wrangler/
 /outputs/
 /work/
 /.samples/
 /.samples-coverage/
 /.samples-chart-layout/
+/.samples-chart-png/
+/.samples-peak-directions/
+/.samples-filter-sync/
+/.samples-noon-straddle/
 /tsconfig.tsbuildinfo
 /_dtcheck.mjs
 /package-stage-*/
 /traffic-site-*.tar.gz
+/_review_artifacts/
+/e2e-*.log
+/e2e-*.exitcode.txt
+/scripts/.shots/
+/scripts/manual/*.png

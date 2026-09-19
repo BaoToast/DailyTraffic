@@ -19,7 +19,9 @@ import {
 import { tmpdir } from "node:os";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as XLSX from "xlsx";
 import { launchOptions } from "./chrome-path.mjs";
+import { gotoBlock, ensureToolbarOpen } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -75,6 +77,12 @@ page.on("console", (m) => {
 page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "N" : ""));
 
 await page.goto("http://localhost:8103/");
+
+/* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+
+await page.waitForTimeout(1200);
+
+await ensureToolbarOpen(page);
 await page.waitForTimeout(800);
 
 await page
@@ -148,8 +156,17 @@ async function importFile(name) {
 }
 await importFile("115T1-01_中山路.xlsx");
 await importFile("115T1-02_中正路口.xlsx");
+/* 明確切到兩種日別並列，才能守住「平日＋假日不可相加」的裁示。 */
+await page.locator('[data-testid="mt-day"]').selectOption("平日＋假日");
+await page.waitForTimeout(900);
 
-// 全部項目都勾（預設就是全勾），直接匯出完整 .xlsx
+/*
+ * 全部項目都勾（預設就是全勾），直接匯出完整 .xlsx。
+ * ⚠️ 那顆「匯出完整 Excel」在「24小時型態」面板上，而該面板在
+ *「圖表」分頁——v20.64 起別頁的元素不在 DOM 裡。
+ */
+/* ⚠️ X-63：「24小時型態」現在自己一個大分頁。 */
+await gotoBlock(page, "block-hourly");
 const dl = page.waitForEvent("download", { timeout: 120000 });
 await page
   .locator('button.panel-export:has-text("匯出完整 Excel")')
@@ -166,7 +183,11 @@ ok("匯出檔非空", bytes.length > 10000, `${bytes.length} bytes`);
 const { checkWorkbook } = await import("./ooxml-check.mjs");
 const report = await checkWorkbook(bytes);
 console.log("   part 數：", report.parts.length, "／圖表數：", report.charts.length);
-ok("9 張原生圖表都有產生", report.charts.length === 9, `${report.charts.length} 張`);
+/*
+ * ⚠️ v20.64 從 9 張變 8 張：「跨計畫比較」那張隨功能移除
+ *（使用者 2026-09-09 授權）。這是張數少了，不是圖產不出來。
+ */
+ok("7 張原生圖表都有產生", report.charts.length === 7, `${report.charts.length} 張`);
 for (const issue of report.issues) console.log("   ⚠", issue);
 ok(
   "Excel 開檔不會跳出修復提示（OOXML 結構全部合規）",
@@ -174,18 +195,68 @@ ok(
   report.issues.length ? `${report.issues.length} 項不合規` : "",
 );
 
+/*
+ * 2026-09-19 使用者裁示：歷季組成圖表資料必須逐調查點、逐日別，
+ * 不得把不同調查點或平日／假日先加在一起再算比例。
+ * 這裡用兩個調查點 × 兩種日別，反面守住「只剩一個季度合併列」的舊錯。
+ */
+const parsed = XLSX.read(bytes, { type: "buffer" });
+const compositionSheet = parsed.Sheets["歷季組成圖表資料"];
+const compositionRows = compositionSheet
+  ? XLSX.utils.sheet_to_json(compositionSheet, { defval: "" })
+  : [];
+const compositionHeaders = compositionSheet
+  ? XLSX.utils.sheet_to_json(compositionSheet, { header: 1, defval: "" })[0] ?? []
+  : [];
+ok(
+  "歷季組成圖表資料有調查點與日別維度",
+  compositionHeaders.includes("調查點編號") &&
+    compositionHeaders.includes("調查點") &&
+    compositionHeaders.includes("日別"),
+  compositionHeaders.join("｜"),
+);
+const pointDayKeys = new Set(
+  compositionRows.map(
+    (row) => `${row["調查點編號"]}｜${row["調查點"]}｜${row["日別"]}`,
+  ),
+);
+ok(
+  "平日＋假日匯出時，每個調查點的兩種日別各自成列，不跨點也不跨日相加",
+  compositionRows.length === 4 && pointDayKeys.size === 4,
+  `${compositionRows.length} 列／${pointDayKeys.size} 組：${[...pointDayKeys].join("、")}`,
+);
+
 // ── 只有路口格式的計畫：前兩張圖不能是空的 ────────────────────
 // 「本季交通量及PCU」工作表只放路段格式；整季都是路口時它只有一列提示，
 // 前兩張圖就會有座標軸卻一根柱子都沒有。v20.8 起改畫路口各支線。
 // 把「路段／路口」篩選器切到只剩那個路口，這一季就只有路口格式了
-const roadOptions = await page.locator("#roadFilterSelect option").allInnerTexts();
-const intersectionOption = roadOptions.find((t) => /中正路口/.test(t));
-await page
-  .locator("#roadFilterSelect")
-  .selectOption({ label: intersectionOption });
-await page.waitForTimeout(800);
+/*
+ * ⚠️ 這一段**壞了好幾版都沒有人知道**，因為這支腳本掉出了 npm run e2e。
+ *
+ * `#roadFilterSelect` 早就從 <select> 改成自訂的多選按鈕
+ *（`<button class="multi-picker-btn">` ＋ 一張 .multi-picker-panel 勾選面板），
+ * 而這裡還在用 selectOption()——Playwright 會等到逾時，整支腳本崩潰。
+ * 那也表示**唯一一支會呼叫 ooxml-check.mjs 的腳本從此沒有再跑過**，
+ * 而它守的正是「Excel 開檔會不會跳『部分內容有問題，是否修復』」。
+ *
+ * 改成操作多選面板本身。篩選列在分頁之外（五頁共用），停在哪一頁都按得到。
+ */
+await page.click("#roadFilterSelect");
+await page.waitForTimeout(300);
+const intersectionOption = await page.evaluate(() => {
+  const labels = [...document.querySelectorAll(".multi-picker-panel label")];
+  const hit = labels.find((el) => /中正路口/.test(el.textContent || ""));
+  if (!hit) return "";
+  hit.querySelector("input").click();
+  return (hit.textContent || "").trim();
+});
+await page.keyboard.press("Escape");
+await page.waitForTimeout(900);
+ok("找得到路口格式的調查點可以單獨篩選", !!intersectionOption, intersectionOption || "找不到「中正路口」");
 console.log("   已篩選為：", intersectionOption);
 
+/* ⚠️ X-63：「24小時型態」現在自己一個大分頁。 */
+await gotoBlock(page, "block-hourly");
 const dl2 = page.waitForEvent("download", { timeout: 120000 });
 await page
   .locator('button.panel-export:has-text("匯出完整 Excel")')

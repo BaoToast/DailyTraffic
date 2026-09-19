@@ -250,3 +250,55 @@ test("切換計畫時只允許已完成該計畫載入的 workflow 寫回", asyn
     "不可只用跨計畫共用的 boolean ready 旗標",
   );
 });
+
+/*
+ * ── 舊備份相容：帶著 templates 的舊資料必須讀得回來 ──────────────
+ *
+ * v20.64 移除了「設定範本」（使用者 2026-09-09 授權）。
+ * 但使用者硬碟裡已經存好的備份 JSON、以及瀏覽器 IndexedDB 裡既有的
+ * workflow，一定還帶著 `templates` 陣列。
+ *
+ * ⚠️ 這一條守的是**不可以因為欄位還在就失敗**。
+ * 把型別欄位刪掉、或在讀取時對不認得的欄位報錯，使用者過去所有的備份
+ * 就會全部還原失敗——而他不會知道原因，只會看到「還原失敗」。
+ * 保留欄位、忽略內容，是刻意的決定，不是漏刪。
+ *
+ * ★ 這一項要驗兩件事，缺一項都會變成假通過：
+ *   一、讀得回來（不拋例外）——只驗這個的話，回一個空物件也會過。
+ *   二、**同一份 workflow 的其他欄位原封不動**——證明忽略 templates
+ *       的做法沒有順手把整份狀態洗掉。
+ */
+test("含 templates 的舊 workflow 必須讀得回來，其餘欄位不可被洗掉", async () => {
+  const fake = installFakeIndexedDB([0, 0]);
+  try {
+    const { emptyWorkflowState } = await import("../app/final-workflow.ts");
+    const { loadWorkflow, saveWorkflow } = await import("../app/workflow-store.ts");
+    const legacy = emptyWorkflowState();
+    legacy.checkedQuarters = ["115Q1", "115Q2"];
+    legacy.thresholds.dailyChangePct = 33;
+    /* 舊版存下來的設定範本，內容刻意寫得完整，證明不是因為是空陣列才沒事。 */
+    legacy.templates = [
+      {
+        id: "t1",
+        name: "一般路段＋四岔路口標準設定",
+        createdAt: "2026-09-01T00:00:00.000Z",
+        pcuFactors: { motorcycle: 0.5, small: 1, large: 1.5, special: 2.5 },
+        turnPcuFactors: {},
+        vehicleClassSettings: [],
+        intersectionSettings: [],
+        roadAliases: [],
+        thresholds: { ...legacy.thresholds },
+      },
+    ];
+    await saveWorkflow("P-legacy", legacy);
+    const loaded = await loadWorkflow("P-legacy");
+    /* 一、讀得回來 */
+    assert.ok(loaded, "含 templates 的舊 workflow 必須讀得回來");
+    /* 二、其餘欄位原封不動 */
+    assert.deepEqual(loaded.checkedQuarters, ["115Q1", "115Q2"]);
+    assert.equal(loaded.thresholds.dailyChangePct, 33);
+    assert.deepEqual(loaded.comparisonReports, []);
+  } finally {
+    fake.restore();
+  }
+});

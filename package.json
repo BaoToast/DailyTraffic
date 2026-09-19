@@ -1,6 +1,6 @@
 {
   "name": "traffic-volume-vehicle-composition",
-  "version": "20.63.0",
+  "version": "20.80.0",
   "private": true,
   "engines": {
     "node": ">=22.18.0"
@@ -9,13 +9,17 @@
     "dev": "node scripts/run-vinext.mjs dev",
     "build": "node scripts/run-vinext.mjs build",
     "start": "node scripts/run-vinext.mjs start",
-    "test": "npm run lint && npm run build && node --test tests/*.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --max-warnings=0",
+    "test": "npm run lint && npm run typecheck && npm run glyph-guard && npm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern \"github-pages/dist\" --ignore-pattern \"github-pages/.tryout\" --max-warnings=0",
     "db:generate": "drizzle-kit generate",
     "test:unit": "node --test tests/period-analysis.test.mjs tests/vehicle-analysis.test.mjs tests/traffic-parser.test.mjs tests/final-workflow.test.mjs tests/conclusion.test.mjs tests/period-date.test.mjs",
     "build:pages": "node node_modules/vite/bin/vite.js build --config github-pages/vite.config.ts",
     "samples": "node scripts/make-samples.mjs",
-    "e2e": "node scripts/make-samples.mjs && node node_modules/vite/bin/vite.js build --config github-pages/vite.config.ts && node scripts/e2e-period.mjs && node scripts/e2e-conclusion.mjs && node scripts/e2e-reveal.mjs && node scripts/e2e-progress.mjs && node scripts/e2e-reimport.mjs && node scripts/e2e-multi-filter.mjs && node scripts/e2e-layout.mjs && node scripts/e2e-period-date.mjs && node scripts/e2e-historical-units.mjs && node scripts/e2e-road-name.mjs && node scripts/e2e-intersection-prompt.mjs && node scripts/e2e-arm-prefill.mjs && node scripts/e2e-chart-layout.mjs && node scripts/e2e-chart-notes.mjs && node scripts/e2e-export-consistency.mjs"
+    "e2e": "node scripts/make-samples.mjs && node node_modules/vite/bin/vite.js build --config github-pages/vite.config.ts && node scripts/e2e-tabs.mjs && node scripts/e2e-period.mjs && node scripts/e2e-conclusion.mjs && node scripts/e2e-reveal.mjs && node scripts/e2e-progress.mjs && node scripts/e2e-reimport.mjs && node scripts/e2e-multi-filter.mjs && node scripts/e2e-day-compare-direction.mjs && node scripts/e2e-layout.mjs && node scripts/e2e-period-date.mjs && node scripts/e2e-historical-units.mjs && node scripts/e2e-road-name.mjs && node scripts/e2e-intersection-prompt.mjs && node scripts/e2e-arm-prefill.mjs && node scripts/e2e-chart-layout.mjs && node scripts/e2e-chart-notes.mjs && node scripts/e2e-trend-pin.mjs && node scripts/e2e-trend-multiline.mjs && node scripts/e2e-scope-label.mjs && node scripts/e2e-sticky-offset.mjs && node scripts/e2e-figure-note-layout.mjs && node scripts/e2e-export-consistency.mjs && node scripts/e2e-report-draft.mjs && node scripts/e2e-xlsx-repair.mjs && node scripts/e2e-factor-scope.mjs && node scripts/e2e-class-coverage.mjs && node scripts/e2e-point-hover.mjs && node scripts/e2e-backup-restore.mjs && node scripts/e2e-project-edit.mjs && node scripts/e2e-alias.mjs && node scripts/e2e-view-scroll.mjs && node scripts/e2e-chart-png.mjs && node scripts/e2e-clear-local.mjs && node scripts/e2e-nav-target.mjs && node scripts/e2e-nav-coverage.mjs && node scripts/e2e-peak-directions.mjs && node scripts/e2e-filter-sync.mjs && node scripts/e2e-noon-straddle.mjs && node scripts/e2e-period-display-everywhere.mjs && node scripts/e2e-warning-chips.mjs && node scripts/e2e-toggle-size.mjs && node scripts/e2e-intersection-single-panel.mjs && node scripts/e2e-modal-actions-visible.mjs && node scripts/e2e-nav-collapse.mjs && node scripts/e2e-text-wrap.mjs && node scripts/e2e-main-toolbar.mjs && node scripts/e2e-detached-popover.mjs && node scripts/e2e-filter-coverage.mjs && node scripts/e2e-draft-conditions.mjs && node scripts/e2e-trace-flow-label.mjs && node scripts/e2e-kpi-points.mjs && node scripts/e2e-trace-split.mjs && node scripts/e2e-maintenance.mjs && node scripts/e2e-audit-split.mjs && node scripts/e2e-trend-end-labels.mjs && node scripts/e2e-hourly-split.mjs",
+    "glyph-guard": "node scripts/glyph-guard.mjs",
+    "build:tryout": "node node_modules/vite/bin/vite.js build --config github-pages/vite.tryout.config.ts && node --experimental-strip-types scripts/build-tryout.mjs",
+    "e2e:tryout": "npm run build:tryout && node scripts/e2e-tryout-smoke.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -35,7 +39,6 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "docx": "^9.7.1",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-plugin-jsx-a11y": "6.10.2",

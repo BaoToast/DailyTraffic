@@ -128,9 +128,22 @@ test("只有代號、沒有路名的檔名要被認出是「還沒取名字」",
  * 真實檔案在測試環境才有，交付包不含它們（使用者明確要求）。
  * 有就跑全量、沒有就略過，不讓交付包的測試因缺檔而紅。
  */
+/*
+ * ⚠️ 真實調查檔的位置。
+ *
+ * 這裡原本寫死成開發容器的絕對路徑（/home/claude/work/dchk/realdata/...），
+ * 於是這一項**只有在那一台機器上會跑**，交付出去之後永遠 skip——
+ * 等於這個守門在使用者與複查者手上根本不存在。
+ * 這是「只加會通過的檢查等於沒加檢查」的變形：不是恆真，是恆不執行。
+ *
+ * 改成相對於專案的路徑（專案同層的 realdata/）。
+ * ⚠️ **交付包裡刻意沒有這些檔案**（真實調查資料不隨程式交付），
+ * 所以在交付包裡這一項仍然會 skip，那是正確的；
+ * 要跑全量請把 37 份真實檔放在專案同一層的 realdata/batch1、batch2。
+ */
 const REAL_DIRS = [
-  "/home/claude/work/dchk/realdata/batch1",
-  "/home/claude/work/dchk/realdata/batch2",
+  new URL("../../realdata/batch1", import.meta.url).pathname,
+  new URL("../../realdata/batch2", import.meta.url).pathname,
 ].filter((dir) => existsSync(dir));
 
 test("全部真實檔名：名稱剝得乾淨、不空白、不互撞、跨季全部對得上", { skip: !REAL_DIRS.length }, () => {

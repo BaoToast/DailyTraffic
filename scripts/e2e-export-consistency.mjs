@@ -40,6 +40,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 import { launchOptions } from "./chrome-path.mjs";
+import { gotoBlock } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -156,6 +157,8 @@ await page.waitForTimeout(800);
 
 /* 畫面上那一份趨勢資料（講稿裡的數字，就是圖畫出來的同一份）。 */
 async function onScreenTrend() {
+  /* 歷季趨勢在「圖表」分頁上。 */
+  await gotoBlock(page, "block-trend");
   return page.evaluate(() => {
     const select = document.getElementById("trendMetric");
     const script = document.getElementById("trendScript");
@@ -178,6 +181,12 @@ async function downloadWorkbook(tag) {
    * 用「24小時型態」面板上那顆「匯出完整 Excel」——它呼叫的就是
    * exportWorkbook()，和批次輸出中心是同一條路徑，但不必先開對話框。
    */
+  /*
+   * ⚠️ 那顆按鈕在「24小時型態」面板上，而該面板在「圖表」分頁。
+   * v20.64 起別頁的元素不在 DOM 裡，所以要先切過去。
+   */
+  /* ⚠️ X-63：「24小時型態」現在自己一個大分頁。 */
+  await gotoBlock(page, "block-hourly");
   const trigger = page
     .locator('button:has-text("匯出完整 Excel")')
     .first();
@@ -272,6 +281,8 @@ console.log("\n══ 二、切換趨勢指標之後，匯出的是新指標 ═
  *   ③ 再匯出一次，比對 Excel 是不是換成了 B。
  * 只要 Excel 還等於 A，這一項就紅。
  */
+/* ⚠️ X-63：趨勢指標下拉在「歷季分析」那一頁。 */
+await gotoBlock(page, "block-trend");
 const options = await page.evaluate(() =>
   [...(document.getElementById("trendMetric")?.options || [])].map((o) => ({
     value: o.value,

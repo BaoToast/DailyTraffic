@@ -1,4 +1,5 @@
 import { coreVehicleLabels, type CoreVehicleKey, type TurnCounts, type TurnKey, type VehicleCounts, type VehicleLabels } from "./traffic-parser.ts";
+import { resolveFactors, type FactorScope } from "./factor-scope.ts";
 
 export const CORE_VEHICLE_KEYS: CoreVehicleKey[] = ["motorcycle", "small", "large", "special"];
 
@@ -14,6 +15,13 @@ export type VehicleClassSetting = {
 
 export type VehicleRecordLike = {
   projectId?: string;
+  /*
+   * ⚠️ quarter 與 roadId 是「係數依季別／路段覆寫」用的。
+   *   兩個都是**選填**：舊的呼叫端（測試裡的簡化物件）不帶也不會壞，
+   *   讀不到就一律落回計畫預設係數——也就是改版前的行為。
+   */
+  quarter?: string;
+  roadId?: string;
   motorcycle: number;
   small: number;
   large: number;
@@ -23,6 +31,41 @@ export type VehicleRecordLike = {
   vehicleCounts?: VehicleCounts;
   vehicleLabels?: VehicleLabels;
 };
+
+/**
+ * 依季別／路段覆寫的係數。
+ *
+ * ⚠️ **一律選填**。整個系統沒有任何一個地方「必須」傳它，
+ *   沒傳就等於沒有覆寫，行為與改版前一模一樣。
+ *   這一點由 tests/factor-scope-integration.test.mjs 的 A 段守著。
+ */
+export type PcuScopeFactors = {
+  core: CorePcuFactors;
+  coreTurns: CoreTurnPcuFactors;
+};
+export type PcuScopes = FactorScope<PcuScopeFactors>[];
+
+/**
+ * 這一筆紀錄實際要用的一般係數與轉向係數。
+ *
+ * ⚠️ 全系統只有這一支決定「哪一筆用哪一組」。分散判斷的話，
+ *   遲早會出現「總量那一格」與「時段分析那一格」用了不同係數——
+ *   那正是 v20.33 合併兩份 PCU 實作時修過的那一類問題。
+ */
+export function factorsForRecord(
+  record: VehicleRecordLike,
+  core: CorePcuFactors,
+  coreTurns: CoreTurnPcuFactors,
+  scopes?: PcuScopes | null,
+): PcuScopeFactors {
+  if (!scopes || !scopes.length) return { core, coreTurns };
+  return resolveFactors(
+    scopes,
+    { core, coreTurns },
+    record.quarter || "",
+    record.roadId || "",
+  );
+}
 
 export type CorePcuFactors = Record<CoreVehicleKey, number>;
 export type CoreTurnPcuFactors = Record<CoreVehicleKey, Record<TurnKey, number>>;
@@ -211,7 +254,19 @@ export function vehiclePcuByTarget(
   core: CorePcuFactors,
   coreTurns: CoreTurnPcuFactors,
   settings: VehicleClassSetting[],
+  /*
+   * ⚠️ 選填。不傳＝沒有任何範圍覆寫＝改版前的行為，一個數字都不會變。
+   *   這是整個「依季別／路段設定」改版的相容性保證所在。
+   */
+  scopes?: PcuScopes | null,
 ): Record<string, number> {
+  /*
+   * ⚠️ 解析**一次**就好，而且是在迴圈外。
+   *   放進迴圈的話每一個車種都會重算一次同一件事；更糟的是，
+   *   如果哪天有人不小心把 sourceKey 混進解析條件，
+   *   同一筆紀錄的不同車種就會用到不同組係數——那種錯無聲無息。
+   */
+  const applied = factorsForRecord(record, core, coreTurns, scopes);
   const counts = rawVehicleCounts(record);
   const byTurn = record.surveyType === "intersection" && Boolean(record.turnData);
   const result: Record<string, number> = {};
@@ -221,11 +276,11 @@ export function vehiclePcuByTarget(
     let value = 0;
     if (byTurn) {
       for (const turn of ["left", "through", "right"] as TurnKey[]) {
-        const factor = turnFactorFor(record, sourceKey, turn, settings, coreTurns);
+        const factor = turnFactorFor(record, sourceKey, turn, settings, applied.coreTurns);
         value += safeCount(record.turnData?.[sourceKey]?.[turn]) * (Number.isFinite(factor) ? Number(factor) : 0);
       }
     } else {
-      const factor = factorFor(record, sourceKey, settings, core);
+      const factor = factorFor(record, sourceKey, settings, applied.core);
       value = safeCount(counts[sourceKey]) * (Number.isFinite(factor) ? Number(factor) : 0);
     }
     result[targetKey] = (result[targetKey] ?? 0) + value;
@@ -233,6 +288,14 @@ export function vehiclePcuByTarget(
   return result;
 }
 
-export function sumVehiclePcu(record: VehicleRecordLike, core: CorePcuFactors, coreTurns: CoreTurnPcuFactors, settings: VehicleClassSetting[]) {
-  return Object.values(vehiclePcuByTarget(record, core, coreTurns, settings)).reduce((sum, value) => sum + value, 0);
+export function sumVehiclePcu(
+  record: VehicleRecordLike,
+  core: CorePcuFactors,
+  coreTurns: CoreTurnPcuFactors,
+  settings: VehicleClassSetting[],
+  scopes?: PcuScopes | null,
+) {
+  return Object.values(
+    vehiclePcuByTarget(record, core, coreTurns, settings, scopes),
+  ).reduce((sum, value) => sum + value, 0);
 }

@@ -94,7 +94,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           錯誤訊息：{error.message}
         </p>
         <p style={{ margin: "0 0 16px" }}>
-          請先按下面的按鈕把原始資料存成檔案（那是一份完整備份），再交給維護人員。
+          請先按「下載原始資料（先做這個）」把原始資料存成檔案（那是一份完整備份），再交給維護人員。
           <b>在下載完成之前，請不要清除瀏覽器資料或重新匯入。</b>
         </p>
         <div>

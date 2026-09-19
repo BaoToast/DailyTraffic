@@ -2,6 +2,7 @@ import {
   effectiveVehicleCounts,
   effectiveVehicleLabel,
   vehiclePcuByTarget,
+  type PcuScopes,
   type CorePcuFactors,
   type CoreTurnPcuFactors,
   type VehicleClassSetting,
@@ -15,10 +16,18 @@ import {
  * 以及 K＝尖峰小時流量÷全日流量；手冊全書並未規定上午／下午尖峰的固定時鐘區間
  * （查遍 780 頁沒有 07:00–09:00 這類建議值），所以尖峰小時必須由實測資料自行認定。
  * 本模組採用的認定方式：
- *   全日     ＝ 24 小時全部加總
- *   全日尖峰 ＝ 24 小時中當量交通量(PCU/hr)最大的那一小時
+ *   全調查時段     ＝ 這份調查涵蓋的時段全部加總（24 小時的調查就是一整天）
+ *   全調查時段尖峰 ＝ 在同一段涵蓋裡，當量交通量(PCU/hr)最大的那一小時
+ *
+ * ⚠️ 名稱在 2026-09-10 依使用者指定改過，三支程式一致（舊名：全日時段／全日尖峰小時）。
+ *   改名不只是換字：舊名宣告的是「一整天」，所以不足 24 小時的調查一律不算；
+ *   新名宣告的是「這份調查涵蓋的時段」，4 小時的調查算出「這 4 小時裡最忙的
+ *   一小時」是誠實的。使用者的原話：「三份程式統一名稱後，原本不用計算的
+ *   資料，現在都要計算了」。
  *   上午尖峰 ＝ 起始時間在中午 12:00 之前，當量交通量最大的那一小時
  *   下午尖峰 ＝ 起始時間在中午 12:00 之後（含 12:00），當量交通量最大的那一小時
+ *   這條分界**固定在中午 12:00，不提供設定**；橫跨中午的視窗另外問使用者
+ *   （見 NOON_MINUTES 那一段的說明）。
  * 尖峰以 PCU 判定（手冊 2.4.13：容量分析一律以小客車單位量 PCU 為共同尺規）。
  *
  * 尖峰時段的認定範圍（v20.7 起可選，預設 "point"）：
@@ -34,15 +43,15 @@ export type PeriodKey = "all" | "peak24" | "am" | "pm";
 export const PERIOD_KEYS: PeriodKey[] = ["all", "peak24", "am", "pm"];
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
-  all: "全日時段",
-  peak24: "全日尖峰小時",
+  all: "全調查時段",
+  peak24: "全調查時段尖峰",
   am: "上午尖峰小時",
   pm: "下午尖峰小時",
 };
 
 export const PERIOD_HINTS: Record<PeriodKey, string> = {
-  all: "24 小時全部加總",
-  peak24: "不分時段，當量交通量最高的 1 小時",
+  all: "這份調查涵蓋的時段全部加總（24 小時的調查就是一整天）",
+  peak24: "在調查涵蓋的時段內，當量交通量最高的 1 小時",
   am: "中午 12:00 之前，當量交通量最高的 1 小時",
   pm: "中午 12:00 之後，當量交通量最高的 1 小時",
 };
@@ -194,6 +203,14 @@ export type PeriodFactors = {
   core: CorePcuFactors;
   coreTurns: CoreTurnPcuFactors;
   settings: VehicleClassSetting[];
+  /*
+   * 依季別／路段的係數覆寫。
+   * ⚠️ **選填**：沒有覆寫時整個時段分析與改版前逐格相同。
+   *   這一路都是把它原樣往下傳給 vehiclePcuByTarget()，
+   *   由 lib 的 resolveFactors() 一處決定用哪一組——
+   *   這裡刻意不自己判斷，兩處判斷遲早會分岔。
+   */
+  scopes?: PcuScopes | null;
 };
 
 /** 解析「07:00～08:00」「07:00-08:00」之類的時段字串，回傳起始小時（0–23）；無法解析回傳 -1。 */
@@ -206,14 +223,150 @@ export function hourStartOf(hour: string): number {
   return Number.isFinite(value) && value >= 0 && value <= 24 ? value % 24 : -1;
 }
 
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  上午／下午的分界：固定在中午 12:00，不做成可設定的選項
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-12 的定案（他一開始要的是可設定，討論之後自己收回）：
+ *   「如果根本不會有這種時段出現，那麼我們現在討論再多都是沒意義的。
+ *     倒不如回歸以前作法，不確定時，就是跳出視窗詢問使用者。」
+ *
+ * 為什麼不做成可設定：實測他手上 37 份真實調查檔，全部都是整點對齊，
+ * 而「只做早上、下午各三小時」的調查在固定中午分界下本來就會得到正確答案
+ * （那半天根本沒有別的資料可挑）。多一個沒有人會去動的計算參數，壞掉之後
+ * 不會有人回報——他的原話：「平常不太會有人去調整，所以這個功能要做確實，
+ * 不然可能都不會有人發現異常。」不做，就沒有這個風險。
+ *
+ * ⚠️ 但有一種情況固定分界會**安靜地報錯的數字**，那才是真正要處理的：
+ *
+ *   15 分鐘細格資料用滾動視窗湊一小時時，真正最忙的那一小時可能
+ *   **橫跨中午**（例如 11:15～12:15）。目前的作法是上午段只看 12:00 以前
+ *   起算的格子，所以那個視窗根本不會被考慮——上午尖峰會報一個比較小的
+ *   時段，而且完全看不出來少報了。使用者 2026-09-12 也自己指出這一點：
+ *   「如果有15分鐘滾動去計算1小時的當量時，其實也會遇到。」
+ *
+ *   處理方式：**問使用者**，不自己決定。它算上午還是下午，牽涉的是報告
+ *   要怎麼寫，不是程式能判斷的事。使用者答了之後，另一邊照原本的規則算
+ *   （上午視窗必須整個在 12:00 之前、下午必須整個在 12:00 之後），
+ *   所以「另一個尖峰是哪個時段」會自動推出來。
+ */
+
+/** 上午／下午的分界（當天的第幾分鐘）。固定值，不提供設定。 */
+export const NOON_MINUTES = 12 * 60;
+
+/**
+ * 解析時段字串的**起始分鐘數**（0–1439）；無法解析回傳 -1。
+ *
+ * 和 hourStartOf() 的差別：那一支只回傳「第幾個小時」，15 分鐘格的
+ * 07:15 與 07:45 在它眼裡都是 7。判斷視窗有沒有跨過中午必須看到分鐘。
+ */
+export function startMinutesOf(hour: string): number {
+  const match = String(hour ?? "")
+    .normalize("NFKC")
+    .match(/(\d{1,2})\s*:\s*(\d{2})/);
+  if (!match) return -1;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return -1;
+  if (h < 0 || h > 24 || m < 0 || m > 59) return -1;
+  return (h % 24) * 60 + m;
+}
+
+/** 解析時段字串的**結束分鐘數**（1–1440）；只有一個時間或解析不出來回傳 -1。 */
+export function endMinutesOf(hour: string): number {
+  const times = [
+    ...String(hour ?? "")
+      .normalize("NFKC")
+      .matchAll(/(\d{1,2})\s*:\s*(\d{2})/g),
+  ];
+  if (times.length < 2) return -1;
+  const last = times[times.length - 1];
+  const h = Number(last[1]);
+  const m = Number(last[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return -1;
+  if (h < 0 || h > 24 || m < 0 || m > 59) return -1;
+  // 收尾位置的 24:00 與 00:00 都代表「一天的結束」。
+  const clock = h * 60 + m;
+  return clock === 0 ? 24 * 60 : clock;
+}
+
+/** 把「當天的第幾分鐘」寫成 HH:MM；1440 寫成 24:00。 */
+export function minutesToClock(minutes: number): string {
+  const value = Math.max(0, Math.min(24 * 60, Math.round(Number(minutes) || 0)));
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+}
+
+/**
+ * 這個時段自己有沒有橫跨中午（例如原始檔寫成 11:30～12:30 的單一格）。
+ * 解析不出結束時間時回 false——寧可不報，也不要對著推測出來的時間報警。
+ */
+export function straddlesNoon(hour: string): boolean {
+  const start = startMinutesOf(hour);
+  const end = endMinutesOf(hour);
+  if (start < 0 || end < 0 || end <= start) return false;
+  return start < NOON_MINUTES && end > NOON_MINUTES;
+}
+
 export function isMorningHour(hour: string) {
-  const start = hourStartOf(hour);
-  return start >= 0 && start < 12;
+  const start = startMinutesOf(hour);
+  return start >= 0 && start < NOON_MINUTES;
 }
 
 export function isAfternoonHour(hour: string) {
-  const start = hourStartOf(hour);
-  return start >= 12;
+  const start = startMinutesOf(hour);
+  return start >= NOON_MINUTES;
+}
+
+/**
+ * 一個「橫跨中午、而且比兩邊各自的尖峰都高」的候選視窗。
+ *
+ * 只有這種情況才需要問使用者：它沒有橫跨中午就不必問；橫跨了但比兩邊都小，
+ * 問了也不會改變任何一個欄位的數字，問了只是打擾。
+ */
+export type NoonStraddle = {
+  /** 問題的識別鍵：同一個調查點、同一個日別只問一次。 */
+  key: string;
+  roadId: string;
+  roadName: string;
+  /** 日別（平日／假日）；沒有分開統計時是空字串。 */
+  day: string;
+  /** 這個跨中午視窗的時段文字，例如「11:15～12:15」。 */
+  label: string;
+  /** 這個視窗的當量交通量（PCU）。 */
+  value: number;
+  /** 目前上午尖峰（只看 12:00 以前）的時段與值；沒有就是空字串／0。 */
+  amLabel: string;
+  amValue: number;
+  /** 目前下午尖峰（只看 12:00 以後）的時段與值。 */
+  pmLabel: string;
+  pmValue: number;
+};
+
+/**
+ * 使用者對「這個橫跨中午的一小時要怎麼算」的回答。
+ *
+ * 使用者 2026-09-12 指定的四個選項（畫面上的編號就是這個順序）：
+ *   1. 取消不匯入   → 這一筆不寫進系統，使用者先去檢查原始檔
+ *   2. 忽略這個時段 → "ignore"：照原本的 12:00 分界算，那個跨中午的視窗
+ *                     兩邊都不選（＝改版前的行為）
+ *   3. 歸為上午尖峰 → "am"
+ *   4. 歸為下午尖峰 → "pm"
+ *
+ * ⚠️ 第 1 項不是一種「答案」，它是「不要寫入」——所以它不會出現在這個型別裡，
+ *   由畫面那一層處理（整筆不寫入）。這裡只收真的要算下去的三種。
+ *
+ * ⚠️ "ignore" 必須是一個**明確存下來的答案**，不可以用「沒有回答」代替。
+ *   兩者算出來的數字一樣，但意思完全不同：「沒有回答」代表還沒問過，
+ *   「ignore」代表使用者看過、而且決定不要它。差別在於日後回頭看這筆資料時
+ *   分不分得出來——分不出來的話，沒人知道那個高峰是被忽略還是被漏掉。
+ */
+export type NoonAnswer = "am" | "pm" | "ignore";
+export type NoonAnswers = Record<string, NoonAnswer>;
+
+/** 問題的識別鍵——調查點＋日別。同一個路段的平日與假日要分開問。 */
+export function noonStraddleKey(roadId: string, day: string) {
+  return `${roadId}|${day || ""}`;
 }
 
 export type PeriodCell = {
@@ -225,7 +378,7 @@ export type PeriodCell = {
   total: number;
   /** 全部車種當量交通量合計 */
   pcu: number;
-  /** 尖峰時段標籤；全日時段為「24 小時」 */
+  /** 尖峰時段標籤；全調查時段寫實際涵蓋時數（24 小時的調查就是「24 小時」） */
   hour: string;
   /** 該格是否有資料 */
   hasData: boolean;
@@ -249,6 +402,12 @@ export type PeriodRow = {
    * 只有在畫面上同時並列兩種視角時才會設定，用來區分同一支線的兩列。
    */
   flowLabel?: string;
+  /**
+   * X-18：這一列是哪一個日別。
+   * 只有在「平日＋假日」時才會設定（那時候一天一列）；
+   * 單一日別時是 undefined——沒有兩列要區分，寫了反而囉嗦。
+   */
+  dayType?: string;
 };
 
 function emptyCell(hour: string): PeriodCell {
@@ -265,7 +424,13 @@ function emptyCell(hour: string): PeriodCell {
  * 現在統一由 vehiclePcuByTarget() 計算，兩邊在結構上不可能分岔。
  */
 export function vehiclePcuBreakdown(record: PeriodRecord, factors: PeriodFactors) {
-  return vehiclePcuByTarget(record, factors.core, factors.coreTurns, factors.settings);
+  return vehiclePcuByTarget(
+    record,
+    factors.core,
+    factors.coreTurns,
+    factors.settings,
+    factors.scopes,
+  );
 }
 
 type HourBucket = {
@@ -414,6 +579,24 @@ function peakWindow(buckets: HourBucket[], subHourly: boolean) {
  */
 export type PeakScope = "point" | "direction";
 
+/**
+ * 下拉選項底下那一行白話說明。
+ *
+ * 為什麼要有：使用者 2026-09-11 自己來問「我有點忘記『整個調查點同一時段』
+ * 是什麼意思，定義是依據什麼而找出時段，可相加又是什麼意思」——
+ * 這一題的答案在新手手冊裡有，但他在做事的當下不會去翻手冊。
+ * 選項名稱後面括號寫「（可相加）」三個字顯然不夠，要把**依據**講出來。
+ *
+ * ⚠️ 放在這裡而不是寫在畫面上，是因為**同一組字有三個地方要用**：
+ *   ①「時段車種分析」面板的下拉、②報表批次輸出中心的下拉、③新手手冊。
+ *   寫在畫面上就會變成三份，改一份忘兩份——這支程式已經踩過那個坑
+ *  （單位曾經一處寫 PCU/hr、另一處寫 PCU/日，同一個數字兩種單位）。
+ */
+export const PEAK_SCOPE_HINTS: Record<PeakScope, string> = {
+  point: "各方向報雙向合計最忙的那一小時",
+  direction: "各方向報各自最忙的那一小時，時段可能不同",
+};
+
 export type PeriodAnalysisOptions = {
   factors: PeriodFactors;
   /** 是否要把平日與假日視為不同時段（日別選「平日＋假日」時為 true） */
@@ -422,21 +605,48 @@ export type PeriodAnalysisOptions = {
   scopeNameFor?: (record: PeriodRecord) => string;
   /** 尖峰時段以整個調查點為準，或各方向各自認定。預設 "point"。 */
   peakScope?: PeakScope;
+  /**
+   * 使用者對「橫跨中午的尖峰視窗算上午還是下午」的回答。
+   *
+   * ⚠️ **選填**：沒有任何回答時，行為與 v20.67 以前逐格相同
+   *   （上午只看 12:00 以前起算、下午只看 12:00 以後起算，跨中午的視窗
+   *   兩邊都挑不到）。有回答時才會把那個視窗指派到使用者說的那一邊。
+   */
+  noonAnswers?: NoonAnswers;
 };
 
 /**
  * 依「調查點 × 方向 × 時段」計算各車種車輛數／百分比／交通流量。
  * 每個調查點都會產生一列「合計」（雙向合計或全部支線合計）＋每個方向各一列。
  */
+/**
+ * 只要列，不要問題清單——絕大多數呼叫端用這一支。
+ *
+ * ⚠️ 刻意做成 buildPeriodAnalysis 的薄包裝，而不是另外寫一份。
+ *   兩份各自維護的話，日後改了一邊沒改另一邊，畫面上的數字與問題清單
+ *   就會對不起來——而那種錯不會壞掉，只會讓人看錯。
+ */
 export function buildPeriodRows(
   records: PeriodRecord[],
   options: PeriodAnalysisOptions,
 ): PeriodRow[] {
+  return buildPeriodAnalysis(records, options).rows;
+}
+
+/**
+ * 依「調查點 × 方向 × 時段」計算各車種車輛數／百分比／交通流量，
+ * 並一併回報「有沒有橫跨中午、需要問使用者的尖峰視窗」。
+ */
+export function buildPeriodAnalysis(
+  records: PeriodRecord[],
+  options: PeriodAnalysisOptions,
+): { rows: PeriodRow[]; straddles: NoonStraddle[] } {
   const {
     factors,
     separateDays = false,
     scopeNameFor,
     peakScope = "point",
+    noonAnswers,
   } = options;
   /*
    * 每一個調查點各自判斷「時間格是不是不足一小時」。
@@ -464,16 +674,36 @@ export function buildPeriodRows(
     surveyType: "road" | "intersection";
     scopeCode: string;
     scopeName: string;
+    /** X-18：平日＋假日時這一列是哪一天；單一日別時是空字串。 */
+    dayType: string;
     hours: Map<string, HourBucket>;
   };
   const scopes = new Map<string, ScopeState>();
 
+  /*
+   * ── X-18（使用者 2026-09-16）：平日＋假日要**一天一列**，不是併成一列 ──
+   *
+   * 使用者原話：「這張表僅有在平日+假日條件下，變成了數字加總或
+   *   僅顯示某一天做為替代」——兩種症狀其實是同一個原因：
+   *   列的鍵只有「調查點×方向」，**沒有日別**，於是兩天的時間格
+   *   全部落進同一列：
+   *     ・「全調查時段」欄把兩天的量**加起來**（得到一個不存在的量）
+   *     ・「上午尖峰」欄在兩天的格子裡挑最大的那一個，
+   *       所以看起來像**只顯示某一天**
+   *   （separateDays 原本只作用在**時間格**的鍵上，不在列的鍵上。）
+   *
+   * ⚠️ 修法：separateDays 時把日別也放進列的鍵，並把 dayType 帶到列上。
+   *   這符合專案的通則「A＋B 一律並列，不是加總、也不是取其中一個」。
+   * ⚠️ 這**會改變平日＋假日模式下的數字**（從錯的變成對的），
+   *   單一日別模式一個數字都不動——升級當天的差異只會出現在那一個模式。
+   */
   const touch = (
     record: PeriodRecord,
     scopeCode: string,
     scopeName: string,
   ): ScopeState => {
-    const id = `${record.roadId}||${scopeCode}`;
+    const day = separateDays ? String(record.dayType ?? "") : "";
+    const id = `${record.roadId}||${scopeCode}||${day}`;
     let state = scopes.get(id);
     if (!state) {
       state = {
@@ -482,6 +712,7 @@ export function buildPeriodRows(
         surveyType: record.surveyType === "intersection" ? "intersection" : "road",
         scopeCode,
         scopeName,
+        dayType: day,
         hours: new Map(),
       };
       scopes.set(id, state);
@@ -530,7 +761,7 @@ export function buildPeriodRows(
 
   for (const record of records) {
     // 時段解析不出來的資料（例如手動塞進 API 的「全日」字樣）不納入。
-    // 否則它會被算進全日、還可能贏得全日尖峰，卻不屬於上午也不屬於下午，
+    // 否則它會被算進全調查時段、還可能贏得全調查時段尖峰，卻不屬於上午也不屬於下午，
     // 三個欄位就對不起來。
     if (!record.hour || hourStartOf(record.hour) < 0) continue;
     const directionName =
@@ -551,6 +782,139 @@ export function buildPeriodRows(
       (a, b) => a.day.localeCompare(b.day, "zh-TW") || a.startMinutes - b.startMinutes,
     );
 
+  /*
+   * 把使用者的回答換成兩件事：
+   *   blocked.am ＝ 這些格子已經被指派給**下午**，上午就不可以再算它們；
+   *   blocked.pm ＝ 反之。
+   *
+   * ⚠️ 這個排除是必要的，不是保險。少了它會出現**同一批車被算進兩個尖峰**：
+   *   例如使用者說 11:45–12:45 算上午，而 12:00～12:45 那三格本來就落在下午段，
+   *   下午尖峰照樣會挑到含有它們的 12:00–13:00——於是報告上「上午尖峰」與
+   *   「下午尖峰」共用了 45 分鐘的車流，兩個數字都對，加起來卻不對。
+   */
+  const noonSides = (
+    roadId: string,
+    straddles: Map<string, { buckets: HourBucket[]; label: string; value: number }>,
+    answers: NoonAnswers | undefined,
+  ) => {
+    const blocked = { am: new Set<string>(), pm: new Set<string>() };
+    const assigned = new Map<
+      NoonAnswer,
+      { buckets: HourBucket[]; label: string; value: number }[]
+    >([
+      ["am", []],
+      ["pm", []],
+    ]);
+    for (const [day, window] of straddles) {
+      const answer = answers?.[noonStraddleKey(roadId, day)];
+      // "ignore"（使用者選「忽略這個時段」）與「還沒回答」在計算上相同：
+      // 什麼都不做，照原本的 12:00 分界算。
+      if (answer !== "am" && answer !== "pm") continue;
+      assigned.get(answer)?.push(window);
+      // 指派給上午的，下午不可以再算；反之亦然。
+      const other = answer === "am" ? "pm" : "am";
+      for (const bucket of window.buckets) blocked[other].add(bucket.label);
+    }
+    return {
+      blocked,
+      /** 把「被指派到這一邊」的跨中午視窗拿去跟這一邊原本挑到的比大小。 */
+      pickFor: (
+        side: NoonAnswer,
+        base: WindowPick | undefined,
+        all: HourBucket[],
+      ): WindowPick | undefined => {
+        let best = base;
+        let bestValue = base
+          ? weightSum(all.filter((bucket) => base.labels.has(bucket.label)))
+          : 0;
+        for (const window of assigned.get(side) ?? []) {
+          if (best && window.value <= bestValue) continue;
+          best = {
+            labels: new Set(window.buckets.map((bucket) => bucket.label)),
+            label: window.label,
+            crossesNoon: true,
+          };
+          bestValue = window.value;
+        }
+        return best;
+      },
+    };
+  };
+
+  /** 一批格子的權重合計：有 PCU 就比 PCU，全是 0 才退而比車輛數（與 peakWindow 一致）。 */
+  const weightSum = (list: HourBucket[]) => {
+    const pcu = list.reduce((sum, bucket) => sum + bucket.pcu, 0);
+    return pcu > 0 ? pcu : list.reduce((sum, bucket) => sum + bucket.total, 0);
+  };
+
+  /*
+   * 找出「**橫跨中午**、而且湊得滿一小時」的最佳視窗，逐日別各一個。
+   *
+   * 為什麼需要它：上午段只看 12:00 以前起算的格子、下午段只看 12:00 以後，
+   * 所以 11:15～12:15 這種視窗**兩邊都挑不到**。若它其實是這一天最忙的一小時，
+   * 目前的結果就會安靜地少報——上午尖峰報一個比較小的時段，而畫面上完全
+   * 看不出來漏掉了什麼。使用者 2026-09-12 指出這一點：「如果有 15 分鐘滾動
+   * 去計算 1 小時的當量時，其實也會遇到」。
+   *
+   * ⚠️ 這一支**只負責找出候選**，不決定它算上午還是下午——那是報告怎麼寫的
+   *   問題，程式判斷不了，一律問使用者（見 NoonStraddle 與 noonAnswers）。
+   */
+  const straddleWindowsOf = (list: HourBucket[], subHourly: boolean) => {
+    const out = new Map<
+      string,
+      { buckets: HourBucket[]; label: string; value: number }
+    >();
+    const byDay = new Map<string, HourBucket[]>();
+    for (const bucket of list) {
+      const arr = byDay.get(bucket.day) ?? [];
+      arr.push(bucket);
+      byDay.set(bucket.day, arr);
+    }
+    for (const [day, arr] of byDay) {
+      const sorted = [...arr].sort((a, b) => a.startMinutes - b.startMinutes);
+      const better = (value: number, buckets: HourBucket[], label: string) => {
+        if (value <= 0) return;
+        const prev = out.get(day);
+        if (!prev || value > prev.value) out.set(day, { buckets, label, value });
+      };
+      if (!subHourly) {
+        /*
+         * 每小時一格的資料：視窗就是那一格本身。它會不會跨中午，取決於
+         * 原始檔自己的寫法（例如整份檔寫成 11:30～12:30、12:30～13:30）。
+         */
+        for (const bucket of sorted)
+          if (straddlesNoon(bucket.hour))
+            better(weightSum([bucket]), [bucket], bucket.display);
+        continue;
+      }
+      /*
+       * 細格資料：從每一個「起點在 11:00 之後、12:00 之前」的格子往後串，
+       * 串到剛好滿 60 分鐘且首尾相接為止。湊不滿就不算——不足一小時的量
+       * 標成尖峰小時會低估，那是這支程式一路在避開的錯。
+       */
+      for (let index = 0; index < sorted.length; index += 1) {
+        const start = sorted[index].startMinutes;
+        if (start <= NOON_MINUTES - 60 || start >= NOON_MINUTES) continue;
+        const window: HourBucket[] = [];
+        let end = start;
+        let cursor = index;
+        while (cursor < sorted.length && end - start < 60) {
+          const range = parseTimeRange(sorted[cursor].hour);
+          if (!range) break;
+          // 首尾相接才算同一個視窗；遇到資料空隙就停。
+          if (window.length && range.start !== end) break;
+          window.push(sorted[cursor]);
+          end = range.end;
+          cursor += 1;
+        }
+        if (end - start !== 60) continue;
+        const label = `${minutesToClock(start)}～${minutesToClock(end)}`;
+        better(weightSum(window), window, day ? `${day} ${label}` : label);
+      }
+    }
+    return out;
+  };
+
   /**
    * peakScope === "point" 時，先把每個調查點「合計」那一列的尖峰時段算出來，
    * 之後各方向一律沿用同一個視窗。
@@ -559,8 +923,25 @@ export function buildPeriodRows(
    * 路口為例，A 是 07:00～08:00、B 是 07:30～08:30），於是那一欄既不能相加、
    * 也對不上「進入該路口交通量」這類以路口整體尖峰小時編製的報表。
    */
-  type WindowPick = { labels: Set<string>; label: string };
+  /*
+   * crossesNoon ＝ 這個視窗是「使用者指派過來的跨中午視窗」。
+   *
+   * ⚠️ 這個旗標非有不可。applyShared 是拿「上午的格子清單」去比對標籤的，
+   *   而跨中午的視窗有一半格子在下午——不標出來的話，各方向那幾列只會留下
+   *   中午以前的那一兩格，數字直接砍掉一大半（實測：2800 變成 100）。
+   */
+  type WindowPick = { labels: Set<string>; label: string; crossesNoon?: boolean };
   const pointWindows = new Map<string, Partial<Record<PeriodKey, WindowPick>>>();
+  /*
+   * ⚠️ X-18：這張表的鍵**一定要含日別**。
+   *
+   *   平日＋假日模式下，同一個調查點會有兩個 ALL 列（平日一個、假日一個）。
+   *   只用 roadId 當鍵的話，後寫入的那一天會蓋掉前一天，於是**兩天共用
+   *   同一個尖峰視窗**——另一天的格子對不上那組標籤，值就變成 0。
+   *   （實測：平日 08:00～09:00 的上午尖峰變成 0，標籤還寫著「假日 08:00～09:00」。）
+   */
+  const windowKeyOf = (state: { roadId: string; dayType: string }) =>
+    `${state.roadId}||${state.dayType}`;
   if (peakScope === "point") {
     for (const state of scopes.values()) {
       if (state.scopeCode !== "ALL") continue;
@@ -573,10 +954,34 @@ export function buildPeriodRows(
           label: window.label,
         };
       };
-      pointWindows.set(state.roadId, {
+      /*
+       * 使用者說某個跨中午的視窗算上午（或下午）時，它就直接當那一邊的
+       * 尖峰——前提是它比那一邊原本挑到的還大（不然指派過去反而把尖峰改小）。
+       */
+      const straddles = straddleWindowsOf(buckets, isSubHourly(state.roadId));
+      const sides = noonSides(state.roadId, straddles, noonAnswers);
+      pointWindows.set(windowKeyOf(state), {
         peak24: pick(buckets),
-        am: pick(buckets.filter((bucket) => isMorningHour(bucket.hour))),
-        pm: pick(buckets.filter((bucket) => isAfternoonHour(bucket.hour))),
+        am: sides.pickFor(
+          "am",
+          pick(
+            buckets.filter(
+              (bucket) =>
+                isMorningHour(bucket.hour) && !sides.blocked.am.has(bucket.label),
+            ),
+          ),
+          buckets,
+        ),
+        pm: sides.pickFor(
+          "pm",
+          pick(
+            buckets.filter(
+              (bucket) =>
+                isAfternoonHour(bucket.hour) && !sides.blocked.pm.has(bucket.label),
+            ),
+          ),
+          buckets,
+        ),
       });
     }
   }
@@ -588,7 +993,7 @@ export function buildPeriodRows(
     const afternoon = buckets.filter((bucket) => isAfternoonHour(bucket.hour));
     // 調查點層級的視窗（若有）優先；沒有的話退回這一列自己找。
     // 例如某支線在該視窗完全沒有資料，就不會硬湊出一個空格。
-    const shared = pointWindows.get(state.roadId);
+    const shared = pointWindows.get(windowKeyOf(state));
     /*
      * point 模式的重點是「各方向相加＝合計」，所以就算某個方向在該視窗內
      * 完全沒有資料，也必須輸出這個視窗（值為 0），而不是退回去找自己的尖峰。
@@ -598,23 +1003,64 @@ export function buildPeriodRows(
     const applyShared = (key: PeriodKey, list: HourBucket[]) => {
       const pick = shared?.[key];
       if (!pick) return null;
+      // 跨中午的視窗要在**全部格子**裡比對，不能只在上午（或下午）那一半裡找。
+      const source = pick.crossesNoon ? buckets : list;
       return {
-        buckets: list.filter((bucket) => pick.labels.has(bucket.label)),
+        buckets: source.filter((bucket) => pick.labels.has(bucket.label)),
         label: pick.label,
       };
     };
     const scopeSubHourly = isSubHourly(state.roadId);
     const peak =
       applyShared("peak24", buckets) ?? peakWindow(buckets, scopeSubHourly);
+    /*
+     * ⚠️ 這一段在 point 模式下不會執行（applyShared 已經給了答案，而且那個
+     *   答案是調查點層級算好、各方向共用的——各方向必須在同一個視窗裡取值，
+     *   否則相加不等於合計，那是 v20.67 修過的錯）。
+     *   只有 direction 模式（各方向各自認定）才會走到這裡自己套回答。
+     */
+    const ownStraddles = straddleWindowsOf(buckets, scopeSubHourly);
+    const ownSides = noonSides(state.roadId, ownStraddles, noonAnswers);
+    const applyAnswer = (
+      base: { buckets: HourBucket[]; label: string } | null,
+      side: NoonAnswer,
+    ) => {
+      let best = base;
+      let bestValue = base ? weightSum(base.buckets) : 0;
+      for (const [day, window] of ownStraddles) {
+        // 同上："ignore" 不會等於 "am" 或 "pm"，所以自然什麼都不做。
+        if (noonAnswers?.[noonStraddleKey(state.roadId, day)] !== side) continue;
+        if (best && window.value <= bestValue) continue;
+        best = { buckets: window.buckets, label: window.label };
+        bestValue = window.value;
+      }
+      return best;
+    };
     const amPeak =
-      applyShared("am", morning) ?? peakWindow(morning, scopeSubHourly);
+      applyShared("am", morning) ??
+      applyAnswer(
+        peakWindow(
+          morning.filter((bucket) => !ownSides.blocked.am.has(bucket.label)),
+          scopeSubHourly,
+        ),
+        "am",
+      );
     const pmPeak =
-      applyShared("pm", afternoon) ?? peakWindow(afternoon, scopeSubHourly);
+      applyShared("pm", afternoon) ??
+      applyAnswer(
+        peakWindow(
+          afternoon.filter((bucket) => !ownSides.blocked.pm.has(bucket.label)),
+          scopeSubHourly,
+        ),
+        "pm",
+      );
     rows.push({
       roadId: state.roadId,
       roadName: state.roadName,
       surveyType: state.surveyType,
       scopeCode: state.scopeCode,
+      /* X-18：平日＋假日時一天一列，這一欄說出是哪一天。 */
+      dayType: state.dayType || undefined,
       scopeName:
         state.scopeCode === "ALL"
           ? state.surveyType === "intersection"
@@ -634,7 +1080,67 @@ export function buildPeriodRows(
     });
   }
 
-  return rows.sort((a, b) => {
+  /*
+   * ── 要問使用者的跨中午視窗 ──────────────────────────────
+   *
+   * ⚠️ 只在「它比上午與下午各自的尖峰都大」時才問。
+   *   沒有跨中午的不必問；跨了但比兩邊都小的話，問了也不會改變任何一個
+   *   欄位的數字——問了只是打擾，而且會讓真正需要注意的那一次被淹沒。
+   *
+   * ⚠️ 一律以**調查點合計（ALL）**那一列判斷，不逐方向問。
+   *   逐方向問會問出七、八次，而且各方向答不一樣時，「各方向相加＝合計」
+   *   就破了（那是 v20.67 修過的錯）。
+   */
+  const straddles: NoonStraddle[] = [];
+  for (const state of scopes.values()) {
+    if (state.scopeCode !== "ALL") continue;
+    const buckets = sortedBucketsOf(state);
+    const subHourly = isSubHourly(state.roadId);
+    const windows = straddleWindowsOf(buckets, subHourly);
+    for (const [day, window] of windows) {
+      const sameDay = (bucket: HourBucket) => bucket.day === day;
+      const amBest = peakWindow(
+        buckets.filter((bucket) => sameDay(bucket) && isMorningHour(bucket.hour)),
+        subHourly,
+      );
+      const pmBest = peakWindow(
+        buckets.filter((bucket) => sameDay(bucket) && isAfternoonHour(bucket.hour)),
+        subHourly,
+      );
+      const amValue = amBest ? weightSum(amBest.buckets) : 0;
+      const pmValue = pmBest ? weightSum(pmBest.buckets) : 0;
+      /*
+       * ⚠️ 觸發條件是「它是這一天最忙的那一小時」，不是「它比上午與下午
+       *   各自的尖峰都大」。
+       *
+       *   兩者看起來很像，但差在一種真實會發生的情況：原始檔的時間格本身
+       *   就寫成 11:30～12:30 時，那一格的起始時間在中午以前，所以它**本來
+       *   就已經被選成上午尖峰**——用「比上午尖峰大」當條件的話永遠不成立
+       *  （它就是上午尖峰），於是永遠不會問，而它究竟該算上午還是下午，
+       *   正是唯一需要人來決定的地方。實測這一項會漏掉整種情況。
+       *
+       *   改用「是不是這一天最忙的一小時」就兩種來源都涵蓋：
+       *   15 分鐘滾動湊出來的 11:45–12:45、以及原始檔自己寫的 11:30～12:30。
+       */
+      const dayBest = peakWindow(buckets.filter(sameDay), subHourly);
+      const dayValue = dayBest ? weightSum(dayBest.buckets) : 0;
+      if (window.value < dayValue - 1e-9) continue;
+      straddles.push({
+        key: noonStraddleKey(state.roadId, day),
+        roadId: state.roadId,
+        roadName: state.roadName,
+        day,
+        label: window.label,
+        value: window.value,
+        amLabel: amBest?.label ?? "",
+        amValue,
+        pmLabel: pmBest?.label ?? "",
+        pmValue,
+      });
+    }
+  }
+
+  rows.sort((a, b) => {
     // 先用名稱排序，但同名時一定要再用 roadId 分開；否則同名的兩個調查點
     // 會交錯在一起，而且兩列都是合計時比較器會自相矛盾（兩邊都回 -1）。
     if (a.roadName !== b.roadName) return a.roadName.localeCompare(b.roadName, "zh-TW");
@@ -644,6 +1150,13 @@ export function buildPeriodRows(
     if (b.scopeCode === "ALL") return 1;
     return a.scopeCode.localeCompare(b.scopeCode, "en");
   });
+  straddles.sort(
+    (a, b) =>
+      a.roadName.localeCompare(b.roadName, "zh-TW") ||
+      a.roadId.localeCompare(b.roadId, "en") ||
+      a.day.localeCompare(b.day, "zh-TW"),
+  );
+  return { rows, straddles };
 }
 
 /** 百分比：某車種車輛數佔該格全部車種車輛數的比例（0–100）。 */
@@ -785,10 +1298,18 @@ export function buildPeriodExportSheets(
       }),
     );
 
-  const baseHeaders = ["調查點編號", "調查點名稱", "資料格式", "方向／支線"];
+  /*
+   * ⚠️ X-18：平日＋假日時一天一列，匯出也要跟著多一欄「日別」——
+   *   不加的話 Excel 裡同一個調查點會出現兩列一模一樣的抬頭，
+   *   看的人分不出哪一列是平日。單一日別時不加這一欄（沒有兩列要分）。
+   */
+  const baseHeaders = context.separateDays
+    ? ["調查點編號", "調查點名稱", "日別", "資料格式", "方向／支線"]
+    : ["調查點編號", "調查點名稱", "資料格式", "方向／支線"];
   const baseValues = (row: PeriodRow) => [
     row.roadId,
     row.roadName,
+    ...(context.separateDays ? [row.dayType ?? ""] : []),
     // 並列模式下每一列各自帶 flowLabel；否則才用整批的視角。
     // 用整批的會讓「駛入路口A」那一列被標成「路口（駛出）」，自相矛盾。
     row.surveyType === "intersection"

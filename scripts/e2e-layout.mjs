@@ -9,6 +9,7 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchOptions } from "./chrome-path.mjs";
+import { TABS, gotoTab, gotoBlock } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -63,7 +64,8 @@ for (const [name, quarter] of [["115T1-01_中山路.xlsx", "115Q1"], ["115T1-02_
     await closer.click(); await page.waitForTimeout(400);
   }
 }
-/* 展開結論草稿產生器，否則量不到那一區。 */
+/* 展開結論草稿產生器，否則量不到那一區。它在「明細與產出」分頁上。 */
+await gotoBlock(page, "conclusionStudio");
 await page.locator("#conclusionStudio").scrollIntoViewIfNeeded();
 await page.locator('#conclusionStudio button:has-text("展開")').click();
 await page.waitForTimeout(1200);
@@ -80,6 +82,44 @@ async function measure() {
         if (box.right > view + 1 && box.width > 0 && getComputedStyle(el).overflowX !== "auto")
           wide.push(el.tagName + "." + String(el.className).slice(0, 30) + "@" + Math.round(box.right));
       }
+    /*
+     * ── 按鈕文字被裁掉 ────────────────────────────────────────
+     *
+     * 使用者 2026-09-16：「不要再出現文字超過按鍵大小或被背景色遮蔽的狀況」。
+     *
+     * ⚠️ 既有的「橫向溢出」抓不到這一種：按鈕本身乖乖待在版面裡，
+     *   溢出的是**按鈕裡面的字**。判準是 scrollWidth > clientWidth。
+     * ⚠️ 沒畫出來的按鈕一律跳過，否則整支恆紅。
+     *
+     * ⚠️ X-81（2026-09-17）補：原本**只量 <button> 自己**，漏掉了
+     *   「overflow:hidden 同時套在按鈕裡面那一層」的情形——字是在裡面那一層
+     *   被裁的，button 自己量起來剛剛好，整條恆綠。使用者親眼看到
+     *   「五　資料產出與維護」被裁成「…與維」，這支卻是全綠的。
+     *   所以連按鈕**裡面**的元素一起量。
+     */
+    const clippedButtons = [];
+    for (const el of document.querySelectorAll("button")) {
+      if (!el.getClientRects().length) continue;
+      const text = (el.textContent || "").trim();
+      if (!text) continue;
+      for (const node of [el, ...el.querySelectorAll("*")]) {
+        if (!node.getClientRects().length) continue;
+        const inner = (node.textContent || "").trim();
+        if (!inner) continue;
+        /* 捲動容器是刻意的，不算被裁。 */
+        const overflowX = getComputedStyle(node).overflowX;
+        if (overflowX === "auto" || overflowX === "scroll") continue;
+        const over = node.scrollWidth - node.clientWidth;
+        if (over > 1) {
+          clippedButtons.push(
+            `「${text.slice(0, 16)}」多 ${Math.round(over)}px${
+              node === el ? "" : `（裁在 <${node.tagName.toLowerCase()}> 這一層）`
+            }`,
+          );
+          break;
+        }
+      }
+    }
     const flushHeads = [];
     const misaligned = [];
     for (const card of content.querySelectorAll(".panel")) {
@@ -103,20 +143,41 @@ async function measure() {
         }
       }
     }
-    return { overflow, wide: wide.slice(0, 4), flushHeads: flushHeads.slice(0, 4), misaligned: misaligned.slice(0, 4) };
+    return { overflow, wide: wide.slice(0, 4), flushHeads: flushHeads.slice(0, 4), misaligned: misaligned.slice(0, 4), clippedButtons: clippedButtons.slice(0, 6) };
   });
 }
 
-console.log("\n══ 多寬度掃描（全日交通量是單頁捲動，一次量整頁）══");
+/*
+ * ⚠️ v20.64 改成分頁式之後，「量整頁」只會量到目前那一頁。
+ * 使用者交代過：「**掃描要涵蓋每一個分頁，不是只掃有圖表的那幾頁**」。
+ * 所以這裡是 **寬度 × 分頁** 的兩層迴圈——10 個寬度 × 5 頁 ＝ 50 次量測。
+ *
+ * ⚠️ 不可以只掃預設那一頁然後說「乾淨」。改版會讓每一頁的斷點重新洗牌，
+ * 舊的量測結果一項都不能沿用。
+ */
+console.log("\n══ 多寬度 × 五個分頁掃描 ══");
+const ZONES = [
+  [TABS.import, "匯入"],
+  [TABS.settings, "設定"],
+  [TABS.kpi, "數字"],
+  [TABS.charts, "圖表"],
+  [TABS.output, "明細"],
+];
 for (const width of [640, 760, 900, 1024, 1100, 1280, 1440, 1500, 1680, 1920]) {
   await page.setViewportSize({ width, height: 1050 });
-  await page.waitForTimeout(500);
-  const m = await measure();
-  const bad = [];
-  if (m.overflow > 1) bad.push(`溢出 ${m.overflow}px（${m.wide[0] || ""}）`);
-  if (m.flushHeads.length) bad.push(`標題貼邊 ${m.flushHeads.length} 處：${m.flushHeads[0]}`);
-  if (m.misaligned.length) bad.push(`表格未對齊 ${m.misaligned.length} 處：${m.misaligned[0]}`);
-  ok(`寬度 ${width}px 乾淨`, bad.length === 0, bad.join("；"));
+  await page.waitForTimeout(400);
+  for (const [zoneId, zoneName] of ZONES) {
+    await gotoTab(page, zoneId);
+    await page.waitForTimeout(320);
+    const m = await measure();
+    const bad = [];
+    if (m.overflow > 1) bad.push(`溢出 ${m.overflow}px（${m.wide[0] || ""}）`);
+    if (m.flushHeads.length) bad.push(`標題貼邊 ${m.flushHeads.length} 處：${m.flushHeads[0]}`);
+    if (m.misaligned.length) bad.push(`表格未對齊 ${m.misaligned.length} 處：${m.misaligned[0]}`);
+    if (m.clippedButtons.length)
+      bad.push(`按鈕文字被裁 ${m.clippedButtons.length} 處：${m.clippedButtons[0]}`);
+    ok(`寬度 ${width}px・${zoneName}頁 乾淨`, bad.length === 0, bad.join("；"));
+  }
 }
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 3).join(" / "));
 /*
@@ -124,9 +185,14 @@ ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 3).join(" / "));
  *
  * 使用者實際遇到的情形：把每個調查點的車流方向都改成有意義的名稱之後，
  * 「全部調查點」下那個選項會把 14 個名稱用「／」串起來，<select> 就橫向
- * 撐滿整個畫面，右邊的搜尋框與「已選 N 個計畫比較」被推出視窗外。
+ * 撐滿整個畫面，右邊的搜尋框被推出視窗外。
+ *
+ * ⚠️ 篩選列在分頁之外（五頁共用），所以停在哪一頁都量得到；
+ * 但視窗寬度剛剛被上面那個迴圈改成 1920，先設回一個會出事的寬度。
  */
 {
+  await page.setViewportSize({ width: 1100, height: 1050 });
+  await page.waitForTimeout(400);
   const measured = await page.evaluate(() => {
     const target = [...document.querySelectorAll(".filters > label")].find((label) =>
       label.textContent.includes("車流方向"),

@@ -1,6 +1,6 @@
 /**
  * ══════════════════════════════════════════════════════════════════
- *  歷季趨勢：可選指標、圖表講稿、跨計畫比較
+ *  歷季趨勢：可選指標、圖表講稿
  * ══════════════════════════════════════════════════════════════════
  *
  * 這一支是**純函式**，不碰 DOM，也不碰畫布——所以可以用單元測試釘住，
@@ -20,7 +20,7 @@ export type TrendPoint = {
 };
 
 export type TrendSeriesMeta = {
-  /** 指標名稱（例如「全日實際交通量」「大型車比例」）。 */
+  /** 指標名稱（例如「全日實際交通量」「大車比例」）。 */
   label: string;
   /** 單位（「輛/日」「PCU/日」「%」…）；沒有單位就給空字串。 */
   unit: string;
@@ -80,12 +80,20 @@ export const TREND_METRICS: TrendMetricDef[] = [
   },
   {
     id: "vehicleClass",
+    /*
+     * ── 「車種」在這裡一律指**歸類後的類型**（2026-09-15 定案）────────
+     *   原生類型有四個：機車、小型車、大型車、特種車。
+     *   自訂車種要嘛併入這四個之一、要嘛自成一個新類型。
+     *   下拉裡列的是**類型**，不是調查表上的原始車種——
+     *   使用者把「電動機車」併進機車之後，下拉裡就不再有「電動機車」，
+     *   而「機車」這一條線包含它。與「車種組成」那一塊完全同一個口徑。
+     */
     label: "單一車種車輛數",
     unit: "count",
     digits: 0,
     picker: "vehicle",
     meaning:
-      "指定車種實際數到的車輛數。用來回答「機車是不是變多了」「大型車有沒有增加」這類問題。",
+      "指定車種類型實際數到的車輛數（已併入該類型的自訂車種一起算）。用來回答「機車是不是變多了」「大型車有沒有增加」這類問題。",
   },
   {
     id: "vehicleShare",
@@ -94,16 +102,33 @@ export const TREND_METRICS: TrendMetricDef[] = [
     digits: 1,
     picker: "vehicle",
     meaning:
-      "指定車種佔全部車輛數的百分比。總量在成長時，佔比才看得出「組成」有沒有變化——總量與佔比可以一升一降。",
+      "指定車種類型佔全部車輛數的百分比（已併入該類型的自訂車種一起算）。總量在成長時，佔比才看得出「組成」有沒有變化——總量與佔比可以一升一降。",
   },
   {
     id: "heavyShare",
-    label: "大型車比例",
+    /*
+     * ⚠️ 名字叫「大車比例」不是「大型車比例」——使用者 2026-09-15 指名改名，
+     *   理由是舊名讓人（包括我）誤以為只算內建的那一個「大型車」車種。
+     *   這裡的大車是「非機車、非小型車」的全部，見下面的 meaning。
+     */
+    label: "大車比例",
     unit: "%",
     digits: 1,
     picker: null,
     meaning:
-      "大型車與特種車合計佔全部車輛數的百分比。這個比例直接關係到路面損壞、噪音與行車安全，是報告裡經常被單獨問到的一項。",
+      /*
+       * ── 大車的定義（使用者 2026-09-15 定案，與車種組成的說明同一套）──
+       *   原生車種只有四類：機車、小型車、大型車、特種車。
+       *   自訂車種要嘛併入這四類其中之一、要嘛自成一個新類型。
+       *   **大車 ＝ 非機車類型、非小型車類型的全部**
+       *  （大型車類型、特種車類型，以及沒有歸類、自成一類的自訂車種）。
+       *
+       * ⚠️ 舊版只算 counts.large + counts.special（而且用的是歸類**前**的
+       *   數字），於是「大客車、大貨車、聯結車」這些沒有歸類的自訂車種
+       *   整組被漏掉：同一批資料，這裡算 23.8%、車種組成那一塊算 42.7%。
+       *   已改成同一個口徑。
+       */
+      "非機車、非小型車的車種合計佔全部車輛數的百分比（含大型車類型、特種車類型，以及自訂而未歸類的車種；已歸類到機車或小型車的自訂車種不算）。這個比例直接關係到路面損壞、噪音與行車安全，是報告裡經常被單獨問到的一項。",
   },
   {
     id: "peakHour",
@@ -187,6 +212,25 @@ export function describeChange(
   from: number | null,
   to: number | null,
   meta: Pick<TrendSeriesMeta, "unit" | "digits">,
+  /*
+   * ⚠️ 2026-09-11 新增這兩個標籤，一定要把**主詞寫出來**。
+   *
+   * 使用者回報：「『大約剩下原來的 65%』，『原來的』是什麼？
+   *   正確說明應該是『假日是平日的 65%』……這類比較用的罐頭詞，
+   *   主詞、誰是誰的幾倍或幾 %，要說明清楚。」
+   *
+   * 「原來的」在這一句裡指的是**起始那一季**，但句子裡沒有任何線索
+   * 說明這件事。這種句子會被整段複製進報告，主詞一定要自己帶著。
+   *
+   * ⚠️ 只改字，不改算法：ratio 仍然是 to / from，數字一個都不變。
+   *
+   * ⚠️ 這個參數刻意設成**必填**，沒有「不給標籤」的退路。
+   *   給了退路就一定會有呼叫端忘記給，而忘記的那一句長得和正常的一模一樣
+   *   （只是少了主詞），沒有人會發現。使用者的原話：
+   *  「這類調查報告應該沒有所謂的原來值……『A 是 B 的幾 %』主詞要明確，
+   *    不然會看不懂，是跟誰比才有這倍率。」
+   */
+  labels: { from: string; to: string },
 ): string {
   if (from === null || to === null) return "";
   const delta = to - from;
@@ -197,8 +241,8 @@ export function describeChange(
   const times =
     ratio !== null && ratio > 0
       ? ratio >= 1
-        ? `，大約是原來的 ${ratio.toFixed(ratio >= 10 ? 0 : 1)} 倍`
-        : `，大約剩下原來的 ${(ratio * 100).toFixed(0)}%`
+        ? `，${labels.to}大約是${labels.from}的 ${ratio.toFixed(ratio >= 10 ? 0 : 1)} 倍`
+        : `，${labels.to}大約是${labels.from}的 ${(ratio * 100).toFixed(0)}%`
       : "";
   return `${direction} ${magnitude}${times}`;
 }
@@ -210,6 +254,15 @@ const LINES: Line[] = [
   { key: "weekday", name: "平日" },
   { key: "holiday", name: "假日" },
 ];
+
+/**
+ * 講稿裡的一條線。`values` 與 `points` **等長、同順序**。
+ *
+ * 平常（單一調查點）不必給，講稿自己會從 points 的 weekday／holiday
+ * 拆成兩條。多個調查點時由呼叫端傳進來——那時圖上是「一個調查點一條線」，
+ * 講稿必須講**同樣那幾條**，不可以回頭去念 points 裡的合計。
+ */
+export type TrendScriptLine = { name: string; values: (number | null)[] };
 
 /**
  * 這張圖的簡報講稿。
@@ -232,12 +285,29 @@ export function buildTrendScript(
     peakHours?: Record<string, string>;
     /** 各季調查涵蓋不一致時的說明（例如有的季度只調查了部分時段）。 */
     coverageNote?: string;
+    /**
+     * 圖上實際畫的那幾條線（多個調查點時「一個調查點一條線」）。
+     * 不給就退回平日／假日兩條，輸出與升級前**逐字相同**。
+     */
+    seriesLines?: TrendScriptLine[];
   },
 ): TrendScriptSection[] {
   const q = context.quarterLabel;
   const sections: TrendScriptSection[] = [];
-  const shown = LINES.filter((line) =>
-    points.some((point) => point[line.key] !== null),
+  /*
+   * ⚠️ 講稿的每一條線必須與**圖上畫的那幾條**一模一樣。
+   *   多個調查點時圖畫的是逐點的線，講稿卻去念 points 的 weekday／holiday，
+   *   念出來的就是那個「不同地點相加」的數字（X-28 已裁示不可以出現）。
+   */
+  const perRoad = Boolean(context.seriesLines?.length);
+  const allLines: TrendScriptLine[] = perRoad
+    ? (context.seriesLines as TrendScriptLine[])
+    : LINES.map((line) => ({
+        name: line.name,
+        values: points.map((point) => point[line.key]),
+      }));
+  const shown = allLines.filter((line) =>
+    line.values.some((value) => value !== null),
   );
 
   /* ① 這張圖在說什麼 */
@@ -246,11 +316,14 @@ export function buildTrendScript(
     lines: [
       `這是「${context.scopeText}」在 ${context.dayText} 的「${meta.label}」歷季變化。`,
       meta.meaning,
-      shown.length === 2
-        ? "圖上有兩條線：平日與假日分開畫。兩條線本來就不該相等，假日通常較低；要比較的是各自的趨勢，不是兩條線的高低。"
-        : shown.length === 1
-          ? `圖上只有「${shown[0].name}」一條線。`
-          : "目前沒有任何一條線畫得出來。",
+      perRoad
+        ? `圖上有 ${shown.length} 條線：一個調查點一條線（有平日也有假日時再各自分開）。` +
+          `不同調查點的交通量不可以相加，所以這張圖不畫合計，也沒有任何一條線代表全部調查點。`
+        : shown.length === 2
+          ? "圖上有兩條線：平日與假日分開畫。兩條線本來就不該相等，假日通常較低；要比較的是各自的趨勢，不是兩條線的高低。"
+          : shown.length === 1
+            ? `圖上只有「${shown[0].name}」一條線。`
+            : "目前沒有任何一條線畫得出來。",
       `橫軸是季度，縱軸是${meta.label}${meta.unit ? `，單位是 ${meta.unit === "%" ? "百分比" : meta.unit}` : ""}。`,
     ].filter(Boolean),
   });
@@ -258,35 +331,48 @@ export function buildTrendScript(
   /* ② 重點變化（每一條線各講一次） */
   const changeLines: string[] = [];
   for (const line of shown) {
-    const valued = points.filter((point) => point[line.key] !== null);
+    const valued = points
+      .map((point, index) => ({
+        quarter: point.quarter,
+        value: line.values[index],
+      }))
+      .filter((item) => item.value !== null);
     if (valued.length >= 2) {
       const first = valued[0];
       const last = valued[valued.length - 1];
       changeLines.push(
-        `${line.name}：從 ${q(first.quarter)} 的 ${formatTrendValue(first[line.key], meta)}，` +
-          `到 ${q(last.quarter)} 的 ${formatTrendValue(last[line.key], meta)}，` +
-          `整體${describeChange(first[line.key], last[line.key], meta)}。`,
+        `${line.name}：從 ${q(first.quarter)} 的 ${formatTrendValue(first.value, meta)}，` +
+          `到 ${q(last.quarter)} 的 ${formatTrendValue(last.value, meta)}，` +
+          `整體${describeChange(first.value, last.value, meta, {
+            from: q(first.quarter),
+            to: q(last.quarter),
+          })}。`,
       );
       /* 相鄰兩季變化最大的那一次——業主最常問的就是「哪一季跳最多」。 */
-      let biggest: { from: TrendPoint; to: TrendPoint; delta: number } | null =
-        null;
+      let biggest: {
+        from: (typeof valued)[number];
+        to: (typeof valued)[number];
+        delta: number;
+      } | null = null;
       for (let i = 1; i < valued.length; i += 1) {
-        const delta =
-          (valued[i][line.key] as number) - (valued[i - 1][line.key] as number);
+        const delta = (valued[i].value as number) - (valued[i - 1].value as number);
         if (!biggest || Math.abs(delta) > Math.abs(biggest.delta))
           biggest = { from: valued[i - 1], to: valued[i], delta };
       }
       if (biggest && biggest.delta !== 0)
         changeLines.push(
           `${line.name}變化最大的一次落在 ${q(biggest.from.quarter)} 到 ${q(biggest.to.quarter)}：` +
-            `從 ${formatTrendValue(biggest.from[line.key], meta)} ` +
-            `${describeChange(biggest.from[line.key], biggest.to[line.key], meta)}。` +
+            `從 ${formatTrendValue(biggest.from.value, meta)} ` +
+            `${describeChange(biggest.from.value, biggest.to.value, meta, {
+              from: q(biggest.from.quarter),
+              to: q(biggest.to.quarter),
+            })}。` +
             `這一段通常要說明原因（工程施工、路網調整、鄰近設施開業，或調查條件不同）。`,
         );
     } else if (valued.length === 1) {
       changeLines.push(
         `${line.name}只有 ${q(valued[0].quarter)} 一季算得出來` +
-          `（${formatTrendValue(valued[0][line.key], meta)}），一個點畫不出趨勢，` +
+          `（${formatTrendValue(valued[0].value, meta)}），一個點畫不出趨勢，` +
           `請不要在簡報上把它講成「上升」或「下降」。`,
       );
     }
@@ -296,49 +382,90 @@ export function buildTrendScript(
   sections.push({ title: "重點變化", lines: changeLines });
 
   /* ③ 怎麼看這張圖 */
-  const how: string[] = [
-    "折線斷開的地方代表那一季「沒有那一種日別的資料」，不是「交通量歸零」——系統不會把沒有的季度連過去，因為連過去等於宣稱中間有一個介於兩端之間的值。",
-  ];
+  /*
+   * ⚠️ 「折線斷開」那一句**只有在圖上真的有斷開時才講**。
+   *
+   * 使用者 2026-09-11：「圖中只有兩季資料，沒有所謂的斷開的地方，
+   *   是不是沒有這一段、沒有結論，硬是亂找或模糊找了一句罐頭話套上？
+   *   我們之前說過，如果沒有相關結論，那就可以不顯示，不要亂選句子使用。」
+   *
+   * 他是對的，而且這比「多一句廢話」嚴重：說明文字是要被**照著念給業主聽**的。
+   * 講一句圖上找不到對應的話，聽的人會去圖上找那個斷點，找不到就開始懷疑
+   * 這份資料到底對不對——**一句不適用的罐頭話，賠掉的是整張圖的可信度**。
+   *
+   * 判斷依據：目前畫得出來的那幾條線裡，有沒有哪一季是 null。
+   * 沒有的話這一句就不成立，直接不放。
+   */
+  const hasGap = shown.some((line) =>
+    line.values.some((value) => value === null),
+  );
+  const how: string[] = [];
+  if (hasGap)
+    how.push(
+      "折線斷開的地方代表那一季「沒有那一種日別的資料」，不是「交通量歸零」——系統不會把沒有的季度連過去，因為連過去等於宣稱中間有一個介於兩端之間的值。",
+    );
   if (meta.unit === "%")
     how.push(
       "佔比要和總量一起看：總量成長時，佔比下降不代表這個車種變少，只代表它成長得比其他車種慢。",
     );
   if (meta.unit === "PCU" || meta.unit.includes("PCU"))
     how.push(
-      "PCU（小客車當量）不是車輛數。同樣 1,000 PCU，可能是 1,000 輛小客車，也可能是較少的大型車——要看車輛組成請切換到「單一車種佔比」或「大型車比例」。",
+      "PCU（小客車當量）不是車輛數。同樣 1,000 PCU，可能是 1,000 輛小客車，也可能是較少的大型車——要看車輛組成請切換到「單一車種佔比」或「大車比例」。",
     );
-  sections.push({ title: "怎麼看這張圖", lines: how });
+  /*
+   * ⚠️ 一句都沒有的時候**整段不出現**，不可以放一個空的標題，
+   *   也不可以為了湊滿而塞一句「這張圖很好懂」之類的話。
+   *   沒有結論就不要有段落——這是使用者訂的規則。
+   */
+  if (how.length) sections.push({ title: "怎麼看這張圖", lines: how });
 
   /* ④ 要先講清楚的（資料界線） */
   const caveats: string[] = [];
-  const missing = points.filter(
-    (point) => point.weekday === null || point.holiday === null,
+  /*
+   * 逐季看「畫得出來的那幾條線」各缺哪幾條。
+   * ⚠️ 判斷依據一律是 shown（＝圖上真的有的線），不是固定的平日／假日兩欄——
+   *   多個調查點時那兩欄根本不是圖上畫的東西。
+   */
+  const missingNamesAt = points.map((_point, index) =>
+    shown.filter((line) => line.values[index] === null).map((line) => line.name),
   );
-  if (missing.length) {
-    const both = missing.filter(
-      (point) => point.weekday === null && point.holiday === null,
+  const both = points
+    .map((point, index) => ({ point, index }))
+    .filter(
+      ({ index }) =>
+        shown.length > 0 && missingNamesAt[index].length === shown.length,
     );
-    const only = missing.filter(
-      (point) => !(point.weekday === null && point.holiday === null),
+  const only = points
+    .map((point, index) => ({ point, index }))
+    .filter(
+      ({ index }) =>
+        missingNamesAt[index].length > 0 &&
+        missingNamesAt[index].length < shown.length,
     );
-    if (both.length)
-      caveats.push(
-        `有 ${both.length} 季平日與假日都沒有資料（${both
-          .map((point) => q(point.quarter))
-          .join("、")}），圖上是斷開的，簡報時要主動說明，不要讓聽的人誤以為是下降。`,
-      );
-    if (only.length && shown.length === 2)
-      caveats.push(
-        `有 ${only.length} 季只做了其中一種日別的調查（${only
-          .map(
-            (point) =>
-              `${q(point.quarter)}缺${point.weekday === null ? "平日" : "假日"}`,
-          )
-          .join("、")}），那一條線在那幾季會斷開。`,
-      );
-  }
-  const valuedCount = points.filter(
-    (point) => point.weekday !== null || point.holiday !== null,
+  if (both.length)
+    caveats.push(
+      `有 ${both.length} 季${perRoad ? "所有調查點" : "平日與假日"}都沒有資料（${both
+        .map(({ point }) => q(point.quarter))
+        .join("、")}），圖上是斷開的，簡報時要主動說明，不要讓聽的人誤以為是下降。`,
+    );
+  if (only.length && shown.length >= 2)
+    caveats.push(
+      perRoad
+        ? `有 ${only.length} 季只有部分的線算得出來（${only
+            .map(
+              ({ point, index }) =>
+                `${q(point.quarter)}缺${missingNamesAt[index].join("、")}`,
+            )
+            .join("；")}），那幾條線在那幾季會斷開。`
+        : `有 ${only.length} 季只做了其中一種日別的調查（${only
+            .map(
+              ({ point, index }) =>
+                `${q(point.quarter)}缺${missingNamesAt[index].join("、")}`,
+            )
+            .join("、")}），那一條線在那幾季會斷開。`,
+    );
+  const valuedCount = points.filter((_point, index) =>
+    shown.some((line) => line.values[index] !== null),
   ).length;
   if (valuedCount && valuedCount < 3)
     caveats.push(
@@ -350,7 +477,15 @@ export function buildTrendScript(
     );
     if (hours.length > 1)
       caveats.push(
-        `⚠️ 這是尖峰小時的比較，而**各季的尖峰不一定落在同一個小時**（本圖涵蓋的季度分別是 ${Object.entries(
+        /*
+         * ⚠️ 這一句原本寫成 `**各季的尖峰不一定落在同一個小時**`。
+         *   chart-notes 那邊用 `**` 是對的——那些字會經過 boldParts() 變成
+         *   <strong>。但這一份不會：趨勢圖說明有三個去處，
+         *   ①畫面上是 `{line}` 直接印、②「複製說明」是純文字／.txt、
+         *   ③匯出 Excel 是塞進儲存格，**三個都不吃 markdown**。
+         *   所以使用者三個地方都會看到星號。改用「」。
+         */
+        `⚠️ 這是尖峰小時的比較，而「各季的尖峰不一定落在同一個小時」（本圖涵蓋的季度分別是 ${Object.entries(
           context.peakHours,
         )
           .map(([quarter, hour]) => `${q(quarter)} ${hour}`)
@@ -365,196 +500,6 @@ export function buildTrendScript(
   if (!caveats.length)
     caveats.push(
       "所選範圍內每一季都有資料，折線沒有斷點，可以直接照著趨勢講。",
-    );
-  sections.push({ title: "要先講清楚的", lines: caveats });
-
-  return sections;
-}
-
-/* ── 跨計畫比較 ──────────────────────────────────────────── */
-
-/**
- * 跨計畫歷季趨勢。
- *
- * ⚠️ **絕對不可以比總量。** 每個計畫的路段數量本來就不一樣——A 計畫 12 條
- * 路段、B 計畫 3 條，總量畫在一起只會證明「A 比較大」，那是已知的，
- * 不是資訊。這裡一律換算成**每路段平均**，並把該季的路段數（N）帶在點上。
- *
- * 佔比類指標本來就是比例，改用**加權平均**：分子分母各自加總再相除，
- * 而不是把各路段的百分比再平均一次——後者會讓一條很短的路段和一條
- * 很長的路段有同樣的份量。
- */
-export type CrossProjectInput = {
-  projectId: string;
-  projectName: string;
-  /** 一季一筆；value 是該計畫該季**所有路段的合計**，count 是路段數。 */
-  points: Array<{
-    quarter: string;
-    /** 佔比指標時放分子；其餘指標放合計值。算不出來給 null。 */
-    total: number | null;
-    /** 佔比指標時放分母；其餘指標不用。 */
-    denominator?: number | null;
-    /** 這一季有幾條路段算得出來。 */
-    count: number;
-    /** 這一季總共有幾條路段。 */
-    size: number;
-  }>;
-};
-
-export type CrossProjectPoint = {
-  quarter: string;
-  value: number | null;
-  count: number;
-  size: number;
-};
-
-export type CrossProjectTrend = {
-  quarters: string[];
-  series: Array<{
-    projectId: string;
-    projectName: string;
-    points: CrossProjectPoint[];
-  }>;
-  meta: TrendSeriesMeta;
-  basis: string;
-};
-
-export function buildCrossProjectTrend(
-  inputs: CrossProjectInput[],
-  meta: TrendSeriesMeta,
-  compareQuarters: (a: string, b: string) => number,
-): CrossProjectTrend {
-  /*
-   * 頭尾之間整季沒有資料的季度要補成空格，X 軸的間距才對應真實時間。
-   * 補出來的季在每一個計畫底下都查不到點，值一律 null，折線會斷開。
-   */
-  const quarters = completeQuarterRange(
-    Array.from(
-      new Set(
-        inputs.flatMap((item) => item.points.map((point) => point.quarter)),
-      ),
-    ).sort(compareQuarters),
-  );
-  const isShare = meta.unit === "%";
-  const series = inputs.map((item) => {
-    const byQuarter = new Map(item.points.map((point) => [point.quarter, point]));
-    return {
-      projectId: item.projectId,
-      projectName: item.projectName,
-      points: quarters.map(function (quarter): CrossProjectPoint {
-        const point = byQuarter.get(quarter);
-        if (!point || point.total === null || !point.count)
-          return { quarter, value: null, count: point?.count ?? 0, size: point?.size ?? 0 };
-        if (isShare) {
-          const denominator = point.denominator ?? 0;
-          /*
-           * 分母為 0 時**不可以**回 0%——那會被讀成「這個車種一台都沒有」，
-           * 而事實是「這一季沒有可以當分母的車輛數」。
-           */
-          return {
-            quarter,
-            value: denominator ? (point.total / denominator) * 100 : null,
-            count: point.count,
-            size: point.size,
-          };
-        }
-        return {
-          quarter,
-          value: point.total / point.count,
-          count: point.count,
-          size: point.size,
-        };
-      }),
-    };
-  });
-  return {
-    quarters,
-    series,
-    meta,
-    basis: isShare
-      ? "各計畫的加權平均（分子分母各自加總再相除，不是把各路段的百分比再平均一次）"
-      : "各計畫的每路段平均（合計除以該季算得出來的路段數）",
-  };
-}
-
-export function buildCrossProjectScript(
-  trend: CrossProjectTrend,
-  quarterLabel: (quarter: string) => string,
-): TrendScriptSection[] {
-  const q = quarterLabel;
-  const sections: TrendScriptSection[] = [];
-
-  sections.push({
-    title: "這張圖在說什麼",
-    lines: [
-      `這是各計畫在「${trend.meta.label}」上的歷季比較，每一條線是一個計畫。`,
-      `⚠️ 每個計畫的路段數量不一樣，所以圖上畫的**不是總量**，而是${trend.basis}。` +
-        `直接比總量只會證明「路段比較多的計畫比較大」，那是已知的，不是資訊。`,
-      "每一個點旁邊的 N 是那一季實際算得出來的路段數。N 差很多時，兩條線的穩定度本來就不同——路段少的那一條，單一路段的變化就足以讓整條線跳動。",
-    ],
-  });
-
-  const lines: string[] = [];
-  for (const item of trend.series) {
-    const valued = item.points.filter((point) => point.value !== null);
-    if (valued.length >= 2) {
-      const first = valued[0];
-      const last = valued[valued.length - 1];
-      lines.push(
-        `${item.projectName}：從 ${q(first.quarter)} 的 ${formatTrendValue(first.value, trend.meta)}（N=${first.count}），` +
-          `到 ${q(last.quarter)} 的 ${formatTrendValue(last.value, trend.meta)}（N=${last.count}），` +
-          `${describeChange(first.value, last.value, trend.meta)}。`,
-      );
-    } else if (valued.length === 1) {
-      lines.push(
-        `${item.projectName}：只有 ${q(valued[0].quarter)} 一季有值（${formatTrendValue(
-          valued[0].value,
-          trend.meta,
-        )}，N=${valued[0].count}），畫不出趨勢。`,
-      );
-    } else {
-      lines.push(`${item.projectName}：所選範圍內沒有算得出來的季度。`);
-    }
-  }
-  sections.push({ title: "各計畫的變化", lines });
-
-  const caveats: string[] = [];
-  const counts = trend.series.flatMap((item) =>
-    item.points.filter((point) => point.value !== null).map((point) => point.count),
-  );
-  if (counts.length) {
-    const min = Math.min(...counts);
-    const max = Math.max(...counts);
-    if (min > 0 && max >= min * 3)
-      caveats.push(
-        `各計畫的路段數差距很大（最少 ${min} 條、最多 ${max} 條）。路段數少的計畫，平均值容易被單一路段帶著跑，兩條線的抖動幅度不能直接拿來相比。`,
-      );
-    if (min === 1)
-      caveats.push(
-        "有計畫在某一季只有 1 條路段算得出來——那一季的「平均」其實就是那一條路段本身，不具代表性。",
-      );
-  }
-  const partial = trend.series.filter((item) =>
-    item.points.some((point) => point.size > 0 && point.count < point.size),
-  );
-  if (partial.length)
-    caveats.push(
-      `有計畫的某些季度只有部分路段算得出來（${partial
-        .map((item) => item.projectName)
-        .join("、")}），平均是用算得出來的那幾條算的。`,
-    );
-  const sparse = trend.series.filter(
-    (item) => item.points.filter((point) => point.value !== null).length < 2,
-  );
-  if (sparse.length)
-    caveats.push(
-      `${sparse
-        .map((item) => item.projectName)
-        .join("、")} 不足兩季，圖上不會有折線；這不是資料異常，只是還沒累積夠。`,
-    );
-  if (!caveats.length)
-    caveats.push(
-      "各計畫的路段數相當、每一季都算得出來，這幾條線可以直接互相比較。",
     );
   sections.push({ title: "要先講清楚的", lines: caveats });
 

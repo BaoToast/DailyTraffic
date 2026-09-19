@@ -78,14 +78,24 @@ test("只勾車輛數時不會寫出 PCU，反之亦然", () => {
   assert.doesNotMatch(valueLine(onlyPcu), /輛\/日/, valueLine(onlyPcu));
 });
 
-test("全日與尖峰的單位分開標示，不會把全日標成每小時", () => {
+test("全調查時段與尖峰的單位分開標示，不會把累計量標成每小時", () => {
+  /*
+   * ⚠️ 名稱在 v20.64 改為「全調查時段」（三支一致），但要驗的事情沒變：
+   *   累計量與流率是兩種單位，不可以混。分母是「日」還是「調查時段」
+   *   由該筆的實際涵蓋決定，這一份測資是 24 小時，所以是「輛/日」。
+   */
   const text = buildConclusion(
     [row()],
     cond({ periods: ["all", "am"], metrics: ["count", "peakHour"] }),
     META,
   );
-  assert.match(text, /全日：24 小時、10,000 輛\/日/);
+  assert.match(text, /全調查時段：24 小時、10,000 輛\/日/);
   assert.match(text, /上午尖峰小時：07:00～08:00、1,200 輛\/hr/);
+  assert.doesNotMatch(
+    text,
+    /全調查時段：[^\n]*輛\/hr/,
+    "把整段調查的累計量標成每小時流率了",
+  );
 });
 
 test("車種組成的百分比以該格總量為分母", () => {
@@ -264,8 +274,20 @@ test("每一個可勾選指標都真的會改變輸出（沒有死選項）", ()
   }
 });
 
-test("標頭一定寫明全日與尖峰的單位規則", () => {
+test("標頭一定寫明全調查時段與尖峰的單位規則", () => {
   const text = buildConclusion([row()], cond(), META);
-  assert.match(text, /「全日」是一整天的加總/);
+  /*
+   * ⚠️ v20.64 起這一句的內容也變了，不只是換名字：
+   *   舊：「全日」是**一整天**的加總 → 對 4 小時的調查來說是錯的
+   *   新：「全調查時段」是**這份調查涵蓋時段**的加總，並寫出兩種分母
+   */
+  assert.match(text, /「全調查時段」是這份調查涵蓋時段的加總/);
+  assert.match(text, /24 小時的調查標為/);
+  assert.match(text, /不足 24 小時的標為/);
   assert.match(text, /尖峰數值是率，不跨調查點、跨季度相加/);
+  assert.doesNotMatch(
+    text,
+    /「全調查時段」是一整天的加總/,
+    "還寫著「一整天」——4 小時的調查會被這句話誤導",
+  );
 });

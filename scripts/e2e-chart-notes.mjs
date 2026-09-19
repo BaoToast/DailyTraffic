@@ -25,6 +25,7 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchOptions } from "./chrome-path.mjs";
+import { TABS, gotoTab, PAGES, gotoPage, ZONE_FIRST_PAGE } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -132,91 +133,109 @@ for (const [name, quarter] of [
 await page.waitForTimeout(600);
 
 /* ════════════════════════════════════════════════════════════════
- * 一、五大功能區
- * ════════════════════════════════════════════════════════════════ */
-console.log("\n══ 一、五大功能區 ══");
+ * 一、五個分頁
+ * ════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ v20.64 把五個分區從「同一頁的錨點」改成**真的換頁**
+ *（使用者 2026-09-09 指名）。原本這一節驗的是：
+ *   ・五個 .zone-heading 同時都在 DOM 裡
+ *   ・導覽 sticky 在視窗上緣
+ *   ・按了之後標題不會被導覽蓋住（scroll-margin-top）
+ *
+ * 這三項**不是被放寬，是它們守的東西整個不存在了**：
+ * 換頁之後一次只有一個 .zone-heading；導覽不再 sticky（換頁會回到頁首，
+ * 導覽本來就在最上面）；標題也不會被蓋住（沒有東西浮在上面）。
+ *
+ * 換成守換頁本身該有的行為，且**每一項都要能紅**：
+ *   ・分頁鈕五顆
+ *   ・按第 N 顆，畫面上只出現第 N 個分區的標題（不是五個都在）
+ *   ・高亮跟著換
+ *   ・別頁的標題不可以還留著
+ * 「別頁的標題不可以還留著」是關鍵那一條——少了它，把換頁改回
+ * 「全部都渲染」也會全部通過。
+ */
+console.log("\n══ 一、五個分頁 ══");
+
+/*
+ * ⚠️ 只數有 data-goto 的那幾顆。v20.64 起側欄每個歸類底下還會列出
+ *   該頁的區塊（使用者要求：「看不出歸類下面有什麼資料」），
+ *   那些子項目也是 <button>，直接數 `.side-nav button` 會數到 23 顆。
+ */
+const navCount = await page.locator(".side-nav button[data-goto]").count();
+ok("分頁導覽有五顆分頁按鈕", navCount === 5, `實測 ${navCount} 顆`);
 
 const zoneIds = await page.evaluate(() =>
-  [...document.querySelectorAll(".zone-heading")].map((el) => el.id),
+  [...document.querySelectorAll(".side-nav button[data-goto]")].map((el) =>
+    el.getAttribute("data-goto"),
+  ),
 );
-ok(
-  "五個功能區標題都在",
-  zoneIds.length === 5,
-  `實測 ${zoneIds.length} 個：${zoneIds.join("／")}`,
-);
-const navCount = await page.locator(".section-nav button").count();
-ok("頂端區段導覽有五顆按鈕", navCount === 5, `實測 ${navCount} 顆`);
-
+ok("五顆按鈕各自對應一個分區 id", new Set(zoneIds).size === 5, zoneIds.join("／"));
 /*
- * 使用者問過的那一題：「跳過去之後，如果我想跳到五，還能按到頂端固定的
- * 區段導覽嗎？」——捲到整頁最底下，導覽必須還黏在視窗上緣。
+ * 子項目也要在——收起來就等於沒解決使用者說的那句話。
+ *
+ * ⚠️ X-73（使用者 2026-09-17）之後側欄是**手風琴**：
+ *   「點了某一大分頁，其它展開的大分頁會自動收合」。
+ *   所以全站的小分頁**不會同時列出來**，寫死「≥15 個」等於在守舊行為。
+ *   使用者當初那句「看不出歸類下面有什麼資料」講的是**分區底下看不到大分頁**，
+ *   那一層仍然一律列出——所以這裡改驗：
+ *     ① 大分頁一律列得出來（14 個）
+ *     ② 目前這一頁的小分頁真的展開了（至少一個）
+ *   ⚠️ 只驗①的話，一個「小分頁全部收起來、永遠不展開」的實作也會全綠。
  */
-await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await page.waitForTimeout(500);
-const navAtBottom = await page.evaluate(() => {
-  const nav = document.querySelector(".section-nav");
-  if (!nav) return null;
-  const box = nav.getBoundingClientRect();
-  return { top: Math.round(box.top), height: Math.round(box.height) };
+const pageCount = await page.locator(".side-nav button[data-goto-page]").count();
+ok("側欄列得出全部大分頁", pageCount >= 10, `${pageCount} 個`);
+const openItems = await page.evaluate(() => {
+  const current = document.querySelector(".side-nav .side-nav-page.current");
+  const group = current?.closest(".side-nav-page-group");
+  return group
+    ? group.querySelectorAll(".side-nav-item").length
+    : 0;
 });
 ok(
-  "捲到最底部時區段導覽仍固定在視窗上緣",
-  navAtBottom !== null && navAtBottom.top >= -1 && navAtBottom.top <= 2,
-  navAtBottom ? `導覽上緣 ${navAtBottom.top}px` : "找不到導覽",
+  "目前這一頁的小分頁有展開（手風琴不可以連目前這一頁都收起來）",
+  openItems >= 1,
+  `${openItems} 個`,
 );
 
-/*
- * 每一區按下去之後，標題不可以被固定的導覽列蓋住。
- *
- * ★ 紅字證明（2026-09-08 實跑）：把 .zone-heading 的 scroll-margin-top
- *   拿掉、重新 build:pages 之後再跑同一支腳本，五個區段**全部**紅，
- *   標題上緣落在導覽下緣之上 53px（被整條導覽蓋住）。把 CSS 放回去
- *   重建再跑同一支腳本，五個區段全綠、間距 16～31px。
- *   使用者回報過的「按了畫面留在原地／看不到標題」正是這個。
- */
 for (let index = 0; index < zoneIds.length; index += 1) {
-  await page.locator(".section-nav button").nth(index).click();
-  await page.waitForTimeout(900);
-  const measured = await page.evaluate((id) => {
-    const nav = document.querySelector(".section-nav");
-    const heading = document.getElementById(id);
-    if (!nav || !heading) return null;
-    const navBox = nav.getBoundingClientRect();
-    const headBox = heading.getBoundingClientRect();
-    const active = document.querySelector(".section-nav button.active");
+  await gotoTab(page, zoneIds[index]);
+  const measured = await page.evaluate(() => {
+    const headings = [...document.querySelectorAll(".zone-heading")].map((el) => el.id);
+    const active = document.querySelector(".side-nav button.active");
     return {
-      gap: Math.round(headBox.top - navBox.bottom),
-      scrollY: Math.round(window.scrollY),
-      headingTop: Math.round(headBox.top),
-      navTop: Math.round(navBox.top),
-      navBottom: Math.round(navBox.bottom),
-      inView: headBox.top >= 0 && headBox.bottom <= window.innerHeight,
-      atBottom:
-        Math.ceil(window.scrollY + window.innerHeight) >=
-        document.documentElement.scrollHeight - 2,
+      headings,
+      /* 同上：只在「分頁按鈕」這一組裡算序號，不要把子項目算進去。 */
       activeIndex: active
-        ? [...document.querySelectorAll(".section-nav button")].indexOf(active)
+        ? [...document.querySelectorAll(".side-nav button[data-goto]")].indexOf(
+            active,
+          )
         : -1,
+      scrollY: Math.round(window.scrollY),
     };
-  }, zoneIds[index]);
+  });
   /*
-   * 最後一區可能整頁已經捲到底、再也捲不下去，那時標題自然會被推高。
-   * 那不是版面錯，所以 atBottom 時只要求「看得到」。
+   * ⚠️ X-63（2026-09-17）：分區底下多了一層大分頁，
+   *   而**抬頭印的是大分頁**（一個大分頁＝一個畫面），
+   *   所以這裡要比對的是「那一區的第一個大分頁」，不是分區 id。
+   *   驗的東西沒有變：畫面上**只有一個**抬頭（＝真的換頁，
+   *   不是把全部都渲染出來）。
    */
-  const passed = measured && (measured.atBottom ? measured.inView : measured.gap >= 0);
   ok(
-    `按「${index + 1}」之後 ${zoneIds[index]} 沒有被導覽蓋住`,
-    !!passed,
-    measured
-      ? `標題上緣距導覽下緣 ${measured.gap}px（scrollY=${measured.scrollY}、標題=${measured.headingTop}px、導覽=${measured.navTop}～${measured.navBottom}px）${measured.atBottom ? "（已捲到底）" : ""}`
-      : "量不到",
+    `按「${index + 1}」之後畫面上只有一個分頁（${ZONE_FIRST_PAGE[zoneIds[index]]}）`,
+    measured.headings.length === 1 &&
+      measured.headings[0] === ZONE_FIRST_PAGE[zoneIds[index]],
+    `實測 ${measured.headings.length} 個：${measured.headings.join("／")}`,
   );
-  if (!measured?.atBottom)
-    ok(
-      `按「${index + 1}」之後高亮跟著換到第 ${index + 1} 顆`,
-      measured?.activeIndex === index,
-      `實測高亮第 ${(measured?.activeIndex ?? -1) + 1} 顆`,
-    );
+  ok(
+    `按「${index + 1}」之後高亮跟著換到第 ${index + 1} 顆`,
+    measured.activeIndex === index,
+    `實測高亮第 ${measured.activeIndex + 1} 顆`,
+  );
+  ok(
+    `按「${index + 1}」之後回到頁首（不是停在上一頁的捲動位置）`,
+    measured.scrollY <= 4,
+    `scrollY=${measured.scrollY}`,
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -224,24 +243,65 @@ for (let index = 0; index < zoneIds.length; index += 1) {
  * ════════════════════════════════════════════════════════════════ */
 console.log("\n══ 二、圖旁邊的說明文字 ══");
 
-await page.evaluate(() => window.scrollTo(0, 0));
+/*
+ * ⚠️ X-63：四張圖**已經各自一個大分頁**了，不再同頁。
+ *   所以下面改成逐頁走過去，每一頁驗它自己那一張圖的說明。
+ */
+const CHART_PAGES = [
+  [PAGES.composition, "車種組成"],
+  [PAGES.hourly, "24小時型態"],
+  [PAGES.trend, "歷季分析"],
+  [PAGES.comparison, "同季平假日"],
+];
+const notes = [];
+for (const [pageId, label] of CHART_PAGES) {
+  await gotoPage(page, pageId);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(400);
+  const found = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-chart-note]")].map((note) => {
+      const panel = note.closest(".panel");
+      const heading = panel?.querySelector(".panel-title h3");
+      return {
+        panel: String(panel?.className || ""),
+        heading: (heading?.textContent || "").trim().slice(0, 24),
+        paragraphs: note.querySelectorAll("p").length,
+        text: (note.textContent || "").replace(/\s+/g, " ").trim(),
+      };
+    }),
+  );
+  /*
+   * ⚠️ 一頁一張圖，所以這裡順便驗「**這一頁的說明都是這一頁的**」——
+   *   多出來的那一段一定是別頁的內容洩漏過來了。
+   *
+   * ⚠️ 車種組成是例外，而且是刻意的（稽核表 ①，使用者 2026-09-16 裁示
+   *   「如果是多路段，則每個路段都分別計算」）：多個調查點時一個調查點一組，
+   *   **一組一段說明**，所以這一頁的段數等於組數。
+   *   舊版寫死 `found.length === 1`，拆組之後就一直是紅的。
+   *   這裡改成「等於畫面上真的有幾組」——寫死 1 或寫死 2 都是把答案抄進測試。
+   */
+  const expected =
+    pageId === PAGES.composition
+      ? Math.max(
+          1,
+          await page.evaluate(
+            () => document.querySelectorAll("#block-composition .donut-day").length,
+          ),
+        )
+      : 1;
+  ok(
+    `「${label}」這一頁上的解讀說明段數要等於圖的組數`,
+    found.length === expected,
+    `實測 ${found.length} 段、應為 ${expected} 段：${found.map((n) => n.heading).join("／")}`,
+  );
+  notes.push(...found);
+}
+/* 回到車種組成，下面幾段幾何檢查以它為準。 */
+await gotoPage(page, PAGES.composition);
 await page.waitForTimeout(400);
-
-const notes = await page.evaluate(() =>
-  [...document.querySelectorAll("[data-chart-note]")].map((note) => {
-    const panel = note.closest(".panel");
-    const heading = panel?.querySelector(".panel-title h3");
-    return {
-      panel: String(panel?.className || ""),
-      heading: (heading?.textContent || "").trim().slice(0, 24),
-      paragraphs: note.querySelectorAll("p").length,
-      text: (note.textContent || "").replace(/\s+/g, " ").trim(),
-    };
-  }),
-);
 ok(
-  "四張圖旁邊都有解讀說明",
-  notes.length === 4,
+  "四張圖旁邊都有解讀說明（車種組成拆組時一組一段）",
+  notes.length >= 4,
   `實測 ${notes.length} 段：${notes.map((n) => n.heading).join("／")}`,
 );
 for (const note of notes)
@@ -256,7 +316,15 @@ for (const note of notes)
  * 文字與圖分岔的時候，被念出來、被抄進報告的是文字。
  */
 const consistency = await page.evaluate(() => {
-  const panel = document.querySelector(".panel.composition");
+  /*
+   * ⚠️ 稽核表 ① 之後，多個調查點時面板裡有**好幾組**圓環，
+   *   每一組有自己的明細、自己的圓心數字與自己的說明。
+   *   量的時候要**鎖定同一組**——跨組拿數字比對，比出來的當然不一樣，
+   *   而那不是「文字與圖分岔」，是測試自己在比兩件不同的事。
+   */
+  const panel =
+    document.querySelector(".panel.composition .donut-day") ||
+    document.querySelector(".panel.composition");
   if (!panel) return null;
   const items = [...panel.querySelectorAll(".composition-list > div")].map(
     (row) => ({
@@ -322,16 +390,53 @@ const geometryAt = async (width) => {
     return rows;
   });
 };
-const wide = await geometryAt(1600);
+/*
+ * ⚠️ 這裡量的是「**包在 .chart-with-note 裡的**說明」，目前是三段：
+ * 車種組成、每小時型態、同季平假日。
+ *
+ * 歷季趨勢那一張的說明是**講稿**（.trend-script，四個小節、四百多字），
+ * 它刻意**橫跨整個面板寬度放在圖的下方**，不是擠在圖的右邊——
+ * 那麼長的一段放右欄會被壓成很窄的一條。所以它不在這個幾何檢查裡，
+ * 而是由上面「四張圖旁邊都有解讀說明」那一項確認它存在且有內容。
+ *
+ * ⚠️ 這不是「少驗一段」：三段的排法要驗，第四段的**存在與內容**也要驗，
+ * 只是兩者用不同的方式驗，因為它們本來就長得不一樣。
+ */
+/*
+ * ⚠️ X-63：三段「包在 .chart-with-note 裡」的說明現在分屬三個大分頁
+ *   （車種組成／24小時型態／同季平假日），所以要**逐頁**量。
+ *   停在一頁量的話只量得到一段，`length === 3` 會直接紅——
+ *   而紅的是量法，不是排版。
+ */
+const SIDE_NOTE_PAGES = [
+  [PAGES.composition, "車種組成"],
+  [PAGES.hourly, "24小時型態"],
+  [PAGES.comparison, "同季平假日"],
+];
+const geometryAcross = async (width) => {
+  const rows = [];
+  for (const [pageId] of SIDE_NOTE_PAGES) {
+    await gotoPage(page, pageId);
+    rows.push(...(await geometryAt(width)));
+  }
+  return rows;
+};
+/*
+ * ⚠️ 段數不可以寫死 3。稽核表 ① 之後，車種組成在多個調查點時
+ *   **一組一段**，所以這裡是 2＋1＋1＝4。寫死數字的話，
+ *   日後再多一個調查點又會紅，而紅的仍然是量法不是排版。
+ *   改成「至少要量到三頁各一段」，重點是**每一段都排對**。
+ */
+const wide = await geometryAcross(1600);
 ok(
-  "寬螢幕（1600px）四段說明都排在圖的右側",
-  wide.length === 4 && wide.every((row) => row.beside),
+  "寬螢幕（1600px）圖旁說明都排在圖的右側",
+  wide.length >= 3 && wide.every((row) => row.beside),
   `右側 ${wide.filter((r) => r.beside).length}／${wide.length}`,
 );
-const narrow = await geometryAt(1000);
+const narrow = await geometryAcross(1000);
 ok(
-  "窄螢幕（1000px）四段說明都自動移到圖的下方",
-  narrow.length === 4 && narrow.every((row) => row.below),
+  "窄螢幕（1000px）圖旁說明都自動移到圖的下方",
+  narrow.length >= 3 && narrow.every((row) => row.below),
   `下方 ${narrow.filter((r) => r.below).length}／${narrow.length}`,
 );
 await page.setViewportSize({ width: 1500, height: 1050 });
@@ -385,7 +490,12 @@ ok(
  */
 console.log("\n══ 四、文字對比（AA 4.5:1）══");
 
-const contrast = await page.evaluate(() => {
+/*
+ * ⚠️ 分頁式版面要**逐頁量**。只量目前這一頁，另外四頁的文字對比等於沒驗。
+ * 下面把量測包成函式，再對五個分頁各跑一次、把結果合起來。
+ */
+const contrastOf = () =>
+  page.evaluate(() => {
   const channel = (value) => {
     const v = value / 255;
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -442,14 +552,29 @@ const contrast = await page.evaluate(() => {
       );
   }
   return { measured, bad };
-});
+  });
+
+/* 五個分頁各量一次，合起來才是整個系統的文字對比。 */
+const contrast = { measured: 0, bad: [] };
+for (const zone of [TABS.import, TABS.settings, TABS.kpi, TABS.charts, TABS.output]) {
+  await gotoTab(page, zone);
+  await page.waitForTimeout(300);
+  const one = await contrastOf();
+  contrast.measured += one.measured;
+  contrast.bad.push(...one.bad.map((item) => `${zone}｜${item}`));
+}
 /*
  * ⚠️ 這一項是「這個守門不是空跑」的證明。對比量測最典型的假綠就是
  * 選擇器抓到 0 個元素卻回報全部通過——服務水準那一支踩過一次。
+ *
+ * ⚠️ v20.64 起這是**五個分頁的合計**。改成分頁式之後一次只有一頁在 DOM 裡，
+ * 只量當前頁的話節點數只剩五分之一，門檻就得往下調——那才是放寬檢查。
+ * 改成逐頁量再加總，涵蓋範圍反而比以前**大**（以前只量得到當時渲染的那一份），
+ * 所以門檻可以維持在同一個量級。
  */
 ok(
   "有量到足夠多的文字節點（不是空跑）",
-  contrast.measured >= 300,
+  contrast.measured >= 400,
   `實測 ${contrast.measured} 個節點`,
 );
 ok(

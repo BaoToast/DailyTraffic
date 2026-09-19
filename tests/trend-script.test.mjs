@@ -1,5 +1,8 @@
 /*
- * 歷季趨勢的指標目錄、講稿與跨計畫比較。
+ * 歷季趨勢的指標目錄與圖表講稿。
+ *
+ * ⚠️ v20.64 移除了跨計畫比較（使用者 2026-09-09 授權），相關斷言一併移除；
+ *    「不可以比總量」那條規則隨功能一起消失，不是被放寬。
  *
  * ── 這一支釘住的是什麼 ────────────────────────────────────────
  *
@@ -10,19 +13,14 @@
  *       0 會被畫成折線掉到零、被寫進講稿、被抄進報告；「－」不會。
  *   二、講稿講的每一個數字，必須就是圖上那一份 points 的值。
  *       圖與文字分岔的時候，被念出來的是文字。
- *   三、跨計畫比較**不可以比總量**。各計畫路段數本來就不同，
- *       比總量只會證明「路段多的計畫比較大」。
  *
  * ── ⚠️ 假通過陷阱（這一支刻意迴避的）────────────────────────
  *
  * 一、只驗「講稿有字」不夠——印任何字都會過。要驗講稿裡出現的數字
  *     **逐字等於** formatTrendValue 對同一份資料算出來的字串。
- * 二、只驗「跨計畫有回傳」不夠——回傳總量也會過。要拿兩個路段數不同、
- *     但每路段平均相同的計畫，驗它們的值**相等**；若改回比總量，
- *     這一項會立刻紅（一個是另一個的三倍）。
- * 三、只驗「有 caveat」不夠——永遠印同一句也會過。要驗**沒有問題時
+ * 二、只驗「有 caveat」不夠——永遠印同一句也會過。要驗**沒有問題時
  *     不會亂講**，以及有問題時講的是**那一個**問題。
- * 四、間隔印標籤只驗「有回傳數字」不夠——永遠回 1 也會過。
+ * 三、間隔印標籤只驗「有回傳數字」不夠——永遠回 1 也會過。
  *     要同時驗「寬度夠時回 1」與「寬度不夠時大於 1」兩個方向。
  */
 import assert from "node:assert/strict";
@@ -30,8 +28,6 @@ import test from "node:test";
 import {
   TREND_METRICS,
   axisTitle,
-  buildCrossProjectScript,
-  buildCrossProjectTrend,
   buildTrendScript,
   completeQuarterRange,
   describeChange,
@@ -92,13 +88,38 @@ test("百分比不空格、其餘空一格；算不出來一律「－」", () =>
   assert.equal(formatTrendValue(0, { unit: "輛/日", digits: 0 }), "0 輛/日");
 });
 
-test("變化要先給變化量再給倍數，不使用「個百分點」的說法", () => {
-  const text = describeChange(14.3, 42.9, { unit: "%", digits: 1 });
+/*
+ * ⚠️ 這一則 2026-09-11 改過，而且**舊版本身就是要擋的東西**。
+ *
+ * 舊斷言是 `/大約是原來的 3\.0 倍/`——「原來的」是什麼？
+ * 使用者的原話：「『A 是 B 的幾 %』主詞要明確，不然會看不懂，
+ * 是跟誰比才有這倍率。」所以 describeChange() 的 labels 改成**必填**，
+ * 句子一定帶主詞。這一則跟著改成驗「主詞真的印出來了」。
+ *
+ * ⚠️ 不可以只驗「有 3.0 倍」——那樣把主詞拿掉照樣綠。
+ */
+const LABELS = { from: "115Q1", to: "115Q2" };
+
+test("變化要先給變化量再給倍數，而且倍數句一定帶主詞", () => {
+  const text = describeChange(14.3, 42.9, { unit: "%", digits: 1 }, LABELS);
   assert.match(text, /上升 28\.6%/);
-  assert.match(text, /大約是原來的 3\.0 倍/);
+  assert.match(text, /115Q2大約是115Q1的 3\.0 倍/);
+  /* 反面：不可以再出現沒有主詞的舊寫法 */
+  assert.doesNotMatch(text, /原來的/);
   assert.doesNotMatch(text, /百分點/);
-  assert.equal(describeChange(10, 10, { unit: "%", digits: 1 }), "持平");
-  assert.match(describeChange(100, 50, { unit: "輛/日", digits: 0 }), /下降 50 輛\/日/);
+  assert.equal(
+    describeChange(10, 10, { unit: "%", digits: 1 }, LABELS),
+    "持平",
+  );
+  assert.match(
+    describeChange(100, 50, { unit: "輛/日", digits: 0 }, LABELS),
+    /下降 50 輛\/日/,
+  );
+  /* 變小的時候用百分比，主詞同樣要在 */
+  assert.match(
+    describeChange(100, 50, { unit: "輛/日", digits: 0 }, LABELS),
+    /115Q2大約是115Q1的 50%/,
+  );
 });
 
 /* ── 三、講稿只讀 points ─────────────────────────────────── */
@@ -196,125 +217,8 @@ test("只有一季有資料時，不可以講成「上升」或「下降」", ()
   assert.match(text, /一個點畫不出趨勢/);
 });
 
-/* ── 四、跨計畫一律比平均，不比總量 ─────────────────────── */
 
-test("路段數不同但每路段平均相同的兩個計畫，跨計畫圖上要等高", () => {
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "p1",
-        projectName: "一條路段的計畫",
-        points: [{ quarter: "113Q1", total: 1000, count: 1, size: 1 }],
-      },
-      {
-        projectId: "p3",
-        projectName: "三條路段的計畫",
-        points: [{ quarter: "113Q1", total: 3000, count: 3, size: 3 }],
-      },
-    ],
-    META,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  const a = trend.series[0].points[0];
-  const b = trend.series[1].points[0];
-  assert.equal(a.value, b.value, "比的是每路段平均；若改回比總量，這裡會變成 1:3");
-  assert.equal(a.count, 1);
-  assert.equal(b.count, 3, "N 要如實反映這一季有幾條路段");
-});
-
-test("跨計畫的佔比要用加權平均，不是把各路段的百分比再平均一次", () => {
-  const shareMeta = { label: "機車佔比", unit: "%", digits: 1, meaning: "測試" };
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "p",
-        projectName: "計畫",
-        /* 分子 900、分母 1010（＝一條 900/1000 加一條 0/10）。 */
-        points: [
-          { quarter: "113Q1", total: 900, denominator: 1010, count: 2, size: 2 },
-        ],
-      },
-    ],
-    shareMeta,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  const value = trend.series[0].points[0].value;
-  assert.ok(Math.abs(value - (900 / 1010) * 100) < 1e-9, `實際 ${value}`);
-  assert.ok(value > 80, "算術平均會得到 45%，那讓 10 輛與 1000 輛的路段同等份量");
-  assert.match(trend.basis, /加權平均/);
-});
-
-test("佔比沒有分母時要回 null 而不是 0%", () => {
-  const shareMeta = { label: "機車佔比", unit: "%", digits: 1, meaning: "測試" };
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "p",
-        projectName: "計畫",
-        points: [{ quarter: "113Q1", total: 0, denominator: 0, count: 1, size: 1 }],
-      },
-    ],
-    shareMeta,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  assert.equal(
-    trend.series[0].points[0].value,
-    null,
-    "0% 會被讀成「一台都沒有」，事實是「沒有分母」",
-  );
-});
-
-test("某一季沒有資料時，跨計畫的那個點要是 null 而不是 0", () => {
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "p",
-        projectName: "計畫",
-        points: [
-          { quarter: "113Q1", total: 1000, count: 2, size: 2 },
-          { quarter: "113Q2", total: null, count: 0, size: 2 },
-        ],
-      },
-    ],
-    META,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  assert.equal(trend.series[0].points[0].value, 500);
-  assert.equal(trend.series[0].points[1].value, null);
-});
-
-test("跨計畫講稿一定要講出各計畫路段數不同這件事", () => {
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "p1",
-        projectName: "計畫一",
-        points: [
-          { quarter: "113Q1", total: 1000, count: 1, size: 1 },
-          { quarter: "113Q2", total: 1100, count: 1, size: 1 },
-        ],
-      },
-      {
-        projectId: "p2",
-        projectName: "計畫二",
-        points: [
-          { quarter: "113Q1", total: 6000, count: 6, size: 6 },
-          { quarter: "113Q2", total: 6600, count: 6, size: 6 },
-        ],
-      },
-    ],
-    META,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  const text = buildCrossProjectScript(trend, label)
-    .map((s) => s.lines.join(""))
-    .join("");
-  assert.match(text, /不是\*\*總量\*\*|不是總量/);
-  assert.match(text, /N=/);
-  assert.match(text, /路段數差距很大|不具代表性/);
-});
-
-/* ── 五、X 軸標籤間隔 ────────────────────────────────────── */
+/* ── 四、X 軸標籤間隔 ────────────────────────────────────── */
 
 test("寬度夠時全部印、寬度不夠時要間隔印", () => {
   const measure = (text) => String(text).length * 8;
@@ -337,7 +241,7 @@ test("間隔印時最後一格一定要印，而且倒數幾格要讓位（不�
   assert.equal(showXLabel(22, 24, 1), true);
 });
 
-/* ── 六、「平日＋假日」是同時顯示，不是加總 ───────────────── */
+/* ── 五、「平日＋假日」是同時顯示，不是加總 ───────────────── */
 
 test("平日與假日永遠是兩條各自的線，任何一季都不可以把兩者加起來", () => {
   /*
@@ -369,37 +273,6 @@ test("平日與假日永遠是兩條各自的線，任何一季都不可以把�
   assert.match(body, /兩條線/);
 });
 
-test("跨計畫的平日與假日要拆成兩個數列，不可以合在一起算平均", () => {
-  /*
-   * 呼叫端會把「平日＋假日」拆成兩筆 input（計畫名（平日）／（假日）），
-   * 這一項驗拆開之後兩者互不影響——把它們合成一筆的話，
-   * 兩個平均會變成一個介於中間、不對應任何一天的數字。
-   */
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "p|平日",
-        projectName: "計畫（平日）",
-        points: [{ quarter: "113Q1", total: 2000, count: 2, size: 2 }],
-      },
-      {
-        projectId: "p|假日",
-        projectName: "計畫（假日）",
-        points: [{ quarter: "113Q1", total: 1000, count: 2, size: 2 }],
-      },
-    ],
-    META,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  assert.equal(trend.series.length, 2, "兩種日別要是兩條線");
-  assert.equal(trend.series[0].points[0].value, 1000);
-  assert.equal(trend.series[1].points[0].value, 500);
-  /* 合在一起的話會變成 (2000+1000)/4 = 750，那個數字不對應任何一天。 */
-  assert.ok(
-    !trend.series.some((item) => item.points[0].value === 750),
-    "不可以把平日與假日合起來平均",
-  );
-});
 
 /* ── 缺季補齊 ────────────────────────────────────────────── */
 
@@ -456,41 +329,6 @@ test("看不懂的期別、民國與西元混用時寧可不補，不可以亂�
   ]);
 });
 
-test("補出來的空季在跨計畫圖上是斷線，不是 0，也不會被算進樣本數警告", () => {
-  const trend = buildCrossProjectTrend(
-    [
-      {
-        projectId: "a",
-        projectName: "甲計畫",
-        points: [
-          { quarter: "113Q1", total: 2000, count: 2, size: 2 },
-          { quarter: "114Q1", total: 2400, count: 2, size: 2 },
-        ],
-      },
-    ],
-    META,
-    (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-  );
-  assert.deepEqual(trend.quarters, [
-    "113Q1",
-    "113Q2",
-    "113Q3",
-    "113Q4",
-    "114Q1",
-  ]);
-  const points = trend.series[0].points;
-  assert.equal(points.length, 5);
-  /* 中間三季必須是 null——給 0 的話折線會掉到零，看起來像交通量歸零。 */
-  assert.equal(points[1].value, null);
-  assert.equal(points[2].value, null);
-  assert.equal(points[3].value, null);
-  assert.notEqual(points[1].value, 0);
-  /* 補出來的空季 N=0，不可以讓「最少 0 條」跑進小樣本警告。 */
-  const body = buildCrossProjectScript(trend, (q) => q)
-    .flatMap((section) => section.lines)
-    .join("\n");
-  assert.ok(!/最少 0 /.test(body), "空季不可以被當成樣本數最少的那一季");
-});
 
 /* ── 縱軸刻度 ────────────────────────────────────────────── */
 

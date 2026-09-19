@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import * as fs from "node:fs";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +9,14 @@ import { fileURLToPath } from "node:url";
 XLSX.set_fs(fs);
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), "..", ".samples");
+/*
+ * 每次完整 E2E 都必須從同一批樣本開始。其他端對端腳本會在 .samples 裡
+ * 追加自己的暫存檔；前一次執行若中斷，這些 ignored 檔案會留到下一次，
+ * 讓 e2e-reimport 誤把第 3 個調查點一起匯入（實測由 288 筆變成 360 筆）。
+ * .samples 是可重建的測試輸出，不含使用者附件；先清空再產生兩個基準檔，
+ * 才能讓本機重跑與乾淨 CI checkout 得到相同結果。
+ */
+rmSync(dir, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
 const out = (name) => join(dir, name);
 

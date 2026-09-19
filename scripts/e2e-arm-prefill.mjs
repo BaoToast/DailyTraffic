@@ -33,6 +33,7 @@ import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync } from "no
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchOptions } from "./chrome-path.mjs";
+import { TABS, gotoTab, ensureToolbarOpen } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -138,6 +139,9 @@ page.on("pageerror", (event) => errors.push(String(event.message)));
 page.on("dialog", (event) => event.accept(event.type() === "prompt" ? "N" : ""));
 
 await page.goto(`http://localhost:${PORT}/`);
+/* ⚠️ X-78：主工具列預設收合，這一支要用到它的欄位，先展開。 */
+await page.waitForTimeout(1200);
+await ensureToolbarOpen(page);
 await page.waitForTimeout(900);
 
 /* ── 建立計畫 ── */
@@ -255,14 +259,25 @@ ok(
  *    新舊版都會「找不到」而一律通過——那是假通過（第一次寫這支時就踩到了，
  *    對未修正的 v20.57 也是綠的）。
  */
-async function selectFlowView(label) {
-  const select = page.locator("select").filter({ hasText: label });
+/*
+ * ⚠️ v20.64 起版面是分頁式。這裡刻意改用**最上面那一排共用篩選**裡的
+ * 「路口流量視角」，不用各面板自己的 block-filters——
+ * 共用那一排在分頁之外，五頁都在，切到哪一頁都量得到，
+ * 不會因為某個面板搬到別頁而失效。
+ *
+ * ⚠️ 也改成用 value（origin／destination）選，不用選項文字。
+ * 共用篩選寫的是「駛出路口（以該支線為起點）」，面板篩選寫的是
+ *「駛出路口（起點）」——兩者文字不同，用文字比對會挑到不同的元素。
+ */
+async function selectFlowView(value) {
+  const select = page.locator('.filters label:has-text("路口流量視角") select');
   if (!(await select.count())) return false;
-  await select.first().selectOption({ label });
+  await select.first().selectOption(value);
   await page.waitForTimeout(1500);
   return true;
 }
 const readTotal = async () => {
+  await gotoTab(page, TABS.kpi);
   const kpi = await page
     .locator(".kpi strong")
     .first()
@@ -271,9 +286,9 @@ const readTotal = async () => {
   return Number(kpi.replace(/[^\d]/g, "")) || 0;
 };
 
-ok("前置：找得到「駛出路口（起點）」視角", await selectFlowView("駛出路口（起點）"));
+ok("前置：找得到「駛出路口（起點）」視角", await selectFlowView("origin"));
 const outbound = await readTotal();
-ok("前置：找得到「駛入路口（終點）」視角", await selectFlowView("駛入路口（終點）"));
+ok("前置：找得到「駛入路口（終點）」視角", await selectFlowView("destination"));
 const inbound = await readTotal();
 const inboundText = await page.locator("body").innerText();
 ok(

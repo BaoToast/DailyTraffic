@@ -22,6 +22,7 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchOptions } from "./chrome-path.mjs";
+import { gotoBlock } from "./e2e-nav.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "github-pages", "dist");
@@ -95,6 +96,7 @@ for (let i = 0; i < 4 && (await page.locator(".modal-backdrop").count()); i += 1
 }
 
 /* 結論草稿產生器預設收合，展開之後「產生草稿」才會出現。 */
+await gotoBlock(page, "conclusionStudio");
 await page.locator('#conclusionStudio button:has-text("展開")').first().click();
 await page.waitForTimeout(2500);
 ok("結論草稿產生器展得開", (await page.locator(".conclusion-output").count()) === 1);

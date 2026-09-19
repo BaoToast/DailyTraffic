@@ -85,10 +85,31 @@ const armSettings = (extra = () => ({})) =>
  */
 const SCENARIOS = [
   ["沒有任何已存幾何設定", []],
-  ["三個目的支線都存成空字串", armSettings(() => ({ leftTarget: "", throughTarget: "", rightTarget: "" }))],
-  ["只有 A 的左轉目的地是空的", armSettings((c) => (c === "A" ? { leftTarget: "" } : {}))],
-  ["A 的左轉指向不存在的支線", armSettings((c) => (c === "A" ? { leftTarget: "Z" } : {}))],
-  ["A 的左轉指向自己", armSettings((c) => (c === "A" ? { leftTarget: "A" } : {}))],
+  /*
+   * ⚠️ 2026-09-13：「駛出目的支線」（leftTarget/throughTarget/rightTarget）
+   *   已整組移除，轉向歸屬只認 routes。原本這裡列的是那三個欄位壞掉的各種情況，
+   *   現在改列**轉向判定**壞掉的各種情況——同一條鐵律，換成新的來源。
+   */
+  [
+    "舊版存的駛出目的支線指向不存在的支線（legacy 欄位已不生效）",
+    armSettings((c) => (c === "A" ? { leftTarget: "Z" } : {})),
+  ],
+  [
+    "舊版存的駛出目的支線指向自己（legacy 欄位已不生效）",
+    armSettings((c) => (c === "A" ? { leftTarget: "A" } : {})),
+  ],
+  [
+    "A 的三個去向全被判成左轉（同一轉向對到 3 支）",
+    armSettings((c) =>
+      c === "A" ? { routes: { B: "left", C: "left", D: "left" } } : {},
+    ),
+  ],
+  [
+    "每一支線的每一個去向都被判成直行（每個轉向都對到 3 支）",
+    armSettings(() => ({
+      routes: Object.fromEntries(ARMS.map((code) => [code, "through"])),
+    })),
+  ],
 ];
 
 for (const [name, settings] of SCENARIOS)
@@ -104,18 +125,60 @@ for (const [name, settings] of SCENARIOS)
     );
   });
 
-test("目的支線設定壞掉時，車流會落到「未指定駛入路口」而不是憑空消失", () => {
+/*
+ * ⚠️ 這一條是新規則的**行為證明**，不是只驗總量。
+ *
+ * 使用者 2026-09-13：「如果出現程式判讀有 2 支線落進同一個轉向，
+ *   一定是判讀失誤……」——所以系統**不可以自己挑一支**。
+ * 舊版的 bestMovementTarget() 會默默挑角度最接近的那一支，
+ * 於是這個情境下車流會被分配到某一支上，UNMAPPED 是空的。
+ * 現在必須全部落在「未指定駛入路口」。
+ */
+test("每個轉向都對到多支時，車流全部落到「未指定駛入路口」而不是被系統挑一支", () => {
   const records = makeRecords();
   const derived = deriveDestinationIntersectionRecords(
     records,
     "P1",
-    armSettings(() => ({ leftTarget: "", throughTarget: "", rightTarget: "" })),
+    armSettings(() => ({
+      routes: Object.fromEntries(ARMS.map((code) => [code, "through"])),
+    })),
   );
   const unmapped = derived.filter((r) => r.directionCode === "UNMAPPED");
   assert.ok(unmapped.length > 0, "應該要有『未指定駛入路口』的紀錄");
   assert.ok(
     Math.abs(sumAll(unmapped) - sumAll(records)) < 1e-9,
-    "目的支線全部設定不出來時，全部車流都應該落在未指定，而不是部分消失",
+    "每個轉向都對不出唯一目的地時，全部車流都應該落在未指定，而不是部分被系統挑走",
+  );
+  assert.equal(
+    derived.filter((r) => r.directionCode !== "UNMAPPED").length,
+    0,
+    "不可以有任何一筆被分配到具體支線——那代表系統又在自己挑",
+  );
+});
+
+/*
+ * 反面：三支都判成左轉時，也不可以挑。
+ * 這一條和上面那條的差別是「只有一支線壞掉」，其餘支線照常分配——
+ * 證明壞掉的範圍不會外溢。
+ */
+test("只有一支線的轉向判定壞掉時，其餘支線照常分配，總量仍守恆", () => {
+  const records = makeRecords();
+  const derived = deriveDestinationIntersectionRecords(
+    records,
+    "P1",
+    armSettings((c) =>
+      c === "A" ? { routes: { B: "left", C: "left", D: "left" } } : {},
+    ),
+  );
+  const unmapped = derived.filter((r) => r.directionCode === "UNMAPPED");
+  assert.ok(unmapped.length > 0, "壞掉那一支的車流要落在未指定");
+  assert.ok(
+    sumAll(unmapped) < sumAll(records),
+    "其餘支線應該照常分配，不可以整批落到未指定",
+  );
+  assert.ok(
+    Math.abs(sumAll(derived) - sumAll(records)) < 1e-9,
+    "總量仍然必須守恆",
   );
 });
 

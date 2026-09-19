@@ -262,6 +262,30 @@ export function rollingPeak(entries: PeakEntry[], windowMinutes = 60): PeakResul
   return best;
 }
 
+/**
+ * **指定的那一個視窗**裡有多少量——不是自己再挑一次尖峰。
+ *
+ * ⚠️ 這一支存在的理由：把一個尖峰小時拆成各方向時，每個方向都必須在
+ *   **同一個視窗**裡取值，否則各方向加起來不等於那個尖峰小時的合計。
+ *   v20.67 就是讓每個方向各自挑自己的尖峰，實測 2,792.5（方向A，17:00）
+ *   ＋3,454（方向B，07:00）＝6,246.5，而合計那一格寫 6,164.5（07:00）——
+ *   三個數字並排、標籤還寫「同時段」，讀的人一定會相加。
+ *
+ * 回傳型別與 rollingPeak 相同，呼叫端不必分兩種處理。
+ */
+export function valueInWindow(
+  entries: PeakEntry[],
+  startMinutes: number,
+  windowMinutes = 60,
+): PeakResult {
+  return rollingPeakWithin(
+    entries,
+    startMinutes,
+    startMinutes + windowMinutes,
+    windowMinutes,
+  );
+}
+
 /** 只取指定時間範圍內的資料再求尖峰（用於上午／下午尖峰）。 */
 export function rollingPeakWithin(
   entries: PeakEntry[],
@@ -290,18 +314,21 @@ export function rollingPeakWithin(
 }
 
 /**
- * 從「時段 → 數值」的分桶結果求尖峰。
+ * 從「時段 → 數值」的分桶結果，求**每一個日別各自的**尖峰。
  *
- * 鍵可以是「07:00～08:00」，也可以是「平日|07:00～08:00」（平日與假日一起看時）。
- * 不同日別各自求自己的尖峰再取大者，滾動視窗不會跨越日別。
+ * 鍵可以是「07:00～08:00」，也可以是「平日|07:00～08:00」。
+ * 滾動視窗不會跨越日別——平日的最後一格與假日的第一格不會被串成一小時。
  *
- * 這是全系統唯一的尖峰計算入口：儀表板的尖峰卡片、明細表的各方向尖峰、
- * 時段分析面板都走這裡，才不會有的地方算滾動小時、有的地方算單一時間格。
+ * ⚠️ 之所以把「逐日別」抽出來，是因為畫面上有兩種需求：
+ *   ・尖峰卡片要**平日與假日各一個數字**（與全日交通量、24小時PCU 一致）
+ *   ・有些地方只要「最大的那一個」
+ *   兩者一定要是同一套計算，否則「卡片上的平日尖峰」與
+ *   「整體尖峰剛好是平日」會出現兩個不同的數字。
  */
-export function peakFromBuckets(
+export function peaksByDay(
   buckets: Iterable<readonly [string, number]>,
   windowMinutes = 60,
-): { label: string; value: number } {
+): { day: string; label: string; value: number; start: number }[] {
   const byDay = new Map<string, PeakEntry[]>();
   for (const [key, value] of buckets) {
     const cut = key.indexOf("|");
@@ -311,12 +338,45 @@ export function peakFromBuckets(
     list.push({ hour, value: Number(value) || 0 });
     byDay.set(day, list);
   }
-  let best = { label: "—", value: 0 };
+  const out: { day: string; label: string; value: number; start: number }[] = [];
   for (const [day, entries] of byDay) {
     const peak = rollingPeak(entries, windowMinutes);
     if (peak.start < 0) continue;
-    if (peak.value > best.value)
-      best = { label: day ? `${day} ${peak.label}` : peak.label, value: peak.value };
+    /*
+     * ⚠️ start（起始分鐘）一定要回傳出去。
+     *
+     * 各方向的量必須在**同一個視窗**裡取，才加得起來等於合計。
+     * 只回 label 的話，呼叫端只能讓每個方向各自再挑一次尖峰——
+     * 那正是 v20.67 的錯：方向A 挑到 17:00–18:00、方向B 挑到 07:00–08:00，
+     * 兩個數字加起來不等於旁邊那一列「全部方向同時段合計」，
+     * 而三者並排、標籤又寫「同時段」，讀的人一定會相加。
+     */
+    out.push({ day, label: peak.label, value: peak.value, start: peak.start });
   }
+  return out;
+}
+
+/**
+ * 從「時段 → 數值」的分桶結果求尖峰——**取最大的那一個日別**。
+ *
+ * 這是全系統唯一的尖峰計算入口：儀表板的尖峰卡片、明細表的各方向尖峰、
+ * 時段分析面板都走這裡，才不會有的地方算滾動小時、有的地方算單一時間格。
+ */
+export function peakFromBuckets(
+  buckets: Iterable<readonly [string, number]>,
+  windowMinutes = 60,
+): { label: string; value: number } {
+  /*
+   * ⚠️ 一定要走 peaksByDay()，不可以在這裡再寫一次分日與滾動視窗。
+   *   兩份實作遲早會分岔，而分岔的症狀是「卡片上的尖峰」與
+   *   「明細表的尖峰」對不起來——兩個數字各自都合理，合起來卻不是同一件事。
+   */
+  let best = { label: "—", value: 0 };
+  for (const peak of peaksByDay(buckets, windowMinutes))
+    if (peak.value > best.value)
+      best = {
+        label: peak.day ? `${peak.day} ${peak.label}` : peak.label,
+        value: peak.value,
+      };
   return best;
 }

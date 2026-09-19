@@ -10,7 +10,8 @@
  * 再傳進來。數字只能有一個來源，這裡不重算，草稿才不會和畫面、Excel 分岔。
  *
  * 單位規則（直接影響能不能相加）：
- * ・「全日」是一整天的加總，單位是 輛/日 或 PCU/日；
+ * ・「全調查時段」是這份調查涵蓋時段的加總；24 小時的調查單位是 輛/日 或
+ *   PCU/日，不足 24 小時的是 輛/調查時段 或 PCU/調查時段；
  *   部分時段調查是 輛/調查時段，兩者不可混談。
  * ・尖峰欄位是某一個小時的量（輛/hr、PCU/hr），是率不是量，
  *   不能跨調查點、跨季度相加。
@@ -20,8 +21,14 @@
 export type PeriodKey = "all" | "peak24" | "am" | "pm";
 
 export const CONCLUSION_PERIOD_LABELS: Record<PeriodKey, string> = {
-  all: "全日",
-  peak24: "全日尖峰小時",
+  /*
+   * ⚠️ 2026-09-10 依使用者指定改名，三支一致。
+   *   使用者的原話：「在結論草稿產生器、報表草稿產生器或其他可勾選的
+   *   篩選條件裡，如果還有全日調查量這類的用詞，都要記得統一名稱」。
+   *   這裡是**時段名稱**，不是數量名稱——數量的分母另有規則（見 scopeUnit）。
+   */
+  all: "全調查時段",
+  peak24: "全調查時段尖峰",
   am: "上午尖峰小時",
   pm: "下午尖峰小時",
 };
@@ -68,6 +75,26 @@ export type ConclusionCondition = {
   metrics: ConclusionMetricKey[];
   grouping: ConclusionGrouping;
   digits: number;
+  /*
+   * ── 尖峰時段認定（使用者 2026-09-15 指名補上）────────────────
+   *
+   * ⚠️ 這一項**本來就一直在影響草稿的每一個尖峰數字**，只是沒有控制項：
+   *   conclusionRows 一直把主工具列的 peakScope 傳進 buildPeriodRows，
+   *   而這一頁的說明卻寫著「不受主工具列條件影響」——畫面在說謊。
+   *   現在把它變成看得到、選得到的條件。
+   *
+   * "follow"（預設）＝跟著主工具列，也就是**升級當天一個數字都不會變**。
+   */
+  peakScope?: "follow" | "point" | "direction";
+  /*
+   * ── 路口流量視角（同上）──────────────────────────────────
+   *
+   * 草稿的列本來就同時含駛出與駛入兩套（駛入的 scopeCode 帶 `IN:` 前綴），
+   * 但只能靠「要寫哪些方向／支線」那一長串去挑，使用者看不出那是視角。
+   *
+   * "both"（預設）＝兩種都寫，與改版前完全相同。
+   */
+  flowView?: "both" | "origin" | "destination";
 };
 
 export const DEFAULT_CONDITION: ConclusionCondition = {
@@ -79,6 +106,8 @@ export const DEFAULT_CONDITION: ConclusionCondition = {
   metrics: DEFAULT_CONCLUSION_METRICS,
   grouping: "byRoad",
   digits: 1,
+  peakScope: "follow",
+  flowView: "both",
 };
 
 /**
@@ -178,6 +207,23 @@ export type ConclusionMeta = {
    * 不傳就照原樣輸出，舊呼叫端與單元測試的行為完全不變。
    */
   showQuarter?: (quarter: string) => string;
+  /*
+   * 尖峰時段認定**實際採用**的那一個，寫成使用者看得懂的字。
+   *
+   * ⚠️ 條件是 "follow"（跟著主工具列）時，這裡才知道最後到底用了哪一種——
+   *   草稿上只寫「跟著主工具列」等於沒說：報告讀者手上沒有那個主工具列。
+   *   呼叫端一定要把解析後的結果傳進來。
+   */
+  peakScopeLabel?: string;
+  /**
+   * 尖峰時段認定**解析後**的結果（"follow" 已經被換成實際的那一種）。
+   *
+   * ⚠️ 不可以只看 condition.peakScope：它是 "follow" 時，真正生效的是
+   *   主工具列那一個。少了這一欄，「各方向各自認定 → 不可相加」那句警語
+   *   在最常見的「跟著主工具列」情形下**永遠不會出現**——
+   *   而那正是最需要它的時候。
+   */
+  peakScopeResolved?: "point" | "direction";
 };
 
 /*
@@ -257,6 +303,22 @@ export function selectRows(
         !condition.scopeCodes.includes(row.scopeCode)
       )
         return false;
+      /*
+       * 路口流量視角。
+       *
+       * ⚠️ 判準是 scopeCode 的 `IN:` 前綴——那是 conclusionRows 產生駛入那一輪時
+       *   加上去的，用來和駛出的 A／B／C 區分（不加的話兩套會撞在一起）。
+       *   這裡**不可以**改用別的欄位判斷：前綴是唯一的來源，
+       *   兩處各判一套遲早會分岔，而分岔之後草稿會少寫或多寫一半的支線。
+       * ⚠️ 舊條件（沒有 flowView 欄位）一律當成 "both"＝兩種都寫，
+       *   與改版前完全相同。
+       */
+      const flowView = condition.flowView || "both";
+      if (flowView !== "both") {
+        const inbound = row.scopeCode.startsWith("IN:");
+        if (flowView === "origin" && inbound) return false;
+        if (flowView === "destination" && !inbound) return false;
+      }
       return true;
     })
     .sort(function (a, b) {
@@ -573,10 +635,57 @@ export function buildConclusion(
       `時段：${periods.map((p) => CONCLUSION_PERIOD_LABELS[p]).join("、")}。`,
   );
   out.push(
-    "說明：「全日」是一整天的加總（輛/日、PCU/日），尖峰欄位是某一小時的量" +
-      "（輛/hr、PCU/hr），兩者不可混談；尖峰數值是率，不跨調查點、跨季度相加。" +
-      "部分時段調查會標為「輛/調查時段」，與完整全日不可直接比較。",
+    "說明：「全調查時段」是這份調查涵蓋時段的加總——完整 24 小時的調查標為" +
+      "輛/日、PCU/日，不足 24 小時的標為輛/調查時段、PCU/調查時段，兩者不可直接比較。" +
+      "尖峰欄位是某一小時的量（輛/hr、PCU/hr），與累計量不可混談；" +
+      "尖峰數值是率，不跨調查點、跨季度相加。",
   );
+  /*
+   * ── 這份草稿是在哪一組條件底下算出來的 ──────────────────────
+   *
+   * ⚠️ 尖峰時段認定與路口流量視角**一定要寫進草稿本身**。
+   *   這段文字會被複製進正式報告，而報告上看不到畫面——
+   *   「各方向各自認定」算出來的尖峰量是各方向自己的時段，**不可以相加**，
+   *   不寫的話，讀報告的人會把它們加起來。
+   */
+  const peakScopeText =
+    meta.peakScopeLabel ||
+    (condition.peakScope === "point"
+      ? "整個調查點同一時段（可相加）"
+      : condition.peakScope === "direction"
+        ? "各方向各自認定自己的尖峰"
+        : "跟著主工具列");
+  const flowViewText =
+    condition.flowView === "origin"
+      ? "只寫駛出路口"
+      : condition.flowView === "destination"
+        ? "只寫駛入路口"
+        : "駛出＋駛入都寫";
+  out.push(`統計條件：尖峰時段認定＝${peakScopeText}；路口流量視角＝${flowViewText}；數值小數 ${digits} 位。`);
+  const peakScopeResolved =
+    meta.peakScopeResolved ||
+    (condition.peakScope === "point" || condition.peakScope === "direction"
+      ? condition.peakScope
+      : undefined);
+  if (peakScopeResolved === "direction")
+    out.push(
+      "⚠️ 本數值不適用「相加」：各方向的尖峰小時各自認定，" +
+        "不同方向的尖峰量並非同一時刻的量，合計沒有意義，請勿把各方向相加。",
+    );
+  /*
+   * 「不適用」逐項寫出來（使用者 2026-09-15 指定的寫法）。
+   * ⚠️ 只在使用者**確實設了**那個條件時才寫——沒設的條件寫一堆只是噪音。
+   */
+  if (condition.flowView && condition.flowView !== "both")
+    out.push(
+      "本數值不適用「路口流量視角」條件的部分：一般路段只有方向A／方向B，" +
+        "沒有駛出／駛入之分，因此上列視角只作用在路口的支線上，路段各列不受影響。",
+    );
+  if (condition.roadIds.length)
+    out.push(
+      "本數值不適用「調查點」條件的部分：各段開頭的統計範圍是依上列條件算出來的，" +
+        "沒有被選到的調查點完全不列入——包含最大／最小與平均在內。",
+    );
 
   let section = 0;
   const heading = (text: string) => {
