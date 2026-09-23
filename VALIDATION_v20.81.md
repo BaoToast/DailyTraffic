@@ -1,6 +1,6 @@
 # 全日交通量及車種組成 v20.81 驗證報告
 
-## v20.81（2026-09-23）GPT 風險導向複查與發布前驗證
+## v20.81（2026-09-23）GPT 風險導向複查、發布與線上驗證
 
 ### 結論與風險
 
@@ -65,8 +65,21 @@
 
 ### 發布證據
 
-- 待正式 commit、push、GitHub Actions、Pages 與線上雜湊驗證完成後補記；在此之前不得
-  只因本機測試全綠就宣稱已發布。
+- 正式程式 release commit：`e1492de5ef545d27619f6b08fdaebd8505e4c2bb`，已推送至
+  `BaoToast/DailyTraffic` 的 `main`。
+- GitHub Actions `建置與測試` run
+  [35813140384](https://github.com/BaoToast/DailyTraffic/actions/runs/35813140384) 成功；
+  `pages build and deployment` run
+  [35813139476](https://github.com/BaoToast/DailyTraffic/actions/runs/35813139476) 成功，兩者
+  `head_sha` 均為上述 release commit。
+- 正式站 `https://baotoast.github.io/DailyTraffic/` 已引用
+  `assets/index-CFDjwUu-.js?v=20.81` 與 `assets/index-CLEk2zMl.css?v=20.81`。
+  線上／本機主 JS SHA-256 均為
+  `4486A0F9F7ED2D82860D0DA8F82EC4F9352E87F93E4E1F0F7DC7680313238FF4`，CSS 均為
+  `30F655FFE517172FE17125FBD9F5CD0B59161A76973DB028B68C70159A2EBC58`。
+- v20.81 PDF 手冊與本驗證報告線上均為 HTTP 200；線上手冊 SHA-256 為
+  `9C135F149B6589A5D6BF62915C0335E7C04697D50708C0F6361712A28CB02DC7`，與正式檔一致。
+  v20.80 專屬 JS、CSS、PDF 與驗證報告線上均為 HTTP 404，未發現新舊版本混用。
 
 ## v20.81（2026-09-20）Claude 第二次獨立複查 ＋ 大檢查
 

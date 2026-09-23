@@ -16,8 +16,8 @@
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
-| 本次 v20.81 發布前基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 正式版本 | `v20.81`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-20；正式程式 release commit 待本次正式發布後補記 |
+| v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
+| 正式版本 | `v20.81`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-20；正式程式 release commit `e1492de5ef545d27619f6b08fdaebd8505e4c2bb` |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線
@@ -341,8 +341,17 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - production audit 為 0 critical／0 high／2 moderate；全依賴樹為 0 critical／16 high／
   8 moderate／1 low。依賴升級另案處理，不做破壞性強制覆寫。
 - 黃金值 688,205 輛／日、530,122 PCU／日不變；歷季比例仍逐點計算，平假日分列。
-- 詳細證據在 `VALIDATION_v20.81.md`；正式 release commit、Actions 與 Pages 線上證據待
-  本次正式發布完成後補記。
+- 正式程式 release commit：`e1492de5ef545d27619f6b08fdaebd8505e4c2bb`。
+- GitHub Actions `建置與測試` run
+  [35813140384](https://github.com/BaoToast/DailyTraffic/actions/runs/35813140384) 成功；
+  `pages build and deployment` run
+  [35813139476](https://github.com/BaoToast/DailyTraffic/actions/runs/35813139476) 成功。
+- 線上首頁引用 `index-CFDjwUu-.js?v=20.81` 與 `index-CLEk2zMl.css?v=20.81`；主 JS
+  線上／本機 SHA-256 均為
+  `4486A0F9F7ED2D82860D0DA8F82EC4F9352E87F93E4E1F0F7DC7680313238FF4`，CSS 均為
+  `30F655FFE517172FE17125FBD9F5CD0B59161A76973DB028B68C70159A2EBC58`。
+- v20.81 手冊與驗證報告線上為 HTTP 200；v20.80 專屬 JS、CSS、PDF 與驗證報告為
+  HTTP 404，未混用舊版資產。詳細證據在 `VALIDATION_v20.81.md`。
 
 ### v20.80（2026-09-19）本次獨立驗證
 
