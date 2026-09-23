@@ -379,8 +379,27 @@ console.log("檢查結果區塊：", JSON.stringify(anomaly, null, 1));
 ok("檢查結果在資料維護頁上找得到", anomaly !== null, String(anomaly));
 ok("檢查結果有季度區間、調查點、日別四個篩選",
   anomaly.filters.join("、") === "起始季度、結束季度、調查點、日別", anomaly.filters.join("、"));
+/*
+ * ⚠️ 這一條原本寫死 `chips.length === 6`（那時是 5 種異常 ＋「清除篩選」）。
+ *   2026-09-20 新增「方向名稱不成對」與「調查日期不只一個」兩種之後它變紅——
+ *   但**要釘的不是「有幾顆」**，而是「每一種異常類型都有自己的標籤」：
+ *   少一顆的話畫面上那一類篩不出來，使用者會以為系統沒有檢查這一項。
+ *   所以改成逐一比對 ANOMALY_TYPES，數量只當下限。
+ *   （姊妹專案交通服務水準踩過一模一樣的事：`types.length === 5`。）
+ */
 ok("檢查結果有分類型的筆數統計與清除篩選",
-  anomaly.chips.length === 6 && anomaly.chips.at(-1) === "清除篩選", anomaly.chips.join(" "));
+  anomaly.chips.length >= 6 && anomaly.chips.at(-1) === "清除篩選", anomaly.chips.join(" "));
+{
+  const { ANOMALY_TYPES } = await import("../app/final-workflow.ts");
+  const missing = ANOMALY_TYPES.filter(
+    (type) => !anomaly.chips.some((chip) => chip.startsWith(type)),
+  );
+  ok(
+    "⚠️ 每一種異常類型都有自己的標籤（少一顆＝那一類篩不出來）",
+    missing.length === 0,
+    missing.length ? `少了：${missing.join("、")}` : `${ANOMALY_TYPES.length} 種都有`,
+  );
+}
 ok("檢查結果改成表格呈現", anomaly.rows > 0, `${anomaly.rows} 列`);
 /* X-49：每一列要寫得出「解決方式」。 */
 ok("檢查結果有「解決方式」欄", anomaly.resolutionHeader === true);

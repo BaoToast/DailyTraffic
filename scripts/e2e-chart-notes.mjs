@@ -583,6 +583,138 @@ ok(
   contrast.bad.slice(0, 5).join("；"),
 );
 
+/* ════════════════════════════════════════════════════════════════
+ * 五、圖說的第 3 級「代表什麼狀況」與第 4 級「要怎麼處理」
+ * ════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-20（三支同步）：
+ *   「三支共通：圖旁說明文字升到第 3 級（代表什麼狀況）、第 4 級（要怎麼處理）」
+ *   「第 4 級只在寫得出具體的時候才寫……不要盲猜」
+ *   「文字不要超出標框或重疊等，以前踩過的雷不要再次發生」
+ *
+ * ⚠️ 單元測試（tests/chart-levels.test.mjs）只驗得到「函式回得出句子」。
+ *   句子有沒有真的畫到畫面上、有沒有撐破框，只有真的開瀏覽器量得出來。
+ * ⚠️ 「沒有第 4 級」**不是缺陷**：使用者明講寫不出具體的就整段不寫。
+ *   所以這裡驗的是「有第 3 級」＋「有第 4 級時它不可以是空的」。
+ */
+console.log("\n══ 五、圖說第 3、4 級 ══");
+
+/*
+ * ⚠️ 前面幾段把視窗縮窄過、也換過分頁，直接量會量到一個沒有圖說的分頁
+ *   （0 份＝下面每一條都恆真）。所以先回到寬視窗、回到有圖的那一頁。
+ *   這正是「前置要先確認真的量得到東西」那一條在防的情形。
+ */
+await page.setViewportSize({ width: 1600, height: 1050 });
+await gotoPage(page, PAGES.composition);
+await page.waitForTimeout(900);
+
+const levelReport = await page.evaluate(() => {
+  const notes = [...document.querySelectorAll("[data-chart-note]")].filter(
+    (note) => note.getBoundingClientRect().height > 2,
+  );
+  return notes.map((note) => {
+    const box = note.getBoundingClientRect();
+    const sections = [...note.querySelectorAll(".chart-note-level")].map(
+      (section) => ({
+        title: (section.querySelector("h5")?.textContent || "").trim(),
+        text: [...section.querySelectorAll("p")]
+          .map((p) => (p.textContent || "").trim())
+          .join(""),
+      }),
+    );
+    const spilled = [...note.querySelectorAll("p, h4, h5")]
+      .map((el) => {
+        const rect = el.getBoundingClientRect();
+        return {
+          text: (el.textContent || "").slice(0, 24),
+          over: Math.max(
+            0,
+            Math.round(rect.right - box.right),
+            Math.round(box.left - rect.left),
+          ),
+        };
+      })
+      .filter((item) => item.over > 1);
+    return {
+      width: Math.round(box.width),
+      sections,
+      spilled,
+      scrollOverflow: note.scrollWidth - note.clientWidth,
+    };
+  });
+});
+ok(
+  "前置：這一頁**量得到圖說**（沒有的話下面每一條都變成恆真）",
+  levelReport.length > 0,
+  `${levelReport.length} 份圖說`,
+);
+const noState = levelReport.filter(
+  (note) => !note.sections.some((section) => section.title === "代表什麼狀況"),
+);
+ok(
+  "⚠️ 每一份圖說都有第 3 級「代表什麼狀況」",
+  noState.length === 0,
+  noState.length ? `${noState.length} / ${levelReport.length} 份沒有` : "",
+);
+const thinState = levelReport
+  .flatMap((note) => note.sections)
+  .filter(
+    (section) =>
+      section.title === "代表什麼狀況" &&
+      (section.text.length < 20 || !/\d/.test(section.text)),
+  );
+ok(
+  "⚠️ 第 3 級帶得出數字，不是「本圖顯示各項數值之分布」這種空話",
+  thinState.length === 0,
+  thinState.length ? `第一段：${thinState[0].text}` : "",
+);
+const emptyAction = levelReport
+  .flatMap((note) => note.sections)
+  .filter(
+    (section) => section.title === "要怎麼處理" && section.text.length < 20,
+  );
+ok(
+  "有第 4 級時它不是空標題（沒有第 4 級本來就允許）",
+  emptyAction.length === 0,
+  emptyAction.length ? `${emptyAction.length} 段只有標題` : "",
+);
+const spilledNotes = levelReport.filter((note) => note.spilled.length);
+ok(
+  "⚠️ 沒有任何一段文字撐出說明框外",
+  spilledNotes.length === 0,
+  spilledNotes.length
+    ? spilledNotes
+        .slice(0, 3)
+        .map(
+          (note) =>
+            `框寬 ${note.width}px，「${note.spilled[0].text}」超出 ${note.spilled[0].over}px`,
+        )
+        .join("；")
+    : `${levelReport.length} 份都在框內`,
+);
+const scrolled = levelReport.filter((note) => note.scrollOverflow > 1);
+ok(
+  "說明框沒有水平捲軸（有的話字會被切掉）",
+  scrolled.length === 0,
+  scrolled.length
+    ? `最多超出 ${Math.max(...scrolled.map((n) => n.scrollOverflow))}px`
+    : "",
+);
+/*
+ * ⚠️ 讀說明的時候圖要一直看得見。
+ *   這一條在 .chart-with-note-main 上是 @container 規則，
+ *   新加的 CSS 一旦蓋掉它，版面守門不會紅（它量的是版面不是字數）。
+ */
+const stickyChart = await page.evaluate(() => {
+  const main = document.querySelector(".chart-with-note-main");
+  return main ? getComputedStyle(main).position : null;
+});
+ok(
+  "⚠️ 寬視窗下，圖仍然釘在畫面上（讀說明時看得見圖）",
+  stickyChart === "sticky",
+  `實際 position=${stickyChart}`,
+);
+
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 3).join(" / "));
 
 await browser.close();

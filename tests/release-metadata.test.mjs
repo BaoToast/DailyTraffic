@@ -28,6 +28,21 @@ const systemVersion = async () => {
   return match[1];
 };
 
+/*
+ * 畫面左下角印的更新日期。與上面同一個理由：讀字面值，不用 import。
+ */
+const systemUpdatedAt = async () => {
+  const source = await readFile(
+    new URL("../app/system-release.ts", import.meta.url),
+    "utf8",
+  );
+  const match = source.match(
+    /export const SYSTEM_UPDATED_AT = "(\d{4}-\d{2}-\d{2})"/,
+  );
+  assert.ok(match, "app/system-release.ts 裡找不到 SYSTEM_UPDATED_AT");
+  return match[1];
+};
+
 test("package.json 與 package-lock.json 的版本號和程式顯示的一致", async () => {
   const version = await systemVersion();
   /* 畫面版本是 v20.21，npm 需要三段式，所以比對時補上 .0 */
@@ -81,6 +96,7 @@ test("畫面上的手冊連結檔名帶著目前版本", async () => {
  */
 test("手冊裡有本版的更新說明區塊", async () => {
   const version = await systemVersion();
+  const updatedAt = await systemUpdatedAt();
   const manual = await readFile(
     new URL("../scripts/manual/manual.html", import.meta.url),
     "utf8",
@@ -97,6 +113,29 @@ test("手冊裡有本版的更新說明區塊", async () => {
     stamp[1],
     version,
     `manual.html 封面戳記寫 ${stamp[1]}，程式是 ${version}——升版時可能只改了檔名，忘了重新產生手冊。`,
+  );
+  /*
+   * ⚠️ 日期也要比，而且比的是**畫面上真的印出來的那一個**
+   *   （app/system-release.ts 的 SYSTEM_UPDATED_AT，見 DashboardClient
+   *   左下角的 `{SYSTEM_VERSION}・{SYSTEM_UPDATED_AT}`）。
+   *
+   *   2026-09-20 大檢查實際抓到：v20.80 交付包的畫面寫
+   *   `v20.80・2026-09-18`，手冊封面戳記卻寫 `2026-09-19`，
+   *   PROJECT_HANDOFF 又說是 2026-09-19、發布摘要說 2026-09-20——
+   *   同一件事四個地方三個答案。上面那一行**只比版號**，所以全綠。
+   *
+   *   PROJECT_HANDOFF 自己的「重複出現的缺陷類型」就列著
+   *   「畫面版號與手冊／驗證檔名不同」，姊妹專案路口轉向在
+   *   tests/release-structure.test.mjs 早就連日期一起釘了，這一支漏了。
+   *
+   *   使用者照手冊判斷「我手上這份是不是最新的」，兩個日期對不起來時
+   *   他無從判斷該信哪一個——這正是這一類文件缺陷真正的代價。
+   */
+  assert.equal(
+    stamp[2],
+    updatedAt,
+    `manual.html 封面戳記的更新日期是 ${stamp[2]}，但畫面上印的是 ${updatedAt}` +
+      `（app/system-release.ts 的 SYSTEM_UPDATED_AT）——兩個日期必須是同一個。`,
   );
 });
 

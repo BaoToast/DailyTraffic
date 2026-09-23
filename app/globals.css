@@ -3142,3 +3142,42 @@ table td small.survey-date{color:var(--teal);font-weight:800;margin-top:2px}.per
   font-size:11px;font-weight:800;color:var(--navy);
   padding:0 12px;overflow-wrap:anywhere;
 }
+
+/*
+ * 「顯示調查日期」開關（使用者 2026-09-20，三支同步）。
+ * ⚠️ 顏色沿用既有的 --ink-soft／#3d5563 一類的說明字色，不要另外調更淡的灰：
+ *   淺灰字的對比由 tests 把關，量不過的顏色會直接讓測試轉紅。
+ */
+.survey-date-toggle{display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:700;color:#3d5563;white-space:nowrap;cursor:pointer}
+.survey-date-toggle input{margin:0}
+/* 讀不到日期時那一行：不加粗，與「有日期」一眼分得出來。 */
+table td small.survey-date.muted-cell{color:#3d5563;font-weight:400}
+/* 「指定調查日期」下拉（異常檢查結果那一欄）。 */
+.resolution-pick{display:inline-flex;align-items:center;gap:6px;
+  margin:7px 8px 0 0;font-size:12px;font-weight:700;color:#3d5563}
+.resolution-pick select{font:inherit;font-size:12px;padding:3px 6px;
+  border:1px solid #cbd7dd;border-radius:7px;background:#fff;color:inherit}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ *  圖說的第 3 級「代表什麼狀況」與第 4 級「要怎麼處理」
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-20：「圖旁說明文字升到第 3 級（代表什麼狀況）、
+ *   第 4 級（要怎麼處理）」「請記得滑動看文字時，圖可以保持隨時可見，
+ *   還有文字不要超出標框或重疊等，以前踩過的雷不要再次發生」。
+ *
+ * ⚠️ 圖保持可見那一件**已經有了**（上面 .chart-with-note-main 的 sticky），
+ *   所以這裡只處理「字變多之後不可以撐破或重疊」：
+ *   ・overflow-wrap:anywhere ── 長路名與長數字串不可以把框撐寬
+ *   ・分隔線用 border-top 而不是 margin 疊加 ── 相鄰兩段不會黏在一起
+ * ⚠️ 顏色沿用既有的 #3f5763（.chart-note p 的顏色，白底過 AA），
+ *   不要為了「次要」另外調更淡的灰——對比由測試把關。
+ */
+.chart-note-level{margin-top:10px;padding-top:9px;border-top:1px solid #d8e6ea}
+.chart-note-level h5{margin:0 0 5px;font-size:10.5px;font-weight:800;color:var(--navy)}
+.chart-note-level p{margin:0 0 6px;font-size:10.5px;line-height:1.75;color:#3f5763}
+.chart-note-level p:last-child{margin-bottom:0}
+/* 字一多就可能出現超長的路名或數字串，一律在框內換行。 */
+.chart-note p,.chart-note-level p{overflow-wrap:anywhere;word-break:normal}

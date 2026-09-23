@@ -54,6 +54,12 @@ import {
   dayCompareNote,
   hourlyNote,
 } from "./chart-notes";
+/*
+ * 圖說第 3、4 級的判定（三支共用、逐位元相同）。
+ * ⚠️ 不可以在畫面層自己再寫一套區間——自己寫的結果是同一個數字在三支
+ *   被說成不同的狀況，而使用者會把三種說法都抄進同一份報告。
+ */
+import { levelSections } from "./chart-levels";
 
 /*
  * ══════════════════════════════════════════════════════════════════
@@ -1119,11 +1125,29 @@ function ImportWarningList({
 }
 
 function ChartNoteBox({ note }: { note: ChartNote }) {
+  /*
+   * 第 3、4 級（使用者 2026-09-20，三支同步）。
+   *
+   * ⚠️ 第 4 級沒有內容時**整段不畫**——levelSections 已經處理，
+   *   這裡不可以自己再補一個空標題：畫面上一個只有標題的區塊
+   *   看起來像壞掉，而且使用者會以為系統漏了什麼。
+   * ⚠️ 第 3、4 級與第 1、2 級放在**同一個框**裡，不另開一塊：
+   *   分成兩塊的話捲動時會各自對齊，圖與文字的對應關係就斷了。
+   */
+  const extra = levelSections(note.levels);
   return (
     <aside className="chart-note" data-chart-note>
       <h4>{note.title}</h4>
       {note.lines.map((line, index) => (
         <p key={index}>{boldParts(line)}</p>
+      ))}
+      {extra.map((section) => (
+        <section key={section.title} className="chart-note-level">
+          <h5>{section.title}</h5>
+          {section.lines.map((line, index) => (
+            <p key={index}>{boldParts(line)}</p>
+          ))}
+        </section>
       ))}
     </aside>
   );
@@ -1275,6 +1299,10 @@ export function revealResult(el: Element | null | undefined) {
 
 /* 版號與更新日期的單一來源，畫面與測試讀同一份 */
 import { SYSTEM_VERSION, SYSTEM_UPDATED_AT } from "./system-release";
+import {
+  judgeDirectionPair,
+  directionPairMessage,
+} from "./direction-pair";
 import { markOfflineMode } from "./offline-flag";
 import {
   TURN_COLORS,
@@ -1284,7 +1312,8 @@ import {
 } from "./vehicle-colors";
 import {
   armCodeOf,
-  headerDateCells,
+  surveyDateCells,
+  allSurveyDateCells,
   assertNoPrototypePollution,
   coreVehicleLabels,
   dayTypeOf,
@@ -1425,6 +1454,9 @@ import {
 import {
   checkPeriodAgainstDate,
   findSurveyDate,
+  findAllSurveyDates,
+  readableDate,
+  surveyDateSourceLabel,
   periodDisplayLabel,
   surveyDateInYearStyle,
   quarterInYearStyle,
@@ -1442,6 +1474,9 @@ import {
 import {
   ANOMALY_RESOLUTIONS,
   anomalyFingerprint,
+  detectDirectionPairAlerts,
+  detectSurveyDateAlerts,
+  effectiveSurveyDate,
   anomalyTypeCounts,
   compareQuarters,
   completenessSummary,
@@ -4047,6 +4082,16 @@ export default function DashboardClient({ user }: { user: User }) {
   const [yearStyle, setYearStyle] = useState<YearStyle>("roc");
   const [periodDisplay, setPeriodDisplay] =
     useState<PeriodDisplayMode>("quarter");
+  /*
+   * 逐筆表格要不要把調查日期寫出來（使用者 2026-09-20：「只需要增加一個
+   * 開關讓我可以看到調查日期就好」，三支同步）。
+   *
+   * ⚠️ 預設**開**：這一行本來就是常駐顯示的（使用者 2026-09-11 指定），
+   *   做成預設關等於把已經有的功能收回去。
+   * ⚠️ 這顆與上面那顆 periodDisplay 是**兩件事**：那一顆換的是期別那一欄
+   *   的文字（季別／調查月份），這一顆管「這一筆是哪一天做的」那一行。
+   */
+  const [showSurveyDate, setShowSurveyDate] = useState(true);
   const [dayType, setDayType] = useState<DayMode>("平日");
   /* 車流方向。與調查點同理：空陣列＝不設限（全部），不是全部排除。 */
   const [directions, setDirections] = useState<string[]>([]);
@@ -5838,12 +5883,11 @@ export default function DashboardClient({ user }: { user: User }) {
    */
   const quarterLabels = useMemo(() => {
     const dates: Record<string, string[]> = {};
-    for (const record of activeRecords)
-      if (record.surveyDate)
-        dates[record.quarter] = [
-          ...(dates[record.quarter] ?? []),
-          record.surveyDate,
-        ];
+    for (const record of activeRecords) {
+      /* ⚠️ 走 effectiveSurveyDate：使用者指定過哪一個才對，這裡要跟著走。 */
+      const iso = effectiveSurveyDate(record, workflow.surveyDateOverrides);
+      if (iso) dates[record.quarter] = [...(dates[record.quarter] ?? []), iso];
+    }
     const labels: Record<string, string> = {};
     for (const key of quarters)
       labels[key] = periodDisplayLabel(
@@ -5853,7 +5897,13 @@ export default function DashboardClient({ user }: { user: User }) {
         yearStyle,
       );
     return { labels, anyDate: Object.keys(dates).length > 0 };
-  }, [activeRecords, quarters, periodDisplay, yearStyle]);
+  }, [
+    activeRecords,
+    quarters,
+    periodDisplay,
+    yearStyle,
+    workflow.surveyDateOverrides,
+  ]);
   const quarterLabel = (value: string) => quarterLabels.labels[value] || value;
   /*
    * 季度字串在畫面與匯出檔上要顯示成什麼樣子。
@@ -6341,9 +6391,14 @@ export default function DashboardClient({ user }: { user: User }) {
         hp: new Map(),
         directionMap: new Map(),
       };
-      /* 同一列可能由好幾筆紀錄組成（方向 A／B），日期要收集全部再去重。 */
-      if (r.surveyDate && !x.surveyDates.includes(r.surveyDate))
-        x.surveyDates.push(r.surveyDate);
+      /*
+       * 同一列可能由好幾筆紀錄組成（方向 A／B），日期要收集全部再去重。
+       * ⚠️ 走 effectiveSurveyDate：同一張表讀到兩個日期、使用者已經指定
+       *   哪一個才對時，這裡要顯示他指定的那一個。
+       */
+      const surveyIso = effectiveSurveyDate(r, workflow.surveyDateOverrides);
+      if (surveyIso && !x.surveyDates.includes(surveyIso))
+        x.surveyDates.push(surveyIso);
       // surveyType 只在建立累加器時取第一筆的值；同一個調查點如果後面才出現
       // 轉向資料，這個調查點就會一直被當成路段，「方向A／方向B」兩欄照樣填
       // 數字，但那只是前兩條支線，跟全日總量對不起來。任何一筆是路口就升級。
@@ -6460,6 +6515,8 @@ export default function DashboardClient({ user }: { user: User }) {
     displayDirectionName,
     /* ⚠️ 係數覆寫改變時這一格必須重算，否則畫面會停在舊的 PCU。 */
     pcuScopes,
+    /* ⚠️ 同理：使用者指定了哪一個才是調查日期之後，這一格要跟著重算。 */
+    workflow.surveyDateOverrides,
   ]);
   /** 主工具列那一份（KPI 區與匯出讀這一份）。 */
   const roadRows = useMemo(
@@ -9992,10 +10049,106 @@ export default function DashboardClient({ user }: { user: User }) {
         : "已取消確認，這一筆會重新提醒。",
     );
   };
-  const ackedAnomalyCount = anomalyAlerts.filter(anomalyAcked).length;
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  方向名稱「成不成對」（使用者 2026-09-20 指定，三支同步）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者原話：「其中『北』對應『南』，『東』對應『西』，不管方向後面
+   * + 了什麼字……如果出現不成對的話，請在異常檢查中檢查出來（匯入時也可以
+   * 做異常提醒，但不阻擋匯入），由使用者手動去按確認（堅持是對的話），
+   * 或自行修正資料後，重新匯入」
+   *
+   * ⚠️ 只查**路段格式**。路口的支線名稱是「路口A／路口B…」那一套，
+   *   本來就不是一組相反方向，拿方位規則去套會整批誤報。
+   * ⚠️ 判定走 app/direction-pair.ts（三支共用、逐位元相同），
+   *   **不可以在這裡自己寫一份**。
+   */
+  const directionPairAlerts = useMemo(
+    () =>
+      detectDirectionPairAlerts(
+        roadManagerRows
+          .filter((row) => row.surveyType === "road")
+          .map((row) => ({
+            roadId: row.roadId,
+            roadLabel: row.roadName,
+            directionA: row.directionA,
+            directionB: row.directionB,
+          })),
+        judgeDirectionPair,
+        directionPairMessage,
+      ),
+    [roadManagerRows],
+  );
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  同一張工作表讀到兩個以上的調查日期（使用者 2026-09-20，三支同步）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者原話：「同一張表若你判讀到 2 個日期，在資料匯入時就應該做為
+   * 異常顯示提醒使用者，在異常資料檢查結果也要檢查出來，我在想的是你要
+   * 如何讓使用者告訴你哪個才是正確的日期（因為有可能另一個不同的日期在
+   * 該資料中有其意義存在，所以使用者不會修正資料）」
+   *
+   * ⚠️ 候選是匯入當下存進紀錄的（surveyDateCandidates），這裡只是撿出來，
+   *   **不會再去碰原始檔**——原始檔匯完就不在手上了。
+   */
+  const surveyDateAlerts = useMemo(
+    () =>
+      detectSurveyDateAlerts(
+        activeRecords,
+        {
+          road: (roadId) =>
+            roadOptions.find(([value]) => value === roadId)?.[1] || roadId,
+        },
+        (iso) => surveyDateInYearStyle(iso, yearStyle),
+        workflow.surveyDateOverrides,
+      ),
+    [activeRecords, roadOptions, yearStyle, workflow.surveyDateOverrides],
+  );
+  /*
+   * 使用者在異常清單上挑了哪一個日期才對。
+   *
+   * ⚠️ 挑完要**同時**寫覆寫與記為已確認：只寫覆寫的話這一列會一直掛著，
+   *   只記確認的話系統仍然在用它自己猜的那一個日期。
+   * ⚠️ 指紋要用**挑完之後**的那一筆算：文字裡有「你指定的」四個字，
+   *   但指紋不含 text，所以兩邊算出來是同一把鑰匙——這一點由
+   *   tests/survey-date-integration.test.mjs 釘住。
+   */
+  const chooseSurveyDate = (item: AnomalyAlert, iso: string) => {
+    const scope = item.choiceScope;
+    if (!scope || !iso) return;
+    setWorkflow((previous) => ({
+      ...previous,
+      surveyDateOverrides: {
+        ...(previous.surveyDateOverrides || {}),
+        [scope]: iso,
+      },
+      ackedAnomalies: {
+        ...(previous.ackedAnomalies || {}),
+        [anomalyFingerprint(item)]: {
+          at: new Date().toLocaleString("zh-TW"),
+        },
+      },
+    }));
+    setToast(
+      `已指定調查日期為 ${surveyDateInYearStyle(iso, yearStyle)}；` +
+        `明細與彙總會改用這一個，並記為已確認。`,
+    );
+  };
+  /*
+   * ⚠️ 要與其他異常**走同一條顯示／確認／匯出路徑**，所以在這裡合併，
+   *   不另外做一張表。另做一張表的結果是確認、篩選、匯出、報告草稿
+   *   四處各自要再接一次，遲早有一處會漏。
+   */
+  const allAnomalyAlerts = useMemo(
+    () => [...anomalyAlerts, ...directionPairAlerts, ...surveyDateAlerts],
+    [anomalyAlerts, directionPairAlerts, surveyDateAlerts],
+  );
+  const ackedAnomalyCount = allAnomalyAlerts.filter(anomalyAcked).length;
   const filteredAnomalies = useMemo(
     () =>
-      filterAnomalies(anomalyAlerts, anomalyFilter).filter(
+      filterAnomalies(allAnomalyAlerts, anomalyFilter).filter(
         /*
          * ⚠️ 已確認的預設收起來，但**不是刪掉**：上方另有一顆
          *   「顯示已確認（N）」可以叫回來、也可以取消確認。
@@ -10004,7 +10157,7 @@ export default function DashboardClient({ user }: { user: User }) {
         (item) => showAckedAnomalies || !anomalyAcked(item),
       ),
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    [anomalyAlerts, anomalyFilter, showAckedAnomalies, ackedAnomalies],
+    [allAnomalyAlerts, anomalyFilter, showAckedAnomalies, ackedAnomalies],
   );
   /*
    * 「這一次檢查看到的是哪一份資料」的指紋。
@@ -10018,9 +10171,9 @@ export default function DashboardClient({ user }: { user: User }) {
         activeRecords.length,
         quarters.join(","),
         JSON.stringify(workflow.thresholds),
-        anomalyAlerts.length,
+        allAnomalyAlerts.map(anomalyFingerprint).sort().join("\n"),
       ].join("|"),
-    [activeRecords.length, quarters, workflow.thresholds, anomalyAlerts.length],
+    [activeRecords.length, quarters, workflow.thresholds, allAnomalyAlerts],
   );
   /** 檢查完之後資料又動過了嗎？ */
   const qualityStale = Boolean(qualityRunAt) && qualityRunStamp !== qualityDataStamp;
@@ -10033,23 +10186,59 @@ export default function DashboardClient({ user }: { user: User }) {
     ? maintenanceQuarter
     : (quarters[0] ?? "");
 
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  清掉「再也對不上任何一筆現存異常」的確認紀錄（使用者 2026-09-20）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者原話（在交通服務水準上提出，三支同步）：
+   *   「那我看完後我要怎麼點選確認，讓之後不會一直出現? 不然資料會累積
+   *     越來越多」
+   *
+   * 他擔心的是畫面上的清單，但**真正會無限長大的是使用者看不到的
+   * workflow.ackedAnomalies**：指紋帶著數值，數值一變舊紀錄就永遠是孤兒，
+   * 只進不出。
+   *
+   * ⚠️ 只在「使用者真的按了執行檢查」之後清，而且只清孤兒。
+   *   資料還沒載入就清，會把使用者上一季的確認全部誤殺。
+   * ⚠️ 沒有孤兒時**不可以 setWorkflow**：每按一次檢查就寫一次存檔，
+   *   等於每次都製造一個沒有內容的變更。
+   */
+  const pruneOrphanAcks = useCallback(
+    function () {
+      setWorkflow(function (previous) {
+        const own = previous.ackedAnomalies || {};
+        const keys = Object.keys(own);
+        if (!keys.length) return previous;
+        const live = new Set(allAnomalyAlerts.map(anomalyFingerprint));
+        const kept: Record<string, { at: string }> = {};
+        for (const key of keys) if (live.has(key)) kept[key] = own[key];
+        if (Object.keys(kept).length === keys.length) return previous;
+        return { ...previous, ackedAnomalies: kept };
+      });
+    },
+    [allAnomalyAlerts, setWorkflow],
+  );
   const runQualityCheck = useCallback(
     function () {
       setQualityRunAt(new Date().toLocaleString("zh-TW"));
       setQualityRunStamp(qualityDataStamp);
+      pruneOrphanAcks();
     },
-    [qualityDataStamp],
+    [qualityDataStamp, pruneOrphanAcks],
   );
   const anomalyCounts = useMemo(
-    () => anomalyTypeCounts(anomalyAlerts),
-    [anomalyAlerts],
+    () => anomalyTypeCounts(allAnomalyAlerts),
+    [allAnomalyAlerts],
   );
   /** 提醒裡出現過的季度，供區間下拉使用（含比較的起訖兩端）。 */
   const anomalyQuarters = useMemo(
     () =>
       [
         ...new Set(
-          anomalyAlerts.flatMap((item) => [item.fromQuarter, item.toQuarter]),
+          allAnomalyAlerts
+            .flatMap((item) => [item.fromQuarter, item.toQuarter])
+            .filter(Boolean),
         ),
         /*
          * 用 compareQuarters，不要另外寫一套補零字串排序。
@@ -10059,7 +10248,7 @@ export default function DashboardClient({ user }: { user: User }) {
          * （四碼視為西元換算成民國），全系統只留這一套季度先後規則。
          */
       ].sort(compareQuarters),
-    [anomalyAlerts],
+    [allAnomalyAlerts],
   );
   /*
    * 檢查結果的篩選列（起訖季度／調查點／日別 ＋ 類型標籤）。
@@ -10121,7 +10310,7 @@ export default function DashboardClient({ user }: { user: User }) {
           }
         >
           <option value="ALL">全部</option>
-          {[...new Set(anomalyAlerts.map((a) => a.roadId))]
+          {[...new Set(allAnomalyAlerts.map((a) => a.roadId).filter(Boolean))]
             .sort()
             .map((id) => (
               <option key={id} value={id}>
@@ -10144,7 +10333,7 @@ export default function DashboardClient({ user }: { user: User }) {
           }
         >
           <option value="ALL">全部</option>
-          {[...new Set(anomalyAlerts.map((a) => a.dayType))]
+          {[...new Set(allAnomalyAlerts.map((a) => a.dayType).filter(Boolean))]
             .sort()
             .map((value) => (
               <option key={value} value={value}>
@@ -10760,7 +10949,7 @@ export default function DashboardClient({ user }: { user: User }) {
       charts: exportSections.charts ? [...EXPORT_CHART_TITLES] : [],
       // 用未篩選的全部：畫面上的篩選是「為了看清楚」的檢視動作，
       // 不該讓交付的文字少掉幾筆，也才會與匯出的「品質檢核」工作表一致。
-      anomalies: anomalyAlerts.map((item) => item.text),
+      anomalies: allAnomalyAlerts.map((item) => item.text),
     };
   }, [
     projects,
@@ -10800,7 +10989,7 @@ export default function DashboardClient({ user }: { user: User }) {
     activeRecords,
     qualitySummary,
     workflow.checkedQuarters,
-    anomalyAlerts,
+    allAnomalyAlerts,
     roadDraftSummary,
     directionLabelText,
     roadFilters,
@@ -11175,6 +11364,12 @@ export default function DashboardClient({ user }: { user: User }) {
       file: string;
       sheet: string;
       found: ReturnType<typeof findSurveyDate>;
+      /*
+       * 這張工作表**一共**讀到哪幾個不同的日期。
+       * 只有 0 或 1 個時與 found 一致；2 個以上就是要問使用者的那一種。
+       * ⚠️ 只蒐集、不阻擋——使用者 2026-09-20 明確要求「不阻擋匯入」。
+       */
+      candidates: ReturnType<typeof findAllSurveyDates>;
     }> = [];
     /*
      * 逐檔診斷。舊版一次匯入五個檔、其中一個讀出 0 列時，流程照樣成功，
@@ -11276,10 +11471,45 @@ export default function DashboardClient({ user }: { user: User }) {
        * trafficIdentity 不含它，覆蓋判斷、加總、車種分類與任何計算都不受影響。
        * 一張工作表一個日期：同一個檔案的平日、假日各自比對自己那一天。
        */
+      /*
+       * ⚠️ 用 surveyDateCells：先掃表頭，**表頭一個日期都找不到才往下掃整張表**
+       *   （使用者 2026-09-20：「應該使用全文搜索找出日期來判讀，
+       *   不要依靠讀取固定欄位，導致經常找不到」）。
+       *   正常檔案走的還是表頭那一段，行為與改版前完全相同。
+       */
+      const cellsOf = (values: unknown[][], sheetName: string) =>
+        surveyDateCells(values, sheetName, (cells) =>
+          Boolean(findSurveyDate(cells)),
+        );
       const dateOf = (values: unknown[][], sheetName: string) =>
-        findSurveyDate(headerDateCells(values, sheetName));
-      const stamp = (rows: TrafficRecord[], iso: string) =>
-        iso ? rows.map((row) => ({ ...row, surveyDate: iso })) : rows;
+        findSurveyDate(cellsOf(values, sheetName));
+      /*
+       * 同一張工作表讀到**兩個以上不同的日期**時要問使用者哪一個才對
+       *（使用者 2026-09-20：「有可能另一個不同的日期在該資料中有其意義存在，
+       * 所以使用者不會修正資料」）。這裡只負責蒐集候選，**不阻擋匯入**。
+       */
+      const datesOf = (values: unknown[][], sheetName: string) =>
+        findAllSurveyDates(allSurveyDateCells(values, sheetName));
+      /*
+       * ⚠️ 候選清單要**跟著資料一起存下來**，不能只在匯入當下提醒：
+       *   原始檔匯完就不在手上了，事後到「資料維護 → 執行資料異常檢查」
+       *   沒有辦法再掃一次。只有一個候選（正常情況）就不寫這一欄，
+       *   免得每一筆紀錄都白白多帶一個陣列。
+       */
+      const stamp = (
+        rows: TrafficRecord[],
+        iso: string,
+        candidates: string[] = [],
+      ) =>
+        iso || candidates.length > 1
+          ? rows.map((row) => ({
+              ...row,
+              ...(iso ? { surveyDate: iso } : null),
+              ...(candidates.length > 1
+                ? { surveyDateCandidates: candidates }
+                : null),
+            }))
+          : rows;
       /* 這個檔案有沒有讀到任何一格日期——沒有就記一筆「讀不到」，但不阻擋。 */
       const before = dateChecks.length;
       const rowsBefore = parsed.length;
@@ -11289,12 +11519,18 @@ export default function DashboardClient({ user }: { user: User }) {
         for (const { dt, name } of dayNamedSheets) {
           const values = readSheet(name);
           const found = dateOf(values, name);
+          const allFound = datesOf(values, name);
           /*
            * 每一張真正會匯入的工作表都要留一筆檢查結果。
            * 不能只留「有讀到日期」的那幾張：同一檔案若平日讀得到、
            * 假日讀不到，假日仍必須明確提醒使用者自行確認。
            */
-          dateChecks.push({ file: file.name, sheet: name, found });
+          dateChecks.push({
+            file: file.name,
+            sheet: name,
+            found,
+            candidates: allFound,
+          });
           usedSheets.push(name);
           parsed.push(
             ...stamp(
@@ -11303,11 +11539,12 @@ export default function DashboardClient({ user }: { user: User }) {
                 sheetName: name,
               }),
               found?.iso ?? "",
+              allFound.map((hit) => hit.iso),
             ),
           );
         }
         if (dateChecks.length === before)
-          dateChecks.push({ file: file.name, sheet: "", found: null });
+          dateChecks.push({ file: file.name, sheet: "", found: null, candidates: [] });
         fileNotes.push({
           file: file.name,
           rows: parsed.length - rowsBefore,
@@ -11333,7 +11570,13 @@ export default function DashboardClient({ user }: { user: User }) {
         if (!headerDay) dayFromFileName = true;
         const dt = headerDay || (file.name.includes("假日") ? "假日" : "平日");
         const found = dateOf(values, name);
-        dateChecks.push({ file: file.name, sheet: name, found });
+        const allFound = datesOf(values, name);
+        dateChecks.push({
+            file: file.name,
+            sheet: name,
+            found,
+            candidates: allFound,
+          });
         usedSheets.push(name);
         parsed.push(
           ...stamp(
@@ -11342,11 +11585,12 @@ export default function DashboardClient({ user }: { user: User }) {
               sheetName: name,
             }),
             found?.iso ?? "",
+            allFound.map((hit) => hit.iso),
           ),
         );
       }
       if (dateChecks.length === before)
-        dateChecks.push({ file: file.name, sheet: "", found: null });
+        dateChecks.push({ file: file.name, sheet: "", found: null, candidates: [] });
       fileNotes.push({
         file: file.name,
         rows: parsed.length - rowsBefore,
@@ -11593,6 +11837,27 @@ export default function DashboardClient({ user }: { user: User }) {
                 note.file.includes("假日") ? "假日" : "平日"
               }。日別是資料的身分鍵之一，判錯會讓資料寫到另一個日別、甚至覆蓋既有資料，請確認無誤。`,
           ),
+          /*
+           * ⚠️ 同一張工作表讀到兩個以上不同的調查日期：**提醒，不阻擋**
+           *   （使用者 2026-09-20 明確要求）。這裡把每一個候選連同
+           *   **出處（工作表!儲存格）與原文**一起寫出來——少了出處，
+           *   使用者無從判斷哪一個才是調查日期。
+           */
+          ...dateChecks
+            .filter((item) => item.candidates.length > 1)
+            .map(
+              (item) =>
+                `「${item.file}」${item.sheet ? `【${item.sheet.trim()}】` : ""}` +
+                `讀到 ${item.candidates.length} 個不同的日期：` +
+                item.candidates
+                  .map(
+                    (hit) =>
+                      `${readableDate(hit.iso)}（${surveyDateSourceLabel(hit)}：${hit.raw}）`,
+                  )
+                  .join("、") +
+                `。系統目前採用第一個（${readableDate(item.candidates[0].iso)}）。` +
+                `這不會阻擋匯入；匯入後到「資料維護 → 執行資料異常檢查」可以指定哪一個才是調查日期。`,
+            ),
           ...sourceCellWarnings,
           ...armAuditWarnings,
         ],
@@ -14816,7 +15081,7 @@ export default function DashboardClient({ user }: { user: User }) {
         ["人工檢核", qualitySummary.checked ? "已完成" : "待確認"],
         // 匯出一律輸出「全部」提醒，不受畫面上的篩選影響——
         // 篩選是給人看的工具，交付檔案不該因為畫面上剛好篩了什麼而少東西。
-        ["異常提醒", anomalyAlerts.map((item) => item.text).join("\n") || "無"],
+        ["異常提醒", allAnomalyAlerts.map((item) => item.text).join("\n") || "無"],
       ]);
       qualitySheet.columns = [{ width: 28 }, { width: 90 }];
       qualitySheet.getColumn(2).alignment = { wrapText: true, vertical: "top" };
@@ -15347,14 +15612,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/全日交通流量程式手冊_v20.80.pdf"
+                  href="./manuals/全日交通流量程式手冊_v20.81.pdf"
                   /*
                    * ⚠️ download 一定要**帶檔名**，不可以只寫 `download`。
                    *   沒給值時瀏覽器是從網址推檔名的；單檔試用版把手冊嵌成
                    *   data: URI，那種網址裡沒有檔名，使用者拿到的就會是「下載」。
                    *   （使用者 2026-09-14 實際回報過。）
                    */
-                  download="全日交通流量程式手冊_v20.80.pdf"
+                  download="全日交通流量程式手冊_v20.81.pdf"
                 >
                   下載新手手冊
                 </a>
@@ -16050,7 +16315,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   <div>
                     <span>異常提醒</span>
                     <strong>
-                      {anomalyAlerts.length} 項
+                      {allAnomalyAlerts.length} 項
                       {qualitySummary.unmapped
                         ? `・未指定駛入 ${formatter.format(qualitySummary.unmapped)} 輛`
                         : ""}
@@ -18069,6 +18334,27 @@ export default function DashboardClient({ user }: { user: User }) {
                     <small>
                       {traceRoadRows.length} 路段・維持方向 A／B 格式
                     </small>
+                    {/*
+                     * 「顯示調查日期」開關（使用者 2026-09-20：「只需要增加
+                     * 一個開關讓我可以看到調查日期就好」，三支同步）。
+                     *
+                     * ⚠️ 預設**開**——這一行原本就是常駐顯示的（使用者
+                     *   2026-09-11 指定），做成預設關等於把已經有的功能
+                     *   收回去。這顆是給「表太擠、想暫時收起來」用的。
+                     * ⚠️ 一顆管這一塊與下面那張路口逐支線明細兩張表：
+                     *   各管各的話，同一份資料在兩張表上會一張有日期一張沒有。
+                     */}
+                    <label className="survey-date-toggle">
+                      <input
+                        type="checkbox"
+                        data-testid="show-survey-date"
+                        checked={showSurveyDate}
+                        onChange={(event) =>
+                          setShowSurveyDate(event.target.checked)
+                        }
+                      />
+                      顯示調查日期
+                    </label>
                   </div>
                   {renderBlockFilters(
                     {
@@ -18156,15 +18442,26 @@ export default function DashboardClient({ user }: { user: User }) {
                                *
                                * ⚠️ 同一列可能由方向 A／B 兩筆組成，分兩天做的話兩天都要寫。
                                */}
-                              {r.surveyDates.length ? (
-                                <small className="survey-date">
-                                  調查日{" "}
-                                  {r.surveyDates
-                                    .map((iso) =>
-                                      surveyDateInYearStyle(iso, yearStyle),
-                                    )
-                                    .join("、")}
-                                </small>
+                              {showSurveyDate ? (
+                                r.surveyDates.length ? (
+                                  <small className="survey-date">
+                                    調查日{" "}
+                                    {r.surveyDates
+                                      .map((iso) =>
+                                        surveyDateInYearStyle(iso, yearStyle),
+                                      )
+                                      .join("、")}
+                                  </small>
+                                ) : (
+                                  /*
+                                   * ⚠️ 讀不到日期時要寫出原因，不可以留白
+                                   *   （使用者 2026-09-20）：留白的話使用者
+                                   *   分不出「程式沒做」與「原始檔真的沒寫」。
+                                   */
+                                  <small className="survey-date muted-cell">
+                                    原始檔讀不到日期
+                                  </small>
+                                )
                               ) : null}
                             </td>
                             {traceShowQuarter && <td>{showQuarter(r.quarter)}</td>}
@@ -18337,15 +18634,26 @@ export default function DashboardClient({ user }: { user: User }) {
                                *
                                * ⚠️ 同一列可能由方向 A／B 兩筆組成，分兩天做的話兩天都要寫。
                                */}
-                              {r.surveyDates.length ? (
-                                <small className="survey-date">
-                                  調查日{" "}
-                                  {r.surveyDates
-                                    .map((iso) =>
-                                      surveyDateInYearStyle(iso, yearStyle),
-                                    )
-                                    .join("、")}
-                                </small>
+                              {showSurveyDate ? (
+                                r.surveyDates.length ? (
+                                  <small className="survey-date">
+                                    調查日{" "}
+                                    {r.surveyDates
+                                      .map((iso) =>
+                                        surveyDateInYearStyle(iso, yearStyle),
+                                      )
+                                      .join("、")}
+                                  </small>
+                                ) : (
+                                  /*
+                                   * ⚠️ 讀不到日期時要寫出原因，不可以留白
+                                   *   （使用者 2026-09-20）：留白的話使用者
+                                   *   分不出「程式沒做」與「原始檔真的沒寫」。
+                                   */
+                                  <small className="survey-date muted-cell">
+                                    原始檔讀不到日期
+                                  </small>
+                                )
                               ) : null}
                             </td>
                             {traceIntersectionShowQuarter && (
@@ -19237,7 +19545,7 @@ export default function DashboardClient({ user }: { user: User }) {
                       ? "尚未檢查。按「執行資料異常檢查」之後，「資料異常檢查摘要」與「檢查結果」才會有數字。"
                       : qualityStale
                         ? `上次檢查：${qualityRunAt}　⚠️ 之後資料又變動過，結果已過期，請重新檢查。`
-                        : `上次檢查：${qualityRunAt}　共 ${anomalyAlerts.length} 項需要注意。`}
+                        : `上次檢查：${qualityRunAt}　共 ${allAnomalyAlerts.length} 項需要注意。`}
                   </p>
                 </section>
                 <section
@@ -19417,8 +19725,8 @@ export default function DashboardClient({ user }: { user: User }) {
                       {!qualityRunAt
                         ? "尚未檢查"
                         : ackedAnomalyCount
-                          ? `顯示 ${filteredAnomalies.length} / 共 ${anomalyAlerts.length} 筆（其中 ${ackedAnomalyCount} 筆已確認）`
-                          : `顯示 ${filteredAnomalies.length} / 共 ${anomalyAlerts.length} 筆`}
+                          ? `顯示 ${filteredAnomalies.length} / 共 ${allAnomalyAlerts.length} 筆（其中 ${ackedAnomalyCount} 筆已確認）`
+                          : `顯示 ${filteredAnomalies.length} / 共 ${allAnomalyAlerts.length} 筆`}
                     </span>
                   </div>
                   <p
@@ -19433,7 +19741,7 @@ export default function DashboardClient({ user }: { user: User }) {
                     <p className="help">
                       尚未檢查。按「執行資料異常檢查」之後，這一塊才會列出需要注意的項目。
                     </p>
-                  ) : anomalyAlerts.length ? (
+                  ) : allAnomalyAlerts.length ? (
                     <>
                       {anomalyFilterControls}
                       <div className="anomaly-table">
@@ -19536,6 +19844,43 @@ export default function DashboardClient({ user }: { user: User }) {
                                      *   是原始檔真的有錯，給它一顆按掉的鈕，
                                      *   等於提供一個把資料錯誤藏起來的開關。
                                      */}
+                                    {/*
+                                     * 「哪一個才是調查日期」的下拉（使用者
+                                     * 2026-09-20）。只有帶 choices 的異常有。
+                                     *
+                                     * ⚠️ 預設值刻意是空的「請指定」，**不預選
+                                     *   系統判讀的那一個**：預選的話使用者按下
+                                     *   去也看不出自己到底有沒有做過選擇。
+                                     */}
+                                    {item.choices?.length && item.choiceScope ? (
+                                      <label className="resolution-pick">
+                                        指定調查日期
+                                        <select
+                                          data-testid="survey-date-pick"
+                                          value={
+                                            workflow.surveyDateOverrides?.[
+                                              item.choiceScope
+                                            ] || ""
+                                          }
+                                          onChange={(event) =>
+                                            chooseSurveyDate(
+                                              item,
+                                              event.target.value,
+                                            )
+                                          }
+                                        >
+                                          <option value="">請指定…</option>
+                                          {item.choices.map((iso) => (
+                                            <option key={iso} value={iso}>
+                                              {surveyDateInYearStyle(
+                                                iso,
+                                                yearStyle,
+                                              )}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    ) : null}
                                     {anomalyCanAck(item) && (
                                       <button
                                         type="button"

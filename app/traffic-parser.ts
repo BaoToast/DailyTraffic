@@ -331,12 +331,39 @@ function columnName(index: number): string {
   return name;
 }
 
+/**
+ * 拿來找調查日期的儲存格清單。
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 為什麼要有「找不到就往下掃整張表」這一段（使用者 2026-09-20）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者原話：
+ *   「日期的欄位檔案可能不一致，所以應該使用全文搜索找出日期來判讀，
+ *     不要依靠讀取固定欄位，導致經常找不到」
+ *
+ * 舊版只掃**前 12 列**。那不是「固定欄位」（那 12 列裡是每一格都掃），
+ * 但確實是「固定範圍」——日期寫在第 13 列以後就讀不到，
+ * 而使用者看到的症狀是「這份檔案讀不到日期」，分不出是原始檔沒寫、
+ * 還是程式沒掃到。
+ *
+ * ⚠️ 但**不可以一開始就掃整張表**：資料列裡常有時間欄（07:00、07:15…）
+ *   與零星的日期字串，整張表一起掃會把資料列的內容也當成候選，
+ *   於是「有兩個日期」變成幾乎每一份檔案都會跳——那比讀不到更糟。
+ *
+ * 所以是**兩段式**：先掃表頭（前 12 列），**表頭一個日期都找不到時**
+ * 才往下掃整張表。正常檔案的行為與改版前**完全相同**。
+ *
+ * @param deep  true＝已經是第二輪（掃整張表）。呼叫端不必自己判斷，
+ *              用 `surveyDateCells()` 就好。
+ */
 export function headerDateCells(
   values: unknown[][],
   sheetName = "",
+  deep = false,
 ): Array<{ text: string; sheet: string; cell: string }> {
   const out: Array<{ text: string; sheet: string; cell: string }> = [];
-  values.slice(0, 12).forEach((row, rowIndex) => {
+  (deep ? values : values.slice(0, 12)).forEach((row, rowIndex) => {
     row.forEach((cell, columnIndex) => {
       const text = String(cell ?? "").trim();
       if (!text) return;
@@ -348,6 +375,54 @@ export function headerDateCells(
     });
   });
   return out;
+}
+
+/**
+ * 找調查日期用的儲存格：**系統要自己挑一個來用**的那一份。
+ *
+ * 先表頭（絕大多數檔案的日期就寫在那裡，而且帶著「日期：」標籤），
+ * 表頭一個日期都找不到才往下掃整張表。
+ *
+ * ⚠️ 「找不到」的判斷交給呼叫端傳進來的 `hasDate`——
+ *   日期的解析規則住在 period-date，這裡不可以自己再寫一份。
+ */
+export function surveyDateCells(
+  values: unknown[][],
+  sheetName: string,
+  hasDate: (cells: Array<{ text: string; sheet: string; cell: string }>) => boolean,
+): Array<{ text: string; sheet: string; cell: string }> {
+  const header = headerDateCells(values, sheetName);
+  if (hasDate(header)) return header;
+  return headerDateCells(values, sheetName, true);
+}
+
+/**
+ * 找調查日期用的儲存格：**列給使用者看、讓他挑**的那一份。
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 這一份一律掃整張表，不是「表頭找不到才掃」
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-20 問：
+ *   「那如果表頭有掃到，就不會往下檢查的話，如果正確的日期在下方怎麼辦呢?」
+ *
+ * 問得對。`surveyDateCells()` 的兩段式只影響「系統預設挑哪一個」，
+ * 但**候選清單不可以漏**——正確的日期寫在下方時，使用者要看得到它才選得到。
+ *
+ * ⚠️ 我原本擔心整張表一起掃會把資料列的內容也當成候選，
+ *   於是「有兩個日期」變成幾乎每份檔案都跳。**實際量過，沒有這個問題**：
+ *   以使用者的 16 份真實調查檔（路口 5、路段 5、服務水準 6）逐張工作表
+ *   比對「只掃表頭」與「掃整張表」，**全掃一個額外候選都沒有多找到**，
+ *   每一張交通量工作表都是剛好 1 個日期（唯一 0 個的是監測照片工作表，
+ *   那本來就不是交通量表）。
+ *   ⚠️ 這個結論是**量出來的，不是推論的**；日後若使用者換了調查表版型，
+ *   要重量一次再決定要不要改回兩段式。
+ */
+export function allSurveyDateCells(
+  values: unknown[][],
+  sheetName: string,
+): Array<{ text: string; sheet: string; cell: string }> {
+  return headerDateCells(values, sheetName, true);
 }
 
 /** 從表頭區找出日別；抓不到時回傳空字串。 */

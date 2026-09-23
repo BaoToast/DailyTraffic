@@ -16,8 +16,8 @@
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
-| 本次 v20.80 發布前基準 | `c75385e9f516402d7e82f32def32b552b9113a3f`；此前正式程式版為 `f77328c42131452bccdd3ef5da125da5ab8b9bf8`（v20.63） |
-| 正式版本 | `v20.80`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-19；正式程式 release commit `da4d6505cff50d14c46572673dd78eb0bd8a9d00` |
+| 本次 v20.81 發布前基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
+| 正式版本 | `v20.81`；程式版本來源為 `app/system-release.ts`，更新日 2026-09-20；正式程式 release commit 待本次正式發布後補記 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線
@@ -303,6 +303,7 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 | v20.63 交接驗收 | Repository 另有兩支未納入正式 `npm run e2e` 的舊腳本，已與目前單位文字及 MultiPicker UI 脫節 | 正式掛鉤的 15 支 E2E 腳本仍為 15／15 通過；未掛鉤腳本須另列結果，不得據此宣稱 Repository 內所有 E2E 全部通過 |
 | v20.64–20.79 | 14 個大分頁、主工具列三態、PCU 範圍、匯入／備份／圖表／草稿／Excel 與測試大幅擴充 | 此段是 Claude 累積候選，未逐版發布；v20.80 以可驗證的 v20.63 正式版為基準做全專案高風險複查 |
 | v20.80 | 使用者裁示歷季佔比逐調查點計算；Excel 組成圖表資料原先仍跨點、跨日合併；一支 E2E 寫死 Linux Chromium 路徑；搬遷後試用版輸出目錄尚未建立 | 趨勢圖／PNG／草稿／Excel 改為逐點；圖表資料保留日別；`e2e-text-wrap` 改用跨平台啟動器；移除過時 DOCX 建置腳本；試用版建置自動建立輸出目錄；535 pass／0 fail／1 skipped、正式 E2E 56／56、試用版 smoke 1／1 |
+| v20.81 | 方向名稱成對、多調查日期、圖說層級與孤兒確認清理橫跨 Parser／workflow／UI／匯出；GPT 複查發現新異常下游漏接、失效日期覆寫殘留、lockfile 無法乾淨安裝、lint 誤掃工程證據 | 統一完整異常資料流；覆寫只在目前候選內有效；重建 lockfile；補 lint 邊界與精準視窗守門；564 pass／0 fail／1 skipped、正式 E2E 56／56、試用版 smoke 1／1 |
 
 最容易復發的問題：Parser 改動只驗新格式、UI 篩選改動未同步 Excel、平假日或缺季被 0 污染、路口 A-G 被硬編四支線、每計畫設定錯用全域值、IndexedDB 寫後立即讀出舊資料、發布根目錄還留舊 hash 資產、畫面版號與手冊／驗證檔名不同，以及 UI 元件或正式單位文字改版後未同步更新 E2E 腳本。後者會造成 false negative 或使高價值回歸案例在中途停止；複查時必須同時盤點 `package.json` 已掛鉤腳本與 Repository 內其他 `scripts/e2e-*.mjs`，避免新腳本漏掛。
 
@@ -317,6 +318,31 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - `npm run build`：production build。
 - `npm run build:pages`：GitHub Pages 建置到 `github-pages/dist`。
 - `npm run e2e`：完整 Playwright／樣本／Pages E2E 流程。
+
+### v20.81（2026-09-23）本次獨立驗證
+
+- 風險等級：**高**。涉及 Parser、匯入預覽、workflow、異常、UI、草稿、Excel 與跨系統
+  共用契約，採全專案複查。
+- GPT 額外修正：新方向／日期異常完整接入統計、篩選、結果表、狀態、草稿與 Excel；
+  調查日期覆寫在候選消失或改變後不再殘留；修復無法 `npm ci` 的 lockfile；lint 不再掃
+  `_review_artifacts` 與 `.tryout`，並新增相應守門。
+- 舊邏輯反證：新異常下游守門會因仍讀 `anomalyAlerts` 而紅；重新匯入候選消失時會錯留
+  `2026-05-05`，修正後回到來源的 `2026-05-06`。
+- `npm ci` 成功；`npm test` 565 項，564 通過、0 失敗、1 skipped；lint、TypeScript、
+  字形守門與 production build 全部通過。唯一 skipped 是未提供真實公司檔名附件。
+- `npm run e2e`：56 支可執行 Playwright 腳本不可並行，56／56 串行通過；另有匿名樣本
+  產生與 Pages build 兩個前置步驟。`npm run e2e:tryout` 1／1 通過。
+- `e2e-layout` 已正式補入 1536×864、1366×768 的五頁精準守門，10 組全綠；PNG 線尾、
+  圖例、X 軸與 hover 標籤規則亦通過且經目視抽查。
+- Microsoft Excel 16.0 真正 Office 引擎唯讀開啟完整與僅路口兩份檔案，沒有修復錯誤；
+  完整檔 20 張工作表、7 張原生圖表都有有效系列；日別與百分比格式符合規則，僅路口
+  圖表正確引用路口工作表。
+- v20.81 PDF 兩個正式位置內容一致，共 31 頁，全部轉圖檢查正常。
+- production audit 為 0 critical／0 high／2 moderate；全依賴樹為 0 critical／16 high／
+  8 moderate／1 low。依賴升級另案處理，不做破壞性強制覆寫。
+- 黃金值 688,205 輛／日、530,122 PCU／日不變；歷季比例仍逐點計算，平假日分列。
+- 詳細證據在 `VALIDATION_v20.81.md`；正式 release commit、Actions 與 Pages 線上證據待
+  本次正式發布完成後補記。
 
 ### v20.80（2026-09-19）本次獨立驗證
 
@@ -387,8 +413,8 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 
 ### 手冊驗證
 
-- v20.80 正式交付手冊為 PDF；Repository 不再附帶舊版 DOCX。
-- PDF 共 30 頁，兩個正式位置的 SHA-256 一致，已逐頁轉圖做視覺檢查。
+- v20.81 正式交付手冊為 PDF；Repository 不附帶舊版 DOCX。
+- PDF 共 31 頁，兩個正式位置內容一致，已逐頁轉圖做視覺檢查。
 
 ## 12. 發布、GitHub Pages 與交付規則
 
@@ -459,6 +485,8 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 4. 依賴升級須優先處理目前 dev/build chain 的 16 high，並完整重跑 Excel、56 支正式 E2E
    與獨立試用版 smoke；
    禁止只為降低 audit 數字而強制覆寫 ExcelJS 相依版本。
+5. 版面守門必須保留 1536×864 與 1366×768 的精準高度案例；只掃寬度、固定使用高視窗
+   不能取代筆電可視高度驗證。
 
 ### 待確認
 

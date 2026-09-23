@@ -1,3 +1,14 @@
+/*
+ * 圖說第 3、4 級的判定（三支共用、逐位元相同）。
+ * ⚠️ 不可以在這裡自己寫一套區間——自己寫的結果是同一個數字在三支
+ *   被說成不同的狀況，而使用者會把三種說法都抄進同一份報告。
+ */
+import {
+  LEVEL3_TITLE,
+  LEVEL4_TITLE,
+  trendChangeLevels,
+} from "./chart-levels.ts";
+
 /**
  * ══════════════════════════════════════════════════════════════════
  *  歷季趨勢：可選指標、圖表講稿
@@ -380,6 +391,50 @@ export function buildTrendScript(
   if (!changeLines.length)
     changeLines.push("所選範圍內沒有任何一季算得出這個指標，圖上不會有折線。");
   sections.push({ title: "重點變化", lines: changeLines });
+
+  /*
+   * ══════════════════════════════════════════════════════════════
+   *  ②-b 第 3 級「代表什麼狀況」與第 4 級「要怎麼處理」
+   * ══════════════════════════════════════════════════════════════
+   *
+   * 使用者 2026-09-20：「三支共通：圖旁說明文字升到第 3 級（代表什麼狀況）、
+   * 第 4 級（要怎麼處理）」「第 4 級只在寫得出具體的時候才寫……不要盲猜」。
+   *
+   * ⚠️ 判定一律走 chart-levels（三支逐位元相同），**不可以在這裡自己寫區間**。
+   * ⚠️ 一條線一段。多條線時不可以只講第一條，也不可以把幾條線的變化平均
+   *   起來講——那等於把不同調查點的量混在一起，X-28 已經裁示過不可以。
+   * ⚠️ 算不出變化（只有一季、或一季都沒有）時**整段不出現**，
+   *   不可以留一個空標題，也不可以塞一句「請持續觀察」湊數。
+   */
+  const stateLines: string[] = [];
+  const actionLines: string[] = [];
+  for (const line of shown) {
+    const valued = points
+      .map((point, index) => ({
+        quarter: point.quarter,
+        value: line.values[index],
+      }))
+      .filter((item) => item.value !== null) as {
+      quarter: string;
+      value: number;
+    }[];
+    if (valued.length < 2) continue;
+    const first = valued[0].value;
+    const last = valued[valued.length - 1].value;
+    if (!(first > 0)) continue;
+    const judged = trendChangeLevels(
+      ((last - first) / first) * 100,
+      valued.length,
+    );
+    if (!judged) continue;
+    const prefix = shown.length > 1 ? `${line.name}：` : "";
+    stateLines.push(prefix + judged.state);
+    if (judged.action) actionLines.push(prefix + judged.action);
+  }
+  if (stateLines.length)
+    sections.push({ title: LEVEL3_TITLE, lines: stateLines });
+  if (actionLines.length)
+    sections.push({ title: LEVEL4_TITLE, lines: actionLines });
 
   /* ③ 怎麼看這張圖 */
   /*

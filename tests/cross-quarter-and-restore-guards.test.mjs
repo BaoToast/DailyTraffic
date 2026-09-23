@@ -314,7 +314,7 @@ test("匯出範圍說明不得宣稱歷季全日交通量會被篩選", () => {
  * ──────────────────────────────────────────────────────────── */
 
 test("anomalyQuarters 用 compareQuarters，不自己補零排序", () => {
-  const block = blockFrom("const anomalyQuarters = useMemo(", "[anomalyAlerts],");
+  const block = blockFrom("const anomalyQuarters = useMemo(", "[allAnomalyAlerts],");
   assert.doesNotMatch(
     block,
     /replace\(\/\^\(\\d\{2\}\)Q\/, "0\$1Q"\)/,

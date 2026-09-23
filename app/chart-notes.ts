@@ -17,7 +17,32 @@
  *      寫「本圖顯示各項數值之分布」這種等於沒說的話。
  */
 
-export type ChartNote = { title: string; lines: string[] };
+import {
+  type ChartLevels,
+  heavyShareLevels,
+  peakConcentrationLevels,
+  dayCompareLevels,
+  coverageLevels,
+} from "./chart-levels.ts";
+
+/**
+ * 圖旁說明的一整份。
+ *
+ * ⚠️ 四級的分工（使用者 2026-09-20 定案，三支一致）：
+ *   title + lines ＝ 第 1、2 級（這是什麼圖、圖上讀得出來的事實）
+ *   levels.state  ＝ 第 3 級「代表什麼狀況」——**每張圖都要寫得出來**
+ *   levels.action ＝ 第 4 級「要怎麼處理」——寫不出具體的就不給，
+ *                    呼叫端看到沒有就**整段不畫**，不可以留一個空標題。
+ *
+ * ⚠️ 第 3、4 級的判定一律走 chart-levels（三支逐位元相同），
+ *   **不可以在這裡自己寫一套區間**——自己寫的結果是同一個數字在三支
+ *   被說成不同的狀況，而使用者會把三種說法都抄進同一份報告。
+ */
+export type ChartNote = {
+  title: string;
+  lines: string[];
+  levels?: ChartLevels | null;
+};
 
 const nf = (value: number, digits = 0) =>
   Number.isFinite(value)
@@ -131,7 +156,14 @@ export function compositionNote(
     lines.push(
       "⚠️ 目前只有一個車種有數字，其餘都是 0——請先確認車種對應設定是不是漏掉了。",
     );
-  return { title: "這張圖在說什麼", lines };
+  /*
+   * 第 3、4 級（使用者 2026-09-20）：車種組成這張圖最值得判讀的是**大車比例**，
+   * 所以第 3 級就講它落在哪一個區間。
+   * ⚠️ 一個車種都沒有大車時（heavy === 0）不硬寫——那時 heavyShareLevels
+   *   會拿到 0，回的是「偏低」，句子成立；但如果連分母都沒有就不該叫它。
+   */
+  const levels = total > 0 ? heavyShareLevels((heavy / total) * 100) : null;
+  return { title: "這張圖在說什麼", lines, levels };
 }
 
 /* ── 24 小時型態 ─────────────────────────────────────────── */
@@ -180,7 +212,18 @@ export function hourlyNote(
     lines.push(
       `⚠️ 這一份調查只涵蓋 ${valued.length} 個小時，不是完整的 24 小時，所以「全日」相關的數字要小心引用。`,
     );
-  return { title: "這張圖在說什麼", lines };
+  /*
+   * 第 3、4 級（使用者 2026-09-20）：24 小時型態這張圖最值得判讀的是
+   * **尖峰集中度**（尖峰那一小時佔全日多少）。
+   * ⚠️ 涵蓋不足時 peakConcentrationLevels 會自己改口說「分母不是全日」，
+   *   所以這裡把實際涵蓋的時數傳進去，不要在這裡另外判斷一次——
+   *   判斷寫兩處遲早會有一處沒跟著改。
+   */
+  const levels =
+    total > 0
+      ? peakConcentrationLevels((peak.value / total) * 100, valued.length)
+      : coverageLevels(valued.length);
+  return { title: "這張圖在說什麼", lines, levels };
 }
 
 /* ── 同季平假日 ──────────────────────────────────────────── */
@@ -249,5 +292,38 @@ export function dayCompareNote(
     lines.push(
       `⚠️ 另有 ${onlyOne} 個調查點只做了其中一種日別，沒有進到「各路段平日與假日比較」裡。`,
     );
-  return { title: "這張圖在說什麼", lines };
+  /*
+   * 第 3、4 級（使用者 2026-09-20）：平假日這張圖判讀的是**假日相對平日的比值**。
+   *
+   * ⚠️ 只有**一個**調查點時才用那一點自己的比值。多個調查點時不可以拿
+   *   合計去算——那等於把不同地點的車加起來再比，正是 X-28 裁示過不可以做的事。
+   *   多點時改用「假日比平日高的點數」來講狀況，講的是**點數**不是量。
+   */
+  let levels: ChartLevels | null = null;
+  if (mixedCoverage) {
+    levels = {
+      state:
+        `這一組調查點裡同時有全日調查與部分時段調查，兩者的單位不同；` +
+        `圖上兩根柱子的高低可以比，但**不可以**把它們當成同一種量去算比例。`,
+      action:
+        `要讓這張圖可以整組比較，需要把部分時段的那幾個調查點補成完整 24 小時後重新匯入；` +
+        `在那之前，報告中請逐點引用，不要寫整組的平假日比。`,
+    };
+  } else if (both.length === 1 && both[0].weekday > 0) {
+    levels = dayCompareLevels(both[0].holiday / both[0].weekday);
+  } else if (both.length > 1) {
+    const share = (reversed.length / both.length) * 100;
+    levels = {
+      state:
+        `${both.length} 個調查點之中有 ${reversed.length} 個（${share.toFixed(0)}%）假日高於平日；` +
+        `比例越高，代表這一組路段越偏向非通勤性質。` +
+        `不同調查點的量不可以相加，所以這裡講的是**點數**，不是總量。`,
+      action:
+        reversed.length > 0
+          ? `假日較高的那幾個調查點建議在報告中單獨列出；` +
+            `要判斷是不是常態，還需要連續數季的同一路段資料，本系統只有已匯入的季別。`
+          : undefined,
+    };
+  }
+  return { title: "這張圖在說什麼", lines, levels };
 }

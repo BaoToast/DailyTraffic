@@ -107,14 +107,25 @@ function resolutionEntries() {
   ].map((m) => ({ kind: m[1], text: m[2] }));
 }
 
-test("X-49：五種異常每一種都要有解決方式", () => {
+test("X-49：每一種異常都要有解決方式", () => {
+  /*
+   * ⚠️ 這裡刻意**不寫死種類數**。
+   *   原本寫死 5，於是 2026-09-20 依使用者指定新增「方向名稱不成對」時，
+   *   這一條紅的理由是「變成 6 種了」——而那正是要做的事，
+   *   測試卻讓人以為做錯了。要守的從來不是「有幾種」，
+   *   而是「**每一種都有解決方式**」。
+   *   下面另加一條前置檢查，確保真的抓得到種類（抓不到會變成恆真）。
+   */
   const types = workflow
     .slice(
       workflow.indexOf("export const ANOMALY_TYPES"),
       workflow.indexOf("export type AnomalyType"),
     )
     .match(/"[^"]+"/g);
-  assert.equal(types.length, 5, `ANOMALY_TYPES 變成 ${types.length} 種了`);
+  assert.ok(
+    types && types.length >= 5,
+    `只抓到 ${types?.length ?? 0} 種異常——正規表示式可能壞了，再往下驗會恆真`,
+  );
   const entries = resolutionEntries();
   assert.equal(
     entries.length,

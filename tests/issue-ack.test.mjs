@@ -51,7 +51,7 @@ test("② 只有「人工確認」類可以按確認", () => {
 test("③ 確認之後兩個數字都要寫出來，不是把總數變小", () => {
   assert.match(
     dashboard,
-    /共 \$\{anomalyAlerts\.length\} 筆（其中 \$\{ackedAnomalyCount\} 筆已確認）/,
+    /共 \$\{allAnomalyAlerts\.length\} 筆（其中 \$\{ackedAnomalyCount\} 筆已確認）/,
   );
 });
 

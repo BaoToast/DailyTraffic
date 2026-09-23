@@ -32,6 +32,21 @@ export type TraceableTrafficRecord = {
    * 加總、分類或任何計算。
    */
   surveyDate?: string;
+  /**
+   * 同一張工作表讀到**兩個以上不同的日期**時，全部的候選（ISO，已去重、
+   * 已依「有標籤的排前面」排序）。只有一個或一個都沒有時**不寫這一欄**。
+   *
+   * 使用者 2026-09-20：「同一張表若你判讀到 2 個日期，在資料匯入時就應該
+   * 做為異常顯示提醒使用者，在異常資料檢查結果也要檢查出來……因為有可能
+   * 另一個不同的日期在該資料中有其意義存在，所以使用者不會修正資料」
+   *
+   * ⚠️ 一定要**存下來**，不能只在匯入當下提醒：原始檔匯完就不在手上了，
+   *   事後到「資料維護 → 執行資料異常檢查」時沒有辦法再掃一次。
+   * ⚠️ 與 surveyDate 一樣**不進 trafficIdentity**，不影響覆蓋判斷、加總、
+   *   分類或任何計算。使用者指定了哪一個才對之後，改寫的是 surveyDate，
+   *   這一欄**保留原樣**——留著才看得出當初到底有幾個候選。
+   */
+  surveyDateCandidates?: string[];
 };
 
 export type AnomalyThresholds = {
@@ -150,6 +165,22 @@ export type WorkflowState = {
    * ⚠️ 舊備份沒有這個欄位，讀進來是 undefined——所有讀取端都要當成空的。
    */
   ackedAnomalies?: Record<string, { at: string }>;
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  同一張表有兩個日期時，使用者指定的那一個（使用者 2026-09-20）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 鍵＝`季別|檔名|工作表名`，值＝使用者挑的 ISO 日期。
+   *
+   * ⚠️ 為什麼是**覆寫**而不是直接改資料：使用者原話是「有可能另一個不同
+   *   的日期在該資料中有其意義存在，**所以使用者不會修正資料**」。
+   *   同理，系統這一端也不該把原始判讀結果洗掉——留著才有辦法在使用者
+   *   改變心意時換回來，也才看得出當初到底有幾個候選。
+   * ⚠️ 只影響**顯示**（明細／彙總的調查日期）。不進 trafficIdentity，
+   *   不影響覆蓋判斷、加總、分類或任何交通量數值。
+   * ⚠️ 舊備份沒有這個欄位，讀進來是 undefined——所有讀取端都要當成空的。
+   */
+  surveyDateOverrides?: Record<string, string>;
 };
 
 export const DEFAULT_THRESHOLDS: AnomalyThresholds = {
@@ -170,7 +201,45 @@ export function emptyWorkflowState(): WorkflowState {
     comparisonReports: [],
     history: [],
     ackedAnomalies: {},
+    surveyDateOverrides: {},
   };
+}
+
+/**
+ * 一筆紀錄的調查日期歸屬鍵——`季別|檔名|工作表名`。
+ *
+ * ⚠️ 覆寫、候選、異常三邊**一定要用同一把鑰匙**，各寫各的就會出現
+ *   「異常清單上挑了，明細卻沒變」這種對不起來的情形。
+ */
+export function surveyDateScopeKey(record: {
+  quarter: string;
+  sourceFileName?: string;
+  sourceSheetName?: string;
+}): string {
+  return `${record.quarter}|${record.sourceFileName || ""}|${record.sourceSheetName || ""}`;
+}
+
+/**
+ * 這一筆實際要顯示的調查日期：使用者指定過就用他指定的，否則用判讀到的。
+ *
+ * ⚠️ 覆寫值**必須是候選之一**才採用。備份檔被手改、或候選在重新匯入後
+ *   變了之後，一個不在候選裡的覆寫會讓畫面顯示一個原始檔上根本沒有的
+ *   日期——那比顯示錯的還糟，因為使用者無從發現。
+ */
+export function effectiveSurveyDate(
+  record: { surveyDate?: string; surveyDateCandidates?: string[] } & {
+    quarter: string;
+    sourceFileName?: string;
+    sourceSheetName?: string;
+  },
+  overrides?: Record<string, string>,
+): string {
+  const picked = overrides?.[surveyDateScopeKey(record)];
+  if (!picked) return record.surveyDate || "";
+  const candidates = record.surveyDateCandidates;
+  if (!Array.isArray(candidates) || !candidates.includes(picked))
+    return record.surveyDate || "";
+  return picked;
 }
 /**
  * 一筆異常提醒的指紋——「已確認」記在這把鑰匙上。
@@ -187,8 +256,9 @@ export function anomalyFingerprint(item: {
   direction?: string;
   vehicle?: string;
   value: number;
+  choices?: string[];
 }): string {
-  return JSON.stringify([
+  const parts = [
     item.type,
     item.fromQuarter,
     item.toQuarter,
@@ -198,7 +268,19 @@ export function anomalyFingerprint(item: {
     item.vehicle || "",
     /* 小數點後一位就夠了；再細會因為浮點誤差讓指紋每次都不一樣。 */
     Number(item.value).toFixed(1),
-  ]);
+  ];
+  /*
+   * ⚠️ choices 有值才加第 9 格，**不可以無條件加一格空的**：
+   *   無條件加的話每一種舊異常的指紋字串都會變長，
+   *   使用者先前按過的「已人工確認」會**全部失效、當場重新冒出來**。
+   *   這正是姊妹專案交通服務水準 v2.20.67 修掉的那個 bug
+   *   （「每季匯入又冒出來」），不要在這裡重演一次。
+   *
+   * ⚠️ 反過來，候選日期**必須**進指紋：本來只有兩個候選、
+   *   重新匯入後變成三個，那是新的狀況，要重新提醒。
+   */
+  if (item.choices?.length) parts.push(item.choices.join("|"));
+  return JSON.stringify(parts);
 }
 
 export function trafficIdentity(record: TraceableTrafficRecord) {
@@ -527,6 +609,21 @@ export type AnomalyAlert = {
   vehicleLabel?: string;
   /** 一行敘述，畫面、Excel 品質檢核與報告文字草稿共用。 */
   text: string;
+  /**
+   * 這一筆異常要使用者**從幾個選項裡挑一個**時的候選清單
+   * （目前只有「調查日期不只一個」用得到，值是 ISO 日期）。
+   *
+   * ⚠️ 有 choices 的異常，畫面上除了「已人工確認」還會多一顆下拉：
+   *   挑完＝同時寫回資料並記為已確認。只給「已確認」不給「指定哪一個」
+   *   的話，使用者按掉之後系統仍然在用**它自己猜的**那一個日期。
+   */
+  choices?: string[];
+  /**
+   * 挑完之後要改寫哪一群紀錄——`季別|檔名|工作表名`。
+   * ⚠️ 不可以用 roadId：同一張工作表可能產出好幾個調查點的資料，
+   *   日期是**整張表**的屬性。
+   */
+  choiceScope?: string;
 };
 
 /**
@@ -577,6 +674,29 @@ export const ANOMALY_TYPES = [
   "尖峰時段位移",
   "車種占比變動",
   "零流量時段",
+  /*
+   * 使用者 2026-09-20 指定新增（三支同步）：
+   *   「其中『北』對應『南』，『東』對應『西』，不管方向後面 + 了什麼字……
+   *     如果出現不成對的話，請在異常檢查中檢查出來（匯入時也可以做異常提醒，
+   *     但不阻擋匯入），由使用者手動去按確認（堅持是對的話），
+   *     或自行修正資料後，重新匯入」
+   *
+   * ⚠️ 判定一律走 app/direction-pair.ts（三支共用、逐位元相同），
+   *   **不可以在這裡或畫面層自己再寫一份**——自己寫一份的結果是
+   *   同一個名稱在三支得到不同結論。
+   */
+  "方向名稱不成對",
+  /*
+   * 使用者 2026-09-20 指定新增（三支同步）：
+   *   「同一張表若你判讀到 2 個日期，在資料匯入時就應該做為異常顯示提醒
+   *     使用者，在異常資料檢查結果也要檢查出來，我在想的是你要如何讓
+   *     使用者告訴你哪個才是正確的日期（因為有可能另一個不同的日期在該
+   *     資料中有其意義存在，所以使用者不會修正資料）」
+   *
+   * ⚠️ 所以這一項的解法**不是**叫使用者去改原始檔，而是在畫面上
+   *   直接讓他指定哪一個才是調查日期。
+   */
+  "調查日期不只一個",
 ] as const;
 export type AnomalyType = (typeof ANOMALY_TYPES)[number];
 
@@ -645,7 +765,140 @@ export const ANOMALY_RESOLUTIONS: Record<AnomalyType, AnomalyResolution> = {
     anchor: "quality-thresholds",
     anchorLabel: "異常提醒門檻",
   },
+  方向名稱不成對: {
+    kind: "人工確認",
+    text: "一條路的兩個方向通常是相反的（北對南、東對西）。請到「路段名稱管理」核對這兩個名稱：打錯字就改過來；如果這條路確實不是這樣命名的（例如單行道配對、或依地標命名），按下「已人工確認」即可，下次檢查不再提醒。這一項不會阻擋任何操作，也不影響任何計算——方向的鍵值仍然是方向A／方向B。",
+    anchor: "block-roads",
+    anchorLabel: "路段名稱管理",
+  },
+  調查日期不只一個: {
+    kind: "人工確認",
+    text: "同一張工作表上找到兩個以上不同的日期，系統無從判斷哪一個才是調查日期（另一個可能是製表、複核或現場補測的日期，本來就該留在表上）。請用這一列的「指定調查日期」選單挑出正確的調查日期，挑完就會套用到那一張工作表的所有紀錄，並記為已確認。挑完之後明細與彙總顯示的調查日期就會是你指定的那一個。系統不會自己挑、也不會取平均——這一項不影響任何交通量數值。",
+    anchor: "block-detail",
+    anchorLabel: "可追溯明細",
+  },
 };
+
+/**
+ * 同一張工作表讀到兩個以上調查日期 → 包成「請使用者指定」的提醒。
+ *
+ * ⚠️ 分組鍵是 `季別|檔名|工作表名`，不是調查點：日期是**整張表**的屬性，
+ *   一張表可能產出好幾個調查點。用調查點分組會把同一件事報好幾次。
+ *
+ * ⚠️ 與「方向名稱不成對」一樣**不是兩季之間的比較**，所以 fromQuarter
+ *   填該季、toQuarter 相同、value 固定 0——指紋只會因為
+ *   「候選日期真的變了」而變，不會因為又匯入一季就讓確認失效。
+ */
+export function detectSurveyDateAlerts(
+  records: {
+    quarter: string;
+    roadId: string;
+    dayType: string;
+    sourceFileName?: string;
+    sourceSheetName?: string;
+    surveyDate?: string;
+    surveyDateCandidates?: string[];
+  }[],
+  labels?: { road?: (roadId: string) => string },
+  readable?: (iso: string) => string,
+  overrides?: Record<string, string>,
+): AnomalyAlert[] {
+  const show = readable ?? ((iso: string) => iso);
+  type Group = {
+    quarter: string;
+    file: string;
+    sheet: string;
+    roadId: string;
+    dayType: string;
+    candidates: string[];
+    chosen: string;
+  };
+  const groups = new Map<string, Group>();
+  for (const record of records) {
+    const candidates = record.surveyDateCandidates;
+    if (!Array.isArray(candidates) || candidates.length < 2) continue;
+    const file = record.sourceFileName || "";
+    const sheet = record.sourceSheetName || "";
+    const key = `${record.quarter}|${file}|${sheet}`;
+    const previous = groups.get(key);
+    if (previous) {
+      /* 同一張表的候選理論上一模一樣；真的不同就取聯集，寧可多問。 */
+      for (const iso of candidates)
+        if (!previous.candidates.includes(iso)) previous.candidates.push(iso);
+      continue;
+    }
+    groups.set(key, {
+      quarter: record.quarter,
+      file,
+      sheet,
+      roadId: record.roadId,
+      dayType: record.dayType,
+      candidates: [...candidates],
+      chosen: effectiveSurveyDate(record, overrides),
+    });
+  }
+  const alerts: AnomalyAlert[] = [];
+  for (const [key, group] of groups) {
+    const where = [group.file, group.sheet].filter(Boolean).join(" → ") || "原始檔";
+    const picked = overrides?.[key];
+    alerts.push({
+      roadId: group.roadId,
+      dayType: group.dayType,
+      direction: "",
+      type: "調查日期不只一個",
+      fromQuarter: group.quarter,
+      toQuarter: group.quarter,
+      value: 0,
+      unit: "",
+      roadLabel: labels?.road?.(group.roadId) ?? group.roadId,
+      directionLabel: "",
+      choices: group.candidates,
+      choiceScope: key,
+      text:
+        `${where}：讀到 ${group.candidates.length} 個不同的日期（` +
+        group.candidates.map((iso) => show(iso)).join("、") +
+        `）。目前採用的是「${group.chosen ? show(group.chosen) : "無"}」` +
+        (picked ? "（你指定的）" : "（系統依標籤判讀的，尚未指定）") +
+        `。請用這一列的「指定調查日期」選單挑出哪一個才對。`,
+    });
+  }
+  return alerts;
+}
+
+/**
+ * 方向顯示名稱成不成對——判定走三支共用的 direction-pair，這裡只負責包成提醒。
+ *
+ * ⚠️ 這與「尖峰時段位移」那幾種不同：它**不是兩季之間的比較**，
+ *   而是一個當下的設定問題，所以 fromQuarter／toQuarter 都留空、value 固定 0。
+ *   指紋因此只會因為「名稱真的改了」而變——使用者按過的確認不會因為
+ *   又匯入一季就失效（姊妹專案交通服務水準踩過這個坑，見該專案
+ *   issue-ack-stability.test.mjs）。
+ */
+export function detectDirectionPairAlerts<Verdict extends { kind: string }>(
+  roads: { roadId: string; roadLabel: string; directionA: string; directionB: string }[],
+  judge: (a: string, b: string) => Verdict,
+  message: (a: string, b: string, verdict: Verdict) => string,
+): AnomalyAlert[] {
+  const alerts: AnomalyAlert[] = [];
+  for (const road of roads) {
+    const verdict = judge(road.directionA, road.directionB);
+    if (verdict.kind !== "mismatched") continue;
+    alerts.push({
+      roadId: road.roadId,
+      dayType: "",
+      direction: `${road.directionA}｜${road.directionB}`,
+      type: "方向名稱不成對",
+      fromQuarter: "",
+      toQuarter: "",
+      value: 0,
+      unit: "",
+      roadLabel: road.roadLabel,
+      directionLabel: `${road.directionA}／${road.directionB}`,
+      text: `${road.roadLabel}：${message(road.directionA, road.directionB, verdict)}`,
+    });
+  }
+  return alerts;
+}
 
 export function detectAnomalies(
   records: TraceableTrafficRecord[],

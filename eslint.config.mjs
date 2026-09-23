@@ -18,18 +18,9 @@ const eslintConfig = defineConfig([
    *
    * 現在 `npm test` 會先跑 lint（見 package.json），CI 也就跟著把關了。
    *
-   * ⚠️ 現況（v20.32 實測）：**0 個錯誤、7 個警告**，不是全數清空。
-   * 7 個全是 react-hooks/exhaustive-deps，集中在 DashboardClient.tsx，分兩類：
-   *   ・5 個是「少了 displayDirectionName／displayDirectionNameFor」。那兩個是
-   *     每次 render 都重新產生的函式，列進相依陣列會讓 memo 每次都失效，
-   *     等於整張大表每次 render 重算。要照規則改得連同函式一起包 useCallback。
-   *   ・2 個不是函式的問題：一個說 pcuFactors／turnPcuFactors 是多餘的相依項，
-   *     一個說少了 trendActualUnit／trendMetric／trendPcuUnit。這兩個要個別看，
-   *     改動的是實際的重算時機，不是包一層 useCallback 就好。
-   * 三類都是**刻意保留**的警告，不是還沒處理完；動它們屬於與目前修正無關的
-   * 重構，依約定不在這一版做。
-   * 這段話寧可寫得囉唆，也不要再出現「宣稱都修好了、實際上還有 7 個」的落差——
-   * 上一版就是那樣寫的，而且連 warning 的數字都少報了一個。
+   * 現在 lint 是正式發布守門，必須維持 0 錯誤、0 警告。
+   * `_review_artifacts` 是發布後產生的本機驗證／交付暫存；若不排除，下一版
+   * 重跑 lint 會把裡面的壓縮第三方 JS 當原始碼，製造數千個假錯誤。
    */
   globalIgnores([
     ".next/**",
@@ -39,6 +30,8 @@ const eslintConfig = defineConfig([
     /* repository 根目錄同時放建置後的網站，那一份是產物不是原始碼 */
     "assets/**",
     "github-pages/dist/**",
+    "github-pages/.tryout/**",
+    "_review_artifacts/**",
     /* `npm run samples` 產生的匿名測試樣本，以及手冊成品 */
     ".samples/**",
     "manuals/**",

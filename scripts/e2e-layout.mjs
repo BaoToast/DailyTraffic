@@ -179,6 +179,28 @@ for (const width of [640, 760, 900, 1024, 1100, 1280, 1440, 1500, 1680, 1920]) {
     ok(`寬度 ${width}px・${zoneName}頁 乾淨`, bad.length === 0, bad.join("；"));
   }
 }
+
+/*
+ * Claude 的 v20.79→v20.81 交付紀錄另指名兩組常見筆電／縮放後視窗：
+ * 1536×864 與 1366×768。上面的寬度掃描高度固定為 1050px，不能取代這兩組
+ * 實際可視高度；因此逐頁再量一次，避免矮視窗把文字、按鈕或圖表裁掉。
+ */
+for (const [width, height] of [[1536, 864], [1366, 768]]) {
+  await page.setViewportSize({ width, height });
+  await page.waitForTimeout(400);
+  for (const [zoneId, zoneName] of ZONES) {
+    await gotoTab(page, zoneId);
+    await page.waitForTimeout(320);
+    const m = await measure();
+    const bad = [];
+    if (m.overflow > 1) bad.push(`溢出 ${m.overflow}px（${m.wide[0] || ""}）`);
+    if (m.flushHeads.length) bad.push(`標題貼邊 ${m.flushHeads.length} 處：${m.flushHeads[0]}`);
+    if (m.misaligned.length) bad.push(`表格未對齊 ${m.misaligned.length} 處：${m.misaligned[0]}`);
+    if (m.clippedButtons.length)
+      bad.push(`按鈕文字被裁 ${m.clippedButtons.length} 處：${m.clippedButtons[0]}`);
+    ok(`${width}×${height}・${zoneName}頁 乾淨`, bad.length === 0, bad.join("；"));
+  }
+}
 ok("沒有 JS 例外", errors.length === 0, errors.slice(0, 3).join(" / "));
 /*
  * ── 篩選列的下拉選單不可以被超長選項撐爆 ──
