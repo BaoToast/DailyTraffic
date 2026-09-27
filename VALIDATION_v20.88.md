@@ -51,7 +51,21 @@
 - GPT 預設 Node heap 效能反證：`node --test tests/perf-scaling.test.mjs` 3／3 通過，
   平方寫法成長 99.0 倍、正常線性寫法 10.0 倍，門檻 30；未靠調高 heap 逃過 OOM。
 - GPT 試用版：`npm run e2e:tryout` 離開碼 0，單檔 `file://` 開啟、建計畫、匯入、
-  計算、備份入口與版號均通過。正式 Pages 仍須等最終 GitHub 部署後驗證。
+  計算、備份入口與版號均通過。正式 Pages 的線上驗證結果見下列紀錄。
+- GPT 程式發布 commit：`0c8170e70b09afa966d0412100a2be94639f6b0e`；已推送
+  `BaoToast/DailyTraffic` 的 `main`。該 commit 的 GitHub Actions「建置與測試」
+  [run 36316516569](https://github.com/BaoToast/DailyTraffic/actions/runs/36316516569)
+  **completed/success**；GitHub Pages「pages build and deployment」
+  [run 36316516291](https://github.com/BaoToast/DailyTraffic/actions/runs/36316516291)
+  **completed/success**。
+- GPT 線上驗證：`https://baotoast.github.io/DailyTraffic/` HTTP 200，首頁引用
+  `index-CXHXgvoT.js?v=20.88` 與 `index-CLll6NhE.css?v=20.88`；線上五個資產及
+  `manuals/全日交通流量程式手冊_v20.88.pdf` 的 SHA-256 與 Repository 相同，
+  `VALIDATION_v20.88.md` HTTP 200；舊 `index-CFDjwUu-.js` 與 v20.81 手冊均為 404。
+  本段的 GitHub 證據屬程式發布 commit；若再以文件 commit 更新本段，仍須另核對
+  文件 commit 的 CI、Pages 與本機／遠端 HEAD 一致。
+- 未覆蓋的界線：本交付包沒有真實公司 Excel 附件，故條件式真實檔測試略過；
+  OOXML 原生圖表由自動測試解析驗證，這次未用桌面 Microsoft Excel 人工開啟。
 - GPT 手冊：依目前 HTML 重新產生 **34 頁** PDF，兩個正式位置逐位元相同，
   SHA-256 `c271619be48f1cd0ad58913e0d71a639fcf23e19855d58be9470501eda3b4b01`；
   第 7 頁新增的讀取提示已轉圖確認沒有裁切或重疊。
