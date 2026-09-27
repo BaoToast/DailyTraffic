@@ -162,7 +162,7 @@ console.log("\n══ 一、五個分頁 ══");
  *   那些子項目也是 <button>，直接數 `.side-nav button` 會數到 23 顆。
  */
 const navCount = await page.locator(".side-nav button[data-goto]").count();
-ok("分頁導覽有五顆分頁按鈕", navCount === 5, `實測 ${navCount} 顆`);
+ok("分區導覽有五顆分區按鈕", navCount === 5, `實測 ${navCount} 顆`);
 
 const zoneIds = await page.evaluate(() =>
   [...document.querySelectorAll(".side-nav button[data-goto]")].map((el) =>

@@ -27,8 +27,12 @@ export const EXPORT_SECTIONS = [
 export type ExportSectionKey = (typeof EXPORT_SECTIONS)[number]["key"];
 
 /**
- * 草稿的段落。除了八個匯出區塊之外，另外三段沒有對應的工作表，
- * 但都是報告一定會寫到的內容，因此也開放勾選。
+ * 草稿的段落。除了 `EXPORT_SECTIONS` 的那幾個匯出區塊之外，
+ * 下面這幾段沒有對應的工作表，但都是報告一定會寫到的內容，因此也開放勾選。
+ *
+ * ⚠️ 2026-09-25 第五輪複查：這裡原本寫「八個匯出區塊」與「另外三段」，
+ *   而 `EXPORT_SECTIONS` 是 **7** 個、這一張表是 **4** 段——兩個數字都錯。
+ *   顆數會隨區塊增減而變，所以改成不寫死數字（要數的話數上面那兩個陣列）。
  */
 export const DRAFT_ONLY_SECTIONS = [
   { key: "scope", label: "本次分析範圍（建議保留）" },
@@ -89,7 +93,18 @@ export type ReportDraftContext = {
     pcu24: number;
     /** F-23：逐點的全調查時段尖峰小時與該小時 PCU（多點時「每小時實際量與PCU」段用它逐點寫）。 */
     peakHour?: string;
-    peakPcu?: number;
+    peakPcu?: number | null;
+    /*
+     * 這一點的尖峰該標什麼單位，由畫面端用 cellUnitFor() 算好傳進來。
+     *
+     * ⚠️ 2026-09-23 修正：下面那一句原本**把單位寫死成 `PCU/hr`**。
+     *   尖峰視窗不保證是 60 分鐘——15 分鐘細格遇到空檔會得到 45 分鐘的視窗
+     *   （標 /hr 低估 25%），2 小時一格的原始檔會得到 120 分鐘的視窗
+     *   （標 /hr 高估一倍）。同一段的**單點**分支早就走 `c.peak.unit`，
+     *   只有這個多點分支漏掉，而多點正是真實案件最常見的情況。
+     *   這一句是要被抄進報告的，所以寧可標得囉嗦也不可以標錯。
+     */
+    peakUnit?: string;
   }[];
   /** 逐點敘述串成一句的上限；超過就一個調查點一行。與畫面上的小卡共用同一個數字。 */
   pointLimit?: number;
@@ -419,16 +434,54 @@ function sectionLines(
        * 「目前範圍沒有可敘述的資料」——其實每一點都有逐時資料。
        * 依 X-31「多點逐點一句」：一個調查點（×日別）一行，不列合計。
        */
-      const points = (c.pointTotals ?? []).filter(
-        (point) => point.peakHour && point.peakHour !== "—" && (point.peakPcu ?? 0) > 0,
+      const all = c.pointTotals ?? [];
+      const points = all.filter(
+        (point) =>
+          point.peakHour &&
+          point.peakHour !== "—" &&
+          point.peakPcu !== null &&
+          (point.peakPcu ?? 0) > 0,
       );
-      if (!points.length) return [];
+      /*
+       * ⚠️ 2026-09-25 第六輪獨立複查：「算不出尖峰」的調查點原本**整行消失**，
+       *   而它與「這一點沒有資料」是兩件事。現在單獨列一行講出原因，
+       *   使用者才不會以為那一點沒有調查。
+       */
+      const notEnough = all.filter((point) => point.peakHour === "資料不足");
+      if (!points.length && !notEnough.length) return [];
+      if (!points.length)
+        return [
+          `全調查時段尖峰：下列調查點的時間格距湊不出整整一小時，因此不列尖峰值` +
+            `（請看「資料異常檢查」的「調查格距異常／混用」）：`,
+          ...notEnough.map(
+            (point) =>
+              `・${point.roadName}${point.dayType ? `（${point.dayType}）` : ""}：資料不足。`,
+          ),
+        ];
       return [
         `全調查時段尖峰逐調查點如下（各調查點的尖峰小時不同，不列合計）：`,
         ...points.map(
           (point) =>
-            `・${point.roadName}${point.dayType ? `（${point.dayType}）` : ""}：尖峰出現於 ${point.peakHour}，該小時當量交通量 ${nf(point.peakPcu ?? 0, c.digits)} PCU/hr。`,
+            /*
+             * ⚠️ 單位一律走 point.peakUnit（畫面端的 cellUnitFor），不可以寫死 /hr。
+             *   讀不到時退成「該尖峰時段」——會少講，不會多講。
+             *   「該小時」這三個字也一起拿掉：視窗本來就不保證是一小時。
+             */
+            `・${point.roadName}${point.dayType ? `（${point.dayType}）` : ""}：尖峰出現於 ${point.peakHour}，該時段當量交通量 ${nf(point.peakPcu ?? 0, c.digits)} ${point.peakUnit ?? "PCU/該尖峰時段"}。`,
         ),
+        ...(notEnough.length
+          ? [
+              `・另有 ${notEnough.length} 個調查點（日別）的時間格距湊不出整整一小時，` +
+                `因此不列尖峰值：` +
+                notEnough
+                  .map(
+                    (point) =>
+                      `${point.roadName}${point.dayType ? `（${point.dayType}）` : ""}`,
+                  )
+                  .join("、") +
+                `。`,
+            ]
+          : []),
       ];
     }
     case "period": {
@@ -549,7 +602,17 @@ function sectionLines(
                   // 或勾了百分比但這一格的車輛數全是 0（百分比算不出來）。
                   // 舊寫法一律叫使用者去勾選項，對後者是錯的指示。
                   "此時段有紀錄，但目前勾選的輸出數值算不出數字（例如只勾了百分比而該時段車輛數為 0）"
-                : "此時段無資料";
+                : /*
+                   * ⚠️ 2026-09-25 第六輪獨立複查：這裡原本一律寫「此時段無資料」，
+                   *   而括號裡印的是 `period.hour`——「資料不足」那一格會產生
+                   *   「（資料不足）：此時段無資料」這種自相矛盾的句子。
+                   *   `hour` 已經寫明是哪一種，照它講。
+                   */
+                  period.hour === "資料不足"
+                  ? "這一列的時間格距湊不出整整一小時，因此不列尖峰值（原始資料本身有量）"
+                  : period.hour === "待設定 PCU 係數"
+                    ? "這一列的 PCU 當量係數尚未設定，因此不列數值"
+                    : "此時段無資料";
             lines.push(
               `・${scope.name}｜${period.label}（${period.hour}）：${body}。`,
             );

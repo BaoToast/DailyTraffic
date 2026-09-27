@@ -3,6 +3,7 @@ import {
   surveyCoverage,
   parseTimeRange,
 } from "./partial-day.ts";
+import { coverageKeyOf } from "./period-analysis.ts";
 
 export type ReviewStatus = "草稿" | "待確認" | "已確認" | "定稿";
 
@@ -358,13 +359,34 @@ export function validateImport(
     const values = Object.values(recordVehicles(record));
     if (!record.roadId || !record.roadName || !record.hour)
       invalidRows.push(`第 ${index + 1} 筆缺少調查點或時段`);
-    if (
-      values.some(
-        (value) => !Number.isFinite(Number(value)) || Number(value) < 0,
-      )
-    )
+    /*
+     * ══════════════════════════════════════════════════════════════
+     *  ⚠️ 2026-09-25 修正：訊息寫「含空白」，但空白永遠不會被抓到
+     * ══════════════════════════════════════════════════════════════
+     *
+     * 舊寫法是 `!Number.isFinite(Number(value)) || Number(value) < 0`。
+     * 而 `Number("")`、`Number(" ")`、`Number(null)`、`Number([])`
+     * **全是 0 且 finite、又不小於 0** → 空白值被當成「合法的 0 輛」，
+     * 訊息永遠不出現、`valid` 照樣是 true；緊接著又被累計成 0，
+     * **整筆資料少算而匯入報告寫著沒問題**。
+     *
+     * 要真的擋空白必須**先擋型別**（是數字，或是去掉空白後還有東西的字串）
+     * 再轉數字。與 conclusion.js／trend.js 同一個判準。
+     *
+     * ⚠️ `Number(true)` 是 1：布林也要擋掉。解析器那一支的
+     *   `cellCount(true)` 回 0（tests/silent-failure-guards.test.mjs 有釘），
+     *   兩支口徑要一致，都不把布林當成有效的車輛數。
+     */
+    const hasCount = (value: unknown) =>
+      (typeof value === "number" ||
+        (typeof value === "string" && value.trim() !== "")) &&
+      Number.isFinite(Number(value));
+    if (values.some((value) => !hasCount(value) || Number(value) < 0))
       invalidRows.push(`第 ${index + 1} 筆含空白、非數字或負值`);
-    totalVehicles += values.reduce((sum, value) => sum + Number(value || 0), 0);
+    totalVehicles += values.reduce(
+      (sum, value) => sum + (hasCount(value) ? Number(value) : 0),
+      0,
+    );
     const group = [record.roadId, record.dayType, record.directionCode].join(
       "|",
     );
@@ -452,17 +474,25 @@ export function validateImport(
   /*
    * 混合時間格：同一組資料裡有些時段是 15 分鐘一格、有些是整點一格。
    *
-   * rollingPeak（partial-day.ts）用「眾數格長」算出 needed = 60 / 格長，
-   * 然後**數格數**、不是累計分鐘數。眾數是 60 時 needed = 1，等於任何一列
-   * 都被當成一個完整小時；「全日整點＋尖峰時段拆 15 分鐘」這種版型會讓
-   * 尖峰那一小時只取到其中一格。實測：整點 100／15 分鐘格 50 的資料，
-   * 真正的尖峰小時是 07 時的 200，系統卻報 00:00~01:00 的 100。
-   * 總量守恆，所以任何以總量為基礎的檢查都抓不到。
+   * ══════════════════════════════════════════════════════════════════
+   *  ⚠️ 2026-09-25 更新：舊註解描述的是 v20.83 **之前**的算法
+   * ══════════════════════════════════════════════════════════════════
    *
-   * 這裡**只做偵測與提醒，不改計算**。修正挑選邏輯會變更計算口徑，
-   * 那是使用者要拍板的決定，不是可以順手做掉的事。
-   * 路口轉向已加同一類提醒，這一支補齊；判準（兩成門檻＋至少重複兩次）
-   * 與 g2151f 的 `lib/traffic.ts` 相同。
+   * 舊註解寫著「rollingPeak 用眾數格長算出 needed = 60 / 格長，然後數格數」
+   * 「這裡只做偵測與提醒，不改計算。修正挑選邏輯會變更計算口徑，
+   *   那是使用者要拍板的決定」。
+   * 使用者**已經在 2026-09-24 拍板**，而 v20.83 也**已經改了**：
+   * `rollingPeak`（partial-day.ts）現在是**累計每一格自己的長度、
+   * 只接受剛好 60 分鐘，湊不滿就回「資料不足」**。
+   *
+   * 所以混用格長現在**不會**再算出一個非整小時的「尖峰小時」。
+   * 那為什麼還要提醒？因為**格長混用本身就是資料異常**：
+   * 同一個調查點同一天出現兩種規律的格長，通常是兩份調查表被合在一起，
+   * 或某一段時間的原始記錄方式不同——那值得使用者回頭確認一次。
+   * 但**不可以再說「尖峰小時以最常出現的格長為準、可能不是真正的一小時流量」**，
+   * 那句話現在是錯的，會讓使用者去人工修正一個已經正確的數字。
+   *
+   * 判準（兩成門檻＋至少重複兩次）與路口轉向的 `lib/traffic.ts` 相同。
    *
    * 判準要抓「兩種規律的格長」，不是「格長不完全一致」：每一種都要佔
    * 該組的兩成以上才算一個規律，否則調查中間的休息時段或零星異常格
@@ -470,29 +500,7 @@ export function validateImport(
    */
   const mixedIntervalGroups: string[] = [];
   for (const [group, hours] of hoursByGroup) {
-    const lengths = new Map<number, number>();
-    for (const hour of hours) {
-      const range = parseTimeRange(hour);
-      if (!range) continue;
-      const length = range.end - range.start;
-      if (length <= 0) continue;
-      lengths.set(length, (lengths.get(length) ?? 0) + 1);
-    }
-    const total = [...lengths.values()].reduce((sum, n) => sum + n, 0);
-    const regular = [...lengths.entries()]
-      /*
-       * 兩個條件都要：佔兩成以上，而且**至少重複兩次**。
-       *
-       * 少了「至少兩次」會誤報：短時段資料若只漏一列，相鄰間隔可能只有 4 個，
-       * 那一個 30 分鐘的跳號就占 25%，於是全部都是 60 分鐘的資料被標成
-       * 「混用 30／60 分鐘」。實測：06:00~07:00、07:00~08:00、08:00~08:30、
-       * 08:30~09:30 這四列會誤報。一次性的跳號不是「另一種規律」。
-       *
-       * 路口轉向 v2.1.51-final 已採同一組判準；這一支補齊，兩支才真的一致
-       * （本檔原本的註解寫「兩支行為一致」，但當時只有兩成門檻，並不一致）。
-       */
-      .filter(([, count]) => total > 0 && count >= 2 && count / total >= 0.2)
-      .sort((a, b) => a[0] - b[0]);
+    const regular = regularIntervalsOf(hours);
     if (regular.length > 1)
       mixedIntervalGroups.push(
         `${group}（${regular.map(([len, n]) => `${len} 分鐘 × ${n} 格`).join("、")}）`,
@@ -501,8 +509,10 @@ export function validateImport(
   if (mixedIntervalGroups.length)
     warnings.push(
       `下列資料混用了不同長度的時間格：${mixedIntervalGroups.join("；")}。` +
-        `系統推算尖峰小時時是以最常出現的格長為準，該值可能不是真正的一小時流量，` +
-        `請人工核對尖峰時段的數字。（全日總量不受影響。）`,
+        `尖峰小時的計算不受影響（系統是累計每一格自己的長度、湊滿剛好 60 分鐘，` +
+        `湊不滿會顯示「資料不足」而不是給一個非整小時的值），全日總量也不受影響。` +
+        `但同一個調查點同一天出現兩種規律的格長通常是資料異常` +
+        `（例如兩份調查表被合在一起），請回頭確認一次原始檔是否正確。`,
     );
   if (duplicateKeys.size)
     warnings.push(`匯入檔內有 ${duplicateKeys.size} 組重複鍵值`);
@@ -578,9 +588,19 @@ export function validateImport(
   };
 }
 
-function hourNumber(hour: string) {
+/**
+ * 從尖峰時段標籤取出起始小時。
+ *
+ * ⚠️ 2026-09-25 第六輪獨立複查：這裡原本抓不到時**回 0**，於是
+ *   「—」與「資料不足」都被當成「尖峰在 00 時」。上一季尖峰 08:00、
+ *   這一季算不出尖峰時，`hourDistance(0, 8) = 8`，就噴出一筆
+ *   「尖峰時段位移 8 小時」的**假異常**——而它的解決方式寫著
+ *   「回原始檔更正時間欄位後重新匯入該季」，使用者會去改一份沒問題的檔。
+ *   改成回 `null`，比較之前先確認兩邊都有值。
+ */
+function hourNumber(hour: string): number | null {
   const match = hour.match(/(\d{1,2}):/);
-  return match ? Number(match[1]) : 0;
+  return match ? Number(match[1]) : null;
 }
 
 /** 一筆歷季異常提醒。文字敘述與可篩選的欄位分開存，才能做區間與類型篩選。 */
@@ -697,6 +717,86 @@ export const ANOMALY_TYPES = [
    *   直接讓他指定哪一個才是調查日期。
    */
   "調查日期不只一個",
+  /*
+   * 使用者 2026-09-24 指定新增（全日交通量與路口轉向同步，交通服務水準不做）：
+   *   「如果出現 2 小時 1 格，那表示是異常，要讓使用者去確認是否誤植，
+   *     交通量調查都是以 1 小時調查為主，最多以每 15 分鐘調查一筆資料……
+   *     但不可能出現 2 小時以上類型的調查資料，那反而要列為異常，
+   *     系統應該匯入時會提示，以及列入資料異常清單裡吧」
+   *
+   * ⚠️ 門檻是「**超過** 60 分鐘」，不是「不等於 60」。
+   *   15／20／30／60 分鐘都是正常的調查格距（README 也是這樣寫的），
+   *   而且 2022 年臺灣公路容量手冊 4.5.1.3 還特別**建議**評估現況根據
+   *   尖峰 15 分鐘的需求流率——15 分鐘格是手冊鼓勵的做法，不是異常。
+   *   ⚠️ 2026-09-25 第六輪更正：這裡原本寫「明文要求」，而那句話本身用的是
+   *     「宜」——是建議，不是要求。同一份檔案下面第 1135 行的註解寫的是
+   *     「鼓勵」，兩處對同一句話給了不同的力度，而使用者看得到的那一段
+   *     （`調查格距異常` 的 text）也寫成「要求」。三處統一為「建議／鼓勵」。
+   *
+   * ⚠️ **不阻擋匯入**（與「方向名稱不成對」同一個規則，使用者 2026-09-20 定案）：
+   *   匯入時提醒，列進異常清單，由使用者自己判斷是誤植還是刻意的。
+   *
+   * ⚠️ 判定看的是**解析後的時段欄位**（`record.hour`），不可以掃原始檔的文字。
+   *   實測：交通服務水準那 6 份真實檔裡有 30 個「120 分鐘」的字串，
+   *   但那些是**調查時段標示**（「上午尖峰 (07:00～09:00)」），不是資料格。
+   *   掃文字的話那一支會 6 份全部誤報——所以那一支刻意不做這一項。
+   */
+  "調查格距異常",
+  /*
+   * 使用者 2026-09-24 指定的 I3：同一張表混用了兩種以上的格長。
+   * 本身不一定是錯（「全日整點、尖峰拆細」是常見版型），但要讓使用者
+   * 確認那是刻意的。判準走 regularIntervalsOf()，與匯入警告同一份。
+   */
+  "調查格距混用",
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  以下三種是 2026-09-24 依使用者定下的**通則**補上的（K42／K43／K44）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者原話：
+   *   「我沒有阻止你預設很多情況下，程式要怎麼做判定。但針對這類假設情況，
+   *     你首先要判定的是**這是否為異常**，只有使用者確認不是異常情形，
+   *     才套用你建議的處理方式，這個邏輯請你一定要懂」
+   *
+   * 這三項的共同病灶是**程式已經做好處理、卻沒有把情況講出來**：
+   * 系統給了一個對的答案，但隱瞞了前提，使用者永遠不知道發生過。
+   * 「靜靜出錯」是給錯答案；「靜靜處理」是給對答案但隱瞞前提——一樣不行。
+   */
+
+  /*
+   * K42：同一個調查點的平日與假日**調查涵蓋不一致**
+   *（例如平日測了完整 24 小時、假日只測 6 小時）。
+   *
+   * 使用者 2026-09-24 的判定：「同一份調查檔如果發生平日調查檔是 24 小時
+   * 假日卻只有 6 小時，這應該屬於異常事件吧?」——是。
+   *
+   * ⚠️ 比對一律用 coverageKeyOf() 的**指紋**，不可以用畫面標籤：
+   *   平日 07:00–11:00 與假日 17:00–21:00 的標籤都是「實測 4 小時」，
+   *   字串相同但根本不是同一段時間（GPT 2026-09-24 抓過同一個坑）。
+   */
+  "平假日涵蓋不一致",
+
+  /*
+   * K43：這一組有車，但 PCU 合計是 0 ＝ **當量係數等於沒設定**。
+   *
+   * 在此之前 `peakWindow()`／`peakBucket()` 碰到這種情形會**安靜地改用
+   * 車輛數**挑尖峰小時。那會改變「尖峰是哪一小時」（機車多的時段車輛數高、
+   * PCU 低，兩者常常不是同一小時），而畫面與異常檢查一個字都沒提。
+   *
+   * ⚠️ 依使用者裁示：未確認前畫面顯示「待設定 PCU 係數」，
+   *   **不給一個看起來正常、可以直接被引用的尖峰時段**；
+   *   按下「已人工確認」之後才改用車輛數挑並標明依據。
+   */
+  "PCU係數全為0",
+
+  /*
+   * K44：時段字串解析不出來，涵蓋**無法判斷**。
+   *
+   * 系統本來就正確地把它當成「無法判斷可比性」（不會假裝涵蓋相同），
+   * 結論草稿也會寫出原因——但它沒有進資料異常檢查，所以不會出現在
+   * 「這一季還有什麼要處理」那張清單上，也沒有「已人工確認」可以按。
+   */
+  "調查涵蓋無法判斷",
 ] as const;
 export type AnomalyType = (typeof ANOMALY_TYPES)[number];
 
@@ -771,9 +871,50 @@ export const ANOMALY_RESOLUTIONS: Record<AnomalyType, AnomalyResolution> = {
     anchor: "block-roads",
     anchorLabel: "路段名稱管理",
   },
+  /*
+   * ⚠️ **這一項刻意沒有「前往…」按鈕**（A11，使用者 2026-09-21 指示）。
+   *
+   * ── 什麼時候該給按鈕（這次定下來的準則，三支一致）─────────────────
+   *   看 text 有沒有真的叫使用者去那一頁**做一件事**：
+   *     有  → 給按鈕（例如「到『車種分類與當量管理』確認兩季的歸類是否一致」）
+   *     沒有 → 不給（只是「去那邊看結果」，或那一頁根本沒提到）
+   *
+   *   這一項的動作**完全在這一列完成**（那顆「指定調查日期」選單）。
+   *   使用者原話（在姊妹專案路口轉向上提出，三支同步）：
+   *     「請把前往流量核對工作台拿掉」
+   *   其餘 24 顆「前往…」按鈕都通過上面的準則，**一顆都不要動**。
+   */
+  調查格距異常: {
+    kind: "人工確認",
+    text: "這一張表的時間格長度超過 1 小時。交通量調查以 1 小時一格為主，細一點是 15、20、30 分鐘一格（2022 年臺灣公路容量手冊 4.5.1.3 還特別建議評估現況根據尖峰 15 分鐘的需求流率；那是建議，不是規定），「不會有 2 小時以上一格的調查」——所以這多半是原始檔的時間欄位誤植，例如把「07:00～08:00」打成「07:00～09:00」。請開原始檔核對那幾格的起訖時間：確實打錯的話更正後重新匯入該季；如果這份資料真的是那樣調查的（例如把兩小時併成一格交上來），按下「已人工確認」即可，下次檢查不再提醒。這一項不阻擋匯入。⚠️ 但「時段車種分析」的尖峰三格（上午／下午／全調查時段尖峰）會寫「資料不足」——2 小時的量不是一小時的流率，系統不會拿它冒充。「全調查時段」那一格是累計量，照樣寫出來，欄名也照實際格距標示。",
+    anchor: "block-detail",
+    anchorLabel: "可追溯明細",
+  },
+  調查格距混用: {
+    kind: "人工確認",
+    text: "同一張工作表裡混用了兩種以上長度的時間格，例如全日是整點一格、只有尖峰那幾小時拆成 15 分鐘一格。這個版型本身不一定是錯——很多調查就是這樣做的——但它有兩個後果要你知道：一是尖峰小時的認定一律累計到剛好 60 分鐘（不論格長怎麼混、也不看哪一種格長比較多），湊不滿就寫「資料不足」，所以尖峰的數字與時段是對的，二是它也可能是原始檔的時間欄位打錯（例如某一格的結束時間多打了一小時）。請開原始檔看那幾格：確實是刻意拆細的話按下「已人工確認」即可，下次檢查不再提醒；打錯的話更正後重新匯入該季。這一項不阻擋匯入，也不改任何數值。",
+    anchor: "block-detail",
+    anchorLabel: "可追溯明細",
+  },
   調查日期不只一個: {
     kind: "人工確認",
     text: "同一張工作表上找到兩個以上不同的日期，系統無從判斷哪一個才是調查日期（另一個可能是製表、複核或現場補測的日期，本來就該留在表上）。請用這一列的「指定調查日期」選單挑出正確的調查日期，挑完就會套用到那一張工作表的所有紀錄，並記為已確認。挑完之後明細與彙總顯示的調查日期就會是你指定的那一個。系統不會自己挑、也不會取平均——這一項不影響任何交通量數值。",
+  },
+  平假日涵蓋不一致: {
+    kind: "人工確認",
+    text: "同一個調查點的平日與假日「調查涵蓋」不一樣（例如平日完整 24 小時、假日只有 6 小時）。同一份委辦通常兩天用同一套設計，所以這多半是其中一天漏匯了部分時段、或原始檔的時間欄位有缺。請到「可追溯明細」比對這兩天各自的時段筆數與起訖：確實漏了就補齊原始檔後重新匯入該季；如果這一季本來就是這樣調查的（例如假日只做尖峰時段），按下「已人工確認」即可，下次檢查不再提醒。⚠️ 涵蓋不一樣時，匯出的「本季交通量及PCU」不會用「輛/日」這種單一單位，因為那對只測 6 小時的那一列是錯的標示；表頭會改用中性單位並多一欄「調查涵蓋」，逐列寫出它自己的涵蓋。",
+    anchor: "block-detail",
+    anchorLabel: "可追溯明細",
+  },
+  PCU係數全為0: {
+    kind: "人工確認",
+    text: "這一組有車輛數，但當量交通量（PCU）合計是 0——等於 PCU 當量係數沒有設定，或被設成 0。這會影響「尖峰是哪一小時」：系統原本是以 PCU 最大的那一小時為尖峰，PCU 全為 0 時只能改用車輛數挑，而機車多的時段車輛數高、PCU 低，兩者常常不是同一小時。所以未確認之前，尖峰欄位一律顯示「待設定 PCU 係數」，不會給一個看起來正常、可以直接抄進報告的時段。請到「PCU 當量係數」確認係數是否設定完成：設好之後重按檢查就會消失；如果您是刻意要以車輛數看這一季，按下「已人工確認」，尖峰就會改用車輛數挑並在欄位旁標明依據。",
+    anchor: "block-pcu",
+    anchorLabel: "PCU 當量係數",
+  },
+  調查涵蓋無法判斷: {
+    kind: "重新匯入",
+    text: "這一組的時段字串解析不出起訖時間，所以系統無法判斷它涵蓋了哪一段時間。系統不會假裝它與別人涵蓋相同（那會讓兩段不同的時間被拿去相減），但也因此這一組不能與其他季別、其他日別做比較。常見原因是原始檔的時間欄位被存成文字、或寫成「上午」「全日」這種非時間格式。請開原始檔把時間欄位改成「07:00～08:00」這種起訖寫法後重新匯入該季。",
     anchor: "block-detail",
     anchorLabel: "可追溯明細",
   },
@@ -866,6 +1007,226 @@ export function detectSurveyDateAlerts(
 }
 
 /**
+ * 一組時段字串裡有哪幾種「規律的格長」。
+ *
+ * ⚠️ 兩個條件都要：佔兩成以上，而且**至少重複兩次**。
+ *
+ *   少了「至少兩次」會誤報：短時段資料若只漏一列，相鄰間隔可能只有 4 個，
+ *   那一個 30 分鐘的跳號就占 25%，於是全部都是 60 分鐘的資料被標成
+ *   「混用 30／60 分鐘」。實測：06:00~07:00、07:00~08:00、08:00~08:30、
+ *   08:30~09:30 這四列會誤報。一次性的跳號不是「另一種規律」。
+ *   路口轉向採同一組判準。
+ *
+ * ⚠️ 這一支是**匯入警告與資料異常清單共用的唯一判準**（2026-09-24 抽出）。
+ *   抽出來之前兩處各寫一次，而本檔原本的註解寫著「兩支行為一致」——
+ *   同一件事寫在兩個地方就會漂移，這個專案已經吃過好幾次。
+ *
+ * 回傳 `[格長分鐘, 幾格][]`，依格長由小到大。長度 > 1 就是混用。
+ */
+export function regularIntervalsOf(hours: Iterable<string>): [number, number][] {
+  const lengths = new Map<number, number>();
+  for (const hour of hours) {
+    const range = parseTimeRange(hour);
+    if (!range) continue;
+    const length = range.end - range.start;
+    if (length <= 0) continue;
+    lengths.set(length, (lengths.get(length) ?? 0) + 1);
+  }
+  const total = [...lengths.values()].reduce((sum, n) => sum + n, 0);
+  return [...lengths.entries()]
+    .filter(([, count]) => total > 0 && count >= 2 && count / total >= 0.2)
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * ══════════════════════════════════════════════════════════════════════
+ *  格距混用 → 列為異常（使用者 2026-09-24 指定的 I3）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 混用偵測本來**只在匯入前檢核報告出現一次**：關掉那個視窗、或下次打開
+ * 這個計畫，畫面上不會再提到這件事——而受影響的尖峰數字一直錯著
+ * （v20.83 已修正挑選邏輯，但「這份資料混用了格長」仍然是使用者該知道、
+ * 該核對的事實）。所以與「調查格距異常」走同一條路：可確認、可篩選、
+ * 進 Excel 與報告草稿。
+ *
+ * ⚠️ 判準走 `regularIntervalsOf()`，與匯入警告**同一份**。
+ * ⚠️ 分組鍵與另外兩種現況型異常一致（`季別|檔名|工作表名`）：
+ *   格長是整張工作表的屬性。
+ */
+export function detectMixedIntervalAlerts(
+  records: {
+    quarter: string;
+    roadId: string;
+    dayType: string;
+    hour: string;
+    sourceFileName?: string;
+    sourceSheetName?: string;
+  }[],
+  labels?: { road?: (roadId: string) => string },
+): AnomalyAlert[] {
+  const groups = new Map<
+    string,
+    { quarter: string; file: string; sheet: string; roadId: string; dayType: string; hours: string[] }
+  >();
+  for (const record of records) {
+    const key = `${record.quarter}|${record.sourceFileName || ""}|${record.sourceSheetName || ""}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        quarter: record.quarter,
+        file: record.sourceFileName || "",
+        sheet: record.sourceSheetName || "",
+        roadId: record.roadId,
+        dayType: record.dayType,
+        hours: [],
+      };
+      groups.set(key, group);
+    }
+    group.hours.push(String(record.hour ?? ""));
+  }
+  const alerts: AnomalyAlert[] = [];
+  for (const group of groups.values()) {
+    const regular = regularIntervalsOf(group.hours);
+    if (regular.length < 2) continue;
+    const where = [group.file, group.sheet].filter(Boolean).join(" → ") || "原始檔";
+    alerts.push({
+      roadId: group.roadId,
+      dayType: group.dayType,
+      direction: "",
+      type: "調查格距混用",
+      fromQuarter: group.quarter,
+      toQuarter: group.quarter,
+      /* 最長與最短的差（分鐘），供排序與篩選。 */
+      value: regular[regular.length - 1][0] - regular[0][0],
+      unit: "分鐘",
+      roadLabel: labels?.road?.(group.roadId) ?? group.roadId,
+      directionLabel: "",
+      text:
+        `${where}：同一張表混用了 ${regular.length} 種長度的時間格（` +
+        regular.map(([len, n]) => `${len} 分鐘 × ${n} 格`).join("、") +
+        "）。這通常是「全日整點、但尖峰時段另外拆細」的版型，本身不一定是錯，" +
+        "但請確認那是刻意的、不是原始檔的時間欄位打錯。",
+    });
+  }
+  return alerts;
+}
+
+/**
+ * ══════════════════════════════════════════════════════════════════════
+ *  調查格距超過 1 小時 → 列為異常（使用者 2026-09-24 指定）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者原話：
+ *   「如果出現 2 小時 1 格，那表示是異常，要讓使用者去確認是否誤植，
+ *     交通量調查都是以 1 小時調查為主，最多以每 15 分鐘調查一筆資料……
+ *     但不可能出現 2 小時以上類型的調查資料，那反而要列為異常」
+ *
+ * ⚠️ 分組鍵是 `季別|檔名|工作表名`，與「調查日期不只一個」同一套：
+ *   格距是**整張工作表**的屬性，一張表可能產出好幾個調查點。
+ *   用調查點分組會把同一件事報好幾次。
+ *
+ * ⚠️ 與「方向名稱不成對」一樣**不是兩季之間的比較**，所以 fromQuarter／
+ *   toQuarter 都填該季、value 填實際格距（分鐘，供排序與篩選）。
+ *   指紋只會因為「格距真的變了」而變——使用者按過的確認不會因為
+ *   又匯入一季就失效。
+ *
+ * ⚠️ 逐筆看每一格自己的長度，**不取眾數**。
+ *   `intervalMinutesOf()` 取的是眾數，48 格裡有 1 格誤植成 2 小時的話
+ *   眾數仍然是 60，那一格會被眾數蓋掉——而那正是最需要被抓出來的情形
+ *   （整份都是 2 小時一格反而一眼就看得出來）。
+ *
+ * ⚠️ 只回報**超過 60 分鐘**的。15／20／30／60 分鐘都是正常格距，
+ *   而且手冊 4.5.1.3 還特別鼓勵用尖峰 15 分鐘的需求流率。
+ */
+export function detectIntervalAlerts(
+  records: {
+    quarter: string;
+    roadId: string;
+    dayType: string;
+    hour: string;
+    sourceFileName?: string;
+    sourceSheetName?: string;
+  }[],
+  labels?: { road?: (roadId: string) => string },
+): AnomalyAlert[] {
+  type Group = {
+    quarter: string;
+    file: string;
+    sheet: string;
+    roadId: string;
+    dayType: string;
+    /** 超過 60 分鐘的那幾格：格距（分鐘）→ 幾格。 */
+    over: Map<number, number>;
+    /** 那幾格的時段字串，最多留三個給使用者對照。 */
+    samples: string[];
+    /** 這一張表總共幾格（寫進敘述，讓使用者知道是整份還是只有幾格）。 */
+    total: number;
+  };
+  const groups = new Map<string, Group>();
+  for (const record of records) {
+    const range = parseTimeRange(String(record.hour ?? ""));
+    if (!range) continue;
+    const minutes = range.end - range.start;
+    /* 24 小時是 1440 分鐘；解析出比一天還長的東西一定是雜訊，跳過。 */
+    if (minutes <= 0 || minutes > 24 * 60) continue;
+    const file = record.sourceFileName || "";
+    const sheet = record.sourceSheetName || "";
+    const key = `${record.quarter}|${file}|${sheet}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        quarter: record.quarter,
+        file,
+        sheet,
+        roadId: record.roadId,
+        dayType: record.dayType,
+        over: new Map(),
+        samples: [],
+        total: 0,
+      };
+      groups.set(key, group);
+    }
+    group.total += 1;
+    if (minutes <= 60) continue;
+    group.over.set(minutes, (group.over.get(minutes) ?? 0) + 1);
+    if (group.samples.length < 3 && !group.samples.includes(record.hour))
+      group.samples.push(record.hour);
+  }
+  const alerts: AnomalyAlert[] = [];
+  for (const group of groups.values()) {
+    if (!group.over.size) continue;
+    const where = [group.file, group.sheet].filter(Boolean).join(" → ") || "原始檔";
+    const lengths = [...group.over.entries()].sort((a, b) => b[0] - a[0]);
+    const worst = lengths[0][0];
+    const count = lengths.reduce((sum, item) => sum + item[1], 0);
+    const hours = (minutes: number) =>
+      Number.isInteger(minutes / 60) ? `${minutes / 60} 小時` : `${minutes} 分鐘`;
+    alerts.push({
+      roadId: group.roadId,
+      dayType: group.dayType,
+      direction: "",
+      type: "調查格距異常",
+      fromQuarter: group.quarter,
+      toQuarter: group.quarter,
+      /* 最長的那一格（分鐘），供排序與篩選。 */
+      value: worst,
+      unit: "分鐘",
+      roadLabel: labels?.road?.(group.roadId) ?? group.roadId,
+      directionLabel: "",
+      text:
+        `${where}：有 ${count} 格的時間格長度超過 1 小時（` +
+        lengths.map(([minutes, n]) => `${hours(minutes)} × ${n} 格`).join("、") +
+        `，共 ${group.total} 格）。` +
+        (group.samples.length ? `例如 ${group.samples.join("、")}。` : "") +
+        "交通量調查以 1 小時一格為主、細一點是 15／20／30 分鐘，" +
+        "不會有 2 小時以上一格的調查，這多半是時間欄位誤植。" +
+        "請核對原始檔；確實是那樣調查的話按「已人工確認」。",
+    });
+  }
+  return alerts;
+}
+
+/**
  * 方向顯示名稱成不成對——判定走三支共用的 direction-pair，這裡只負責包成提醒。
  *
  * ⚠️ 這與「尖峰時段位移」那幾種不同：它**不是兩季之間的比較**，
@@ -900,10 +1261,186 @@ export function detectDirectionPairAlerts<Verdict extends { kind: string }>(
   return alerts;
 }
 
+/**
+ * K42／K43／K44：「當下狀態」類的三種異常提醒（2026-09-24）。
+ *
+ * 抽成獨立一支的理由：畫面層需要在**算尖峰之前**就知道「哪些 PCU 係數全為 0
+ * 的項目已經被人工確認」（K43 的遮罩要用它），而完整的 `detectAnomalies()`
+ * 依賴的東西宣告得比較晚。抽出來之後兩邊呼叫**同一支**，不會出現兩套判斷。
+ *
+ * ⚠️ 這三種都不是兩季之間的比較，而是當下狀態，所以 fromQuarter 與 toQuarter
+ *   相同（與「零流量時段」一樣的寫法），方向欄位一律空字串。
+ */
+export function detectStateAnomalies(
+  records: TraceableTrafficRecord[],
+  pcuValue: (record: TraceableTrafficRecord) => number,
+  /**
+   * 這一筆有沒有「任何一個車種的 PCU 貢獻不是 0」。
+   *
+   * ⚠️ 刻意與 `pcuValue` 分開，而且**必填、沒有預設值**（2026-09-26）。
+   *   K43 要判斷的是「當量係數是不是等於沒設定」，而合計為 0 **不等於**
+   *   係數沒設定：使用者可以把某個車種的係數設成負數（系統允許），
+   *   於是 +X 與 −X 在同一筆裡抵銷、合計變成 0，係數其實設好了。
+   *   舊版用 `group.pcu <= 0` 判斷，那種資料會被誤報成「PCU係數全為0」，
+   *   而「時段車種分析」同時算得出正常的尖峰——**兩個入口各說各話**。
+   * ⚠️ 不給預設值是為了讓 TypeScript 把每一個呼叫點都列出來。
+   *   給了預設值（例如 `() => true`）就會讓忘記傳的呼叫端靜靜通過，
+   *   而它錯的時候畫面會說「係數沒設定」——那正是這一輪要修掉的毛病。
+   */
+  hasAnyVehiclePcu: (record: TraceableTrafficRecord) => boolean,
+  labels: AnomalyLabels = {},
+): AnomalyAlert[] {
+  const out: AnomalyAlert[] = [];
+  /*
+   * ══════════════════════════════════════════════════════════════════════
+   *  K42／K43／K44：「當下狀態」類的三種提醒（2026-09-24）
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * 使用者定下的通則：這類情況**先判定是不是異常**，不可以直接套一個預設值
+   * 把它吃掉。所以這裡只負責「講出來」，不改任何計算。
+   *
+   * ⚠️ 分組到「季別×調查點×日別」，因為三種都是那個層級的性質：
+   *   同一個調查點的平日與假日本來就可能不同，混在一起算會互相蓋掉。
+   * ⚠️ 方向欄位一律空字串：這三種都不是某一個方向的問題。
+   *   （filterAnomalies 對空的方向不會濾掉，理由同「方向名稱不成對」。）
+   */
+  type StateGroup = {
+    quarter: string;
+    roadId: string;
+    dayType: string;
+    hours: string[];
+    total: number;
+    pcu: number;
+    /**
+     * 這一組裡有沒有任何一筆、任何一個車種的 PCU 貢獻不是 0。
+     * ⚠️ 這才是「當量係數設定過沒有」的證據；`pcu`（合計）不是——
+     *   負係數會讓合計被抵銷成 0，而係數其實設好了。
+     */
+    anyVehiclePcu: boolean;
+  };
+  const stateGroups = new Map<string, StateGroup>();
+  for (const record of records) {
+    const key = [record.quarter, record.roadId, record.dayType].join("\u0000");
+    const entry =
+      stateGroups.get(key) ??
+      ({
+        quarter: record.quarter,
+        roadId: record.roadId,
+        dayType: record.dayType,
+        hours: [],
+        total: 0,
+        pcu: 0,
+        anyVehiclePcu: false,
+      } satisfies StateGroup);
+    entry.hours.push(record.hour ?? "");
+    for (const value of Object.values(recordVehicles(record)))
+      if (Number.isFinite(value)) entry.total += Number(value);
+    const pcu = pcuValue(record);
+    if (Number.isFinite(pcu)) entry.pcu += pcu;
+    if (hasAnyVehiclePcu(record)) entry.anyVehiclePcu = true;
+    stateGroups.set(key, entry);
+  }
+  const stateGroupOf = (group: StateGroup) => ({
+    roadId: group.roadId,
+    dayType: group.dayType,
+    direction: "",
+    roadLabel: labels.road?.(group.roadId) ?? group.roadId,
+    directionLabel: "",
+    vehicleLabel: (vehicleKey: string) => vehicleKey,
+  });
+
+  /*
+   * ── K43：有車，而且**每一個車種的 PCU 貢獻都是 0** ＝ 當量係數等於沒設定 ──
+   *
+   * ⚠️ 判準是逐車種的貢獻，不是合計（2026-09-26 改）。原本寫
+   *   `group.total > 0 && group.pcu <= 0`，而合計為 0 有兩種完全不同的成因：
+   *     ① 係數真的都是 0（或沒設定）      → 這才是要提醒的
+   *     ② 使用者把某個車種設成負係數，+X 與 −X 抵銷 → 係數設好了，不是異常
+   *   舊判準把②也報成「PCU係數全為0」，而「時段車種分析」那一端
+   *   （`app/period-analysis.ts` 的 `anyPcu`）算得出正常尖峰——
+   *   同一筆資料、同一個畫面，兩個入口各說各話。
+   *   兩邊現在都以「有沒有任何一個車種的貢獻不是 0」為準。
+   * ⚠️ `group.pcu <= 0` 也會把「合計是負數」算進來，那同樣不代表沒設定。
+   */
+  for (const group of stateGroups.values())
+    if (group.total > 0 && !group.anyVehiclePcu)
+      out.push(
+        alert(
+          stateGroupOf(group),
+          "PCU係數全為0",
+          group.quarter,
+          group.quarter,
+          group.total,
+          "輛",
+        ),
+      );
+
+  /* ── K44：時段字串解析不出起訖，涵蓋無法判斷 ── */
+  for (const group of stateGroups.values())
+    if (group.hours.length && coverageKeyOf(group.hours) === "")
+      out.push(
+        alert(
+          stateGroupOf(group),
+          "調查涵蓋無法判斷",
+          group.quarter,
+          group.quarter,
+          group.hours.length,
+          "筆",
+        ),
+      );
+
+  /*
+   * ── K42：同一個調查點的平日與假日涵蓋不一致 ──
+   *
+   * ⚠️ 比的是 coverageKeyOf() 的**指紋**，不是畫面標籤：
+   *   平日 07:00–11:00 與假日 17:00–21:00 的標籤都是「實測 4 小時」，
+   *   字串相同但根本不是同一段時間（GPT 2026-09-24 抓過同一個坑）。
+   * ⚠️ 空字串（解析不出來）**不算「不同」**——那是 K44 的事，
+   *   拿「無法判斷」當成「不一致」的證據會誤報。
+   */
+  const byPoint = new Map<string, Map<string, string>>();
+  for (const group of stateGroups.values()) {
+    const key = [group.quarter, group.roadId].join("\u0000");
+    const perDay = byPoint.get(key) ?? new Map<string, string>();
+    const coverage = coverageKeyOf(group.hours);
+    if (coverage) perDay.set(group.dayType, coverage);
+    byPoint.set(key, perDay);
+  }
+  for (const [key, perDay] of byPoint) {
+    if (perDay.size < 2) continue;
+    if (new Set(perDay.values()).size < 2) continue;
+    const [quarter, roadId] = key.split("\u0000");
+    out.push(
+      alert(
+        {
+          roadId,
+          dayType: [...perDay.keys()].sort().join("＋"),
+          direction: "",
+          roadLabel: labels.road?.(roadId) ?? roadId,
+          directionLabel: "",
+          vehicleLabel: (vehicleKey: string) => vehicleKey,
+        },
+        "平假日涵蓋不一致",
+        quarter,
+        quarter,
+        perDay.size,
+        "種涵蓋",
+      ),
+    );
+  }
+  return out;
+}
+
 export function detectAnomalies(
   records: TraceableTrafficRecord[],
   thresholds: AnomalyThresholds,
   pcuValue: (record: TraceableTrafficRecord) => number,
+  /**
+   * 這一筆有沒有任何一個車種的 PCU 貢獻不是 0（原封不動轉給
+   * `detectStateAnomalies()` 的 K43 用）。
+   * ⚠️ 必填、沒有預設值，理由見 `detectStateAnomalies()` 的同名參數。
+   */
+  hasAnyVehiclePcu: (record: TraceableTrafficRecord) => boolean,
   labels: AnomalyLabels = {},
 ): AnomalyAlert[] {
   const alerts: AnomalyAlert[] = [];
@@ -1018,7 +1555,15 @@ export function detectAnomalies(
         alerts.push(
           alert(group, "PCU變動", previous.quarter, current.quarter, pcuChange, "%"),
         );
-      if (hourDistance(current.peak, previous.peak) > thresholds.peakShiftHours)
+      /*
+       * ⚠️ 任何一季算不出尖峰（「—」或「資料不足」）就**不比**——
+       *   算不出來不是「尖峰跑到 00 時」。見 hourNumber() 的說明。
+       */
+      if (
+        current.peak !== null &&
+        previous.peak !== null &&
+        hourDistance(current.peak, previous.peak) > thresholds.peakShiftHours
+      )
         alerts.push(
           alert(
             group,
@@ -1058,6 +1603,9 @@ export function detectAnomalies(
         alert(group, "零流量時段", latest.quarter, latest.quarter, latest.zeros, "個"),
       );
   });
+  alerts.push(
+    ...detectStateAnomalies(records, pcuValue, hasAnyVehiclePcu, labels),
+  );
   return alerts;
 }
 
@@ -1095,14 +1643,24 @@ function alert(
    */
   const label = [roadLabel, dayType, directionLabel].join("／");
   const vehicleLabel = vehicle ? group.vehicleLabel(vehicle) : undefined;
+  /*
+   * K42／K43／K44 是「當下狀態」類，不是兩季之間的比較，
+   * 所以句子裡不可以出現「A→B 變動 N%」那種寫法（value 是筆數或小時數）。
+   */
+  const stateText: Partial<Record<AnomalyType, string>> = {
+    平假日涵蓋不一致: `${label} ${toQuarter} 平日與假日的調查涵蓋不一致`,
+    PCU係數全為0: `${label} ${toQuarter} 有車輛數但 PCU 合計為 0（當量係數等於沒設定）`,
+    調查涵蓋無法判斷: `${label} ${toQuarter} 的時段字串解析不出起訖時間，涵蓋無法判斷`,
+  };
   const text =
-    type === "尖峰時段位移"
+    stateText[type] ??
+    (type === "尖峰時段位移"
       ? `${label} 尖峰時段位移 ${value} 小時`
       : type === "零流量時段"
         ? `${label} ${toQuarter} 有 ${value} 個零流量時段`
         : type === "車種占比變動"
           ? `${label} ${vehicleLabel}占比變動 ${value.toFixed(1)} 個百分點`
-          : `${label} ${fromQuarter}→${toQuarter} ${type} ${value.toFixed(1)}%`;
+          : `${label} ${fromQuarter}→${toQuarter} ${type} ${value.toFixed(1)}%`);
   return {
     roadId,
     dayType,
@@ -1132,21 +1690,59 @@ export function filterAnomalies(
   },
 ): AnomalyAlert[] {
   return alerts.filter((item) => {
-    // 區間比對一律走 quarterOrderKey，才能同時處理民國三碼與西元四碼。
-    if (
-      filters.fromQuarter &&
-      quarterOrderKey(item.toQuarter) < quarterOrderKey(filters.fromQuarter)
-    )
-      return false;
-    if (
-      filters.toQuarter &&
-      quarterOrderKey(item.fromQuarter) > quarterOrderKey(filters.toQuarter)
-    )
-      return false;
     if (filters.types?.length && !filters.types.includes(item.type)) return false;
-    if (filters.roadId && filters.roadId !== "ALL" && item.roadId !== filters.roadId)
+    /*
+     * ══════════════════════════════════════════════════════════════════
+     *  ⚠️ **與這個維度無關的項目，任何選擇都要列出來**
+     * ══════════════════════════════════════════════════════════════════
+     *
+     * 「方向名稱不成對」講的是一個**當下的設定問題**，不是兩季之間的比較，
+     * 所以它的 fromQuarter／toQuarter 是空的（見 detectDirectionPairAlerts）。
+     *
+     * 舊寫法直接拿 quarterOrderKey("") 去比大小——它回傳 -Infinity，
+     * 於是只要使用者在檢查結果上選了「季度（起）」，**這一類提醒就整批消失**：
+     *
+     *     無篩選       → [方向名稱不成對, 全日量變動]
+     *     只設起 115Q1 → [全日量變動]            ← 不成對那一筆被吃掉
+     *     只設迄 115Q2 → [方向名稱不成對, 全日量變動]   ← 只有一邊會吃
+     *
+     * 而統計、類型標籤、草稿與 Excel 算的是**全部**，所以畫面會寫
+     * 「顯示 1／共 2 筆」，而表格裡永遠找不到第 2 筆。
+     *
+     * ⚠️ 姊妹專案交通服務水準早就是這樣做的，而且把理由寫在註解裡：
+     *     「與季度無關的項目（名稱、速限）在任何區間都要看得到。」
+     *   路段與日別同一套規則：**欄位是空的就不參與那一項篩選**。
+     *   三支要一致，**不要改回「一律比大小」**。
+     */
+    const hasSpan = Boolean(item.fromQuarter || item.toQuarter);
+    if (hasSpan) {
+      // 區間比對一律走 quarterOrderKey，才能同時處理民國三碼與西元四碼。
+      const from = item.fromQuarter || item.toQuarter;
+      const to = item.toQuarter || item.fromQuarter;
+      if (
+        filters.fromQuarter &&
+        quarterOrderKey(to) < quarterOrderKey(filters.fromQuarter)
+      )
+        return false;
+      if (
+        filters.toQuarter &&
+        quarterOrderKey(from) > quarterOrderKey(filters.toQuarter)
+      )
+        return false;
+    }
+    if (
+      filters.roadId &&
+      filters.roadId !== "ALL" &&
+      item.roadId &&
+      item.roadId !== filters.roadId
+    )
       return false;
-    if (filters.dayType && filters.dayType !== "ALL" && item.dayType !== filters.dayType)
+    if (
+      filters.dayType &&
+      filters.dayType !== "ALL" &&
+      item.dayType &&
+      item.dayType !== filters.dayType
+    )
       return false;
     return true;
   });

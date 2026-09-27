@@ -5,6 +5,8 @@ import {
   formatRange,
   intervalMinutesOf,
   parseTimeRange,
+  peaksByDay,
+  peakFromBuckets,
   rollingPeak,
   rollingPeakWithin,
   surveyCoverage,
@@ -115,12 +117,123 @@ test("上午與下午尖峰可以各自求得", () => {
   assert.equal(Number(pm.value.toFixed(1)), 4108.1);
 });
 
-test("連續資料不足一小時時，取該段合計並標示實際時段", () => {
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 2026-09-25：這一條的期望值**反過來了**（使用者裁示，口徑對齊）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 原本的測試名稱是「連續資料不足一小時時，取該段合計並標示實際時段」，
+ * 斷言 30 分鐘的資料要回 100／spans 2／標籤「07:00～07:30」。
+ *
+ * 使用者 2026-09-24 裁示：「口徑請對齊，以路口轉向那個保守作法為主。」
+ * 路口轉向的 rollingPeak 是 `if (minutes !== windowMinutes …) continue;`
+ * ——湊不滿 60 分鐘一律回「資料不足」。兩支程式原本對同一筆 45 分鐘資料
+ * 一個給數字、一個給「資料不足」，那不符合「三支同一口徑」。
+ *
+ * ⚠️ 這一條**不是刪掉，是改成斷言新的正確行為**。
+ *   代價（整份調查只做 45 分鐘的使用者看到「資料不足」）是裁示的結果。
+ */
+test("連續資料湊不滿一小時時回「資料不足」（與路口轉向同一口徑）", () => {
   const entries = quarterHours(7, 2).map((hour) => ({ hour, value: 50 }));
   const peak = rollingPeak(entries);
-  assert.equal(peak.value, 100);
-  assert.equal(peak.spans, 2);
-  assert.equal(peak.label, "07:00～07:30");
+  assert.equal(peak.value, 0, "湊不滿 60 分鐘不可以給一個數字");
+  assert.equal(peak.spans, 0, "spans 要是 0，呼叫端才知道是「算不出來」");
+  /*
+   * ⚠️ 2026-09-25 第五輪複查：這一行原本斷言標籤是「—」，而測試名稱與
+   *   手冊／README／更新說明三份文件都寫著「資料不足」——**四個字從來沒有
+   *   真的顯示出來**（實測 bundle 裡只有匯入警告那一句有它）。
+   *   「—」在這個系統裡代表「這一格沒有資料」，同一個符號指兩件事，
+   *   使用者看到會判成漏調查而回去翻原始檔。
+   *   程式已改成分開講，這裡跟著斷言新的正確標籤。
+   */
+  assert.equal(peak.label, "資料不足", "有資料但湊不滿一小時，標籤要是「資料不足」");
+});
+
+test("⚠️ 反過來也要成立：完全沒有資料時標籤仍然是「—」", () => {
+  /*
+   * 少了這一條，把「—」整個換成「資料不足」也會過，
+   * 而那會讓「沒調查」與「湊不出一小時」又變成同一個字。
+   */
+  assert.equal(rollingPeak([]).label, "—", "沒有任何格子時要維持「—」");
+  assert.equal(
+    rollingPeak([{ hour: "上午尖峰", value: 5 }]).label,
+    "—",
+    "時段字串解析不出來（等於沒有可用格子）時也要維持「—」",
+  );
+});
+
+test("⚠️ 前置：剛好湊滿 60 分鐘的仍然算得出來（上一條不可以修過頭）", () => {
+  const entries = quarterHours(7, 4).map((hour) => ({ hour, value: 50 }));
+  const peak = rollingPeak(entries);
+  assert.equal(peak.value, 200, "四格 15 分鐘剛好 60 分鐘，要算得出來");
+  assert.equal(peak.spans, 4);
+  assert.equal(peak.label, "07:00～08:00");
+});
+
+test("2 小時一格仍然回「資料不足」（這一次的改動不影響它）", () => {
+  const peak = rollingPeak([{ hour: "07:00~09:00", value: 400 }]);
+  assert.equal(peak.value, 0);
+  assert.equal(peak.spans, 0);
+  assert.equal(peak.label, "資料不足", "2 小時一格有資料，只是湊不出一小時");
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  45 分鐘一格、而且那幾格都量到 0 輛 → 仍然是「資料不足」，不是「—」
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 2026-09-26 抓到：`peaksByDay()` 原本寫
+ *   `if (entries.some((entry) => value > 0)) out.push({ label: "資料不足" … })`
+ * 也就是「有量到車」才把「資料不足」講出來。45 分鐘一格而且**都量到 0 輛**時，
+ * entries 有東西、卻沒有一格大於 0，於是這個日別什麼都不推，呼叫端落回「—」。
+ * 而「—」在這個系統裡代表「沒有這個日別的資料」。
+ *
+ * 兩者對使用者的意思完全不同：
+ *   ・「—」      → 去補調查
+ *   ・「資料不足」 → 去看原始檔的時間欄（格距湊不出一小時）
+ * 而且「量到 0 輛」是**真實的測量值**，不是「沒有資料」。
+ *
+ * ⚠️ 三支要成對看，否則「一律回資料不足」也會通過：
+ *   ①全 0 的 45 分鐘 → 資料不足
+ *   ②完全沒有格子   → 這個日別不會出現在結果裡（維持「—」）
+ *   ③有量的 45 分鐘 → 照樣資料不足（原本就對，不可以修壞）
+ * ⚠️ 反證（2026-09-26 實測）：把判準改回 `entries.some(value > 0)`，①會紅。
+ */
+test("⚠️ 45 分鐘一格而且都量到 0 輛時，仍然要標「資料不足」", () => {
+  const buckets = quarterHours(7, 3).map((hour) => [`平日|${hour}`, 0]);
+  const rows = peaksByDay(buckets);
+  const weekday = rows.find((row) => row.day === "平日");
+  assert.ok(
+    weekday,
+    "整個日別被丟掉了——呼叫端只會落回「—」，而「—」代表「沒有這個日別的資料」；" +
+      "實際上資料在，只是格距湊不出一小時",
+  );
+  assert.equal(weekday.label, "資料不足");
+  assert.equal(weekday.notEnough, true, "notEnough 要帶出來，呼叫端才分得出兩種");
+  assert.equal(weekday.start, -1, "算不出來的 start 一律 -1，不可以是 0");
+});
+
+test("⚠️ 反過來也要成立：完全沒有格子的日別不會出現在結果裡", () => {
+  assert.deepEqual(peaksByDay([]), [], "沒有任何格子時不可以憑空長出一個日別");
+});
+
+test("⚠️ 前置：有量到車的 45 分鐘一格照樣是「資料不足」（不可以修壞原本對的那一半）", () => {
+  const buckets = quarterHours(7, 3).map((hour) => [`平日|${hour}`, 50]);
+  const weekday = peaksByDay(buckets).find((row) => row.day === "平日");
+  assert.ok(weekday);
+  assert.equal(weekday.label, "資料不足");
+});
+
+test("⚠️ peakFromBuckets 對全 0 的 45 分鐘也要回 not-enough，不是 none", () => {
+  /*
+   * 呼叫端是看 `status` 決定要不要把 value 當數字用的，
+   * 所以這一層也必須分得出「沒調查」與「湊不出一小時」。
+   */
+  const buckets = quarterHours(7, 3).map((hour) => [hour, 0]);
+  const peak = peakFromBuckets(buckets);
+  assert.equal(peak.status, "not-enough", `實際 ${peak.status}／標籤「${peak.label}」`);
+  assert.equal(peak.label, "資料不足");
+  assert.equal(peakFromBuckets([]).status, "none", "完全沒有格子時要維持 none");
 });
 
 test("空資料與無法解析的時段不會造成例外", () => {

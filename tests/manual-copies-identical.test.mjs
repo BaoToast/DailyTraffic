@@ -31,7 +31,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SYSTEM_VERSION } from "../app/system-release.ts";
@@ -68,6 +68,42 @@ test("包裡每一份手冊副本都必須來自同一次產生", () => {
     files.length > 0,
     "包裡找不到任何本版手冊——升版時可能忘了重新產生，或檔名對不上。",
   );
+
+  /*
+   * ── 份數與位置也要釘住（2026-09-25 第五輪獨立複查）──
+   *
+   * 原本只斷言「至少一份」與「所有副本雜湊相同」。少掉其中一份
+   * （例如 `manuals/` 被漏掉，而網站正是從那裡取檔）這一支照樣綠。
+   *
+   * ⚠️⚠️ **必須存在的清單只能列「交付包裡本來就有的位置」。**
+   *   第一版我把 `github-pages/dist/manuals/` 也列成必須——而 `pack.sh`
+   *   **刻意排除 `github-pages/dist`**（那是建置產物），於是這一支在
+   *   **正確的交付包上會紅**。當場被 F1 抓到。
+   *   一個會誤報的守門比沒有守門更糟，所以改成兩層：
+   *     ① 交付包一定有的兩個位置 → 無條件必須存在；
+   *     ② 只有建置過才會有的位置（`github-pages/dist/`、`dist/client/`）
+   *        → **存在才檢查**（目錄在就要有手冊），並印出為什麼跳過。
+   *   兩層都靠上面的「全部同雜湊」兜底：只要那些副本出現，walk 就會掃到它們。
+   */
+  const found = new Set(files.map((f) => relative(ROOT, f).replace(/\\/g, "/")));
+  for (const must of [`manuals/${base}.pdf`, `public/manuals/${base}.pdf`])
+    assert.ok(
+      found.has(must),
+      `交付包裡少了這一份手冊：${must}\n`
+        + `目前找到的是：\n  ${[...found].join("\n  ")}\n`
+        + "（重新產生手冊之後，交付包裡的這兩個位置一定要一起換）",
+    );
+  for (const dir of ["github-pages/dist", "dist/client"]) {
+    if (!existsSync(join(ROOT, dir))) {
+      console.log(`（${dir}/ 不在這棵樹裡——那是建置產物，交付包刻意不含它，跳過）`);
+      continue;
+    }
+    assert.ok(
+      found.has(`${dir}/manuals/${base}.pdf`),
+      `${dir}/ 存在，但底下沒有本版手冊：${dir}/manuals/${base}.pdf\n`
+        + `目前找到的是：\n  ${[...found].join("\n  ")}`,
+    );
+  }
 
   const byHash = new Map();
   for (const f of files) {

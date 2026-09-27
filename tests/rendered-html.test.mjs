@@ -13,8 +13,28 @@ import {
   surveyRoadIdFromFileName,
 } from "../app/road-identity.ts";
 
+/*
+ * ⚠️ 這一支驗的是**建置出來的 HTML**，所以它需要 `dist/server/index.js`。
+ *   那是建置產物，**刻意不放進交付包**（`pack.sh` 排除 `dist/`）。
+ *   `npm test` 本來就會先 `npm run build`，所以正常流程沒問題；
+ *   但有人單獨跑 `node --test tests/*.test.mjs` 時，原本會拋出
+ *   `ERR_MODULE_NOT_FOUND`——看到那個訊息的人不會知道「先建置就好」，
+ *   只會以為交付包壞了。（2026-09-25 第六輪在解開的交付包上實測到。）
+ *
+ * ⚠️ 刻意**不改成 skip**：這一支要驗的東西很重要，靜靜跳過就等於沒人守。
+ *   改成「紅，但訊息直接告訴你該做什麼」。
+ */
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  try {
+    await access(new URL("../dist/server/index.js", import.meta.url));
+  } catch {
+    throw new Error(
+      "找不到 dist/server/index.js。這一支驗的是**建置出來的 HTML**，" +
+        "所以必須先建置：請跑 `npm run build`（或直接 `npm test`，它本來就會先建置）。" +
+        "⚠️ dist/ 是建置產物，刻意不放進交付包，所以剛解開的包裡一定沒有它。",
+    );
+  }
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
   return worker.fetch(
@@ -91,8 +111,8 @@ test("每一頁都看得到的共用區塊：品牌、版號、工具列、篩�
     /* 篩選列（分頁之外，五頁共用） */
     "平日＋假日",
     "搜尋調查點",
-    /* 分頁導覽本身 */
-    "分頁導覽",
+    /* 分區導覽本身（aria-label；2026-09-25 第六輪：最上層叫「分區」） */
+    "分區導覽",
   ])
     assert.match(html, new RegExp(label));
   assert.doesNotMatch(html, /LOS|服務水準/);
@@ -105,7 +125,7 @@ test("每一頁都看得到的共用區塊：品牌、版號、工具列、篩�
   assert.doesNotMatch(html, /版本差異與還原/);
 });
 
-test("分頁導覽要有五顆，而且預設停在第一頁", async () => {
+test("分區導覽要有五顆，而且預設停在第一個分區", async () => {
   const response = await render();
   const html = await response.text();
   const buttons = html.match(/data-goto="zone-[a-z]+"/g) ?? [];
@@ -362,7 +382,13 @@ test("keeps configurable factors, legacy Excel and all editable chart datasets",
     "原始數量不會被改寫",
   ])
     assert.match(source, new RegExp(token));
-  assert.match(source, /type="number"\s+step="any"/);
+  /*
+   * ⚠️ 係數欄位改走共用元件 <NumberField />（A12，2026-09-23）——
+   *   原始的 `<input type="number">` 在被按空時會黏一個 0。
+   *   這一條原本比對的是原始 input 的字樣，改成比對元件的 step 屬性，
+   *   守的仍然是同一件事：係數是可以輸入小數的數字欄位。
+   */
+  assert.match(source, /<NumberField\s+step="any"/);
   assert.doesNotMatch(source, /min="0\.01" step="0\.1"/);
   // 係數不設下限：不可出現任何「必須大於 0」之類的阻擋式驗證。
   // v20.4 起允許存檔後以提示文字提醒 0／負數的風險，但不會擋下存檔，

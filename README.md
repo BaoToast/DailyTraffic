@@ -1,3 +1,148 @@
+## v20.88（2026-09-26）該說話卻說錯話的三件、交接文件的過期規則，以及交付包自己的兩個紅字
+
+⚠️ v20.88 修正了負 PCU 係數及正負抵銷時的「係數未設定」誤報；
+細格尖峰的排序仍保留原有的「沒有正 PCU 時以實際車數比較」判準，避免零車流視窗被誤報為資料不足。
+本包同時包含自 v20.81 以來未發布候選的尖峰計算修正，不能對整包概稱計算口徑未變。
+DailyTraffic 並沒有 `LAST_CALC_CHANGE_VERSION` 常數；計算變更以版本、驗證報告及回歸測試追溯。
+**v20.82～v20.87 六個候選都沒有發布**（v20.87 由 GPT 複查到一半額度用盡），
+所以這一包含的是 v20.81 之後的全部修正。
+
+- **45 分鐘一格、而且那幾格都量到 0 輛時，尖峰欄寫「—」而不是「資料不足」。**
+  判準原本是「這個日別有沒有量到車」，於是全 0 的日別整個被丟掉，呼叫端只好
+  落回「—」——而「—」在這個系統裡代表「**沒有這個日別的資料**」。
+  量到 0 輛是真實的測量值。判準已改成「這個日別有沒有時間格」。
+- **負的 PCU 當量係數被誤判成「係數全為 0」。** 合計為 0 或負數有兩種成因
+  （係數真的沒設定／＋X 與 −X 在同一筆裡抵銷），第二種會被報成
+  「當量係數等於沒有設定」，尖峰欄還會被遮成「待設定 PCU 係數」。
+- **同一件事在兩個入口各說各話**：「時段車種分析」用另一個判準，同一筆抵銷資料
+  算得出正常尖峰，而異常檢查同時說「係數全為 0」。兩端已統一改用
+  **逐車種非 0 貢獻**（`hasNonZeroVehiclePcu()`），新參數**必填、沒有預設值**。
+- **交接文件把「混用格長只警告、不改尖峰挑選」寫成現行規則**（三處，其中一處是
+  寫給下一個人的紅線）。照它做會把 v20.87 的核心修正當成未經授權的口徑變更。
+  歷史那一列保留原文並加向前指標（轉述，不是原句引用）。
+- **交付包的字面 `npm test` 會在第一步就紅**：未使用的 import 讓 `npm run lint`
+  離開碼 1；`perf-scaling` 的反證用完整紀錄物件堆到 30 萬筆而耗盡預設 heap。
+  修法**只換測資**，筆數、迴圈與門檻一個字都沒動（實測平方 95.9×、線性 7.7×）。
+- **發布守門對「內容相同、時間戳較舊」的資產出假的紅**，已改成逐位元相同就不比時間。
+- 真實調查檔在手上時才會跑的那一支檔名守門，原本會把**同一個調查點的兩次調查**
+  判成「兩個不同的點撞名」——而跨調查輪次共用名稱正是歷季趨勢串接的前提。
+  判準已改成「不同調查點撞名才是缺陷」。
+- e2e 支數更正：實際 **56 支**掛在鏈上；整條 `npm run e2e` 共 **58 個** node 步驟
+  （56 支測試 ＋ `scripts/make-samples.mjs` 產生匿名樣本 ＋ `vite build` 建置受測站台），
+  `scripts/` 底下另有 2 個不在鏈上的 `e2e-*.mjs` 檔案。
+  歷史紀錄標「當時」保留原文，另有守門逐行對帳。
+- **GPT 追加複查**：時段車種分析原本仍會把負 PCU／正負抵銷誤報成係數未設定，
+  45 分鐘零車流亦會誤寫「—」；已以產品入口反證修正。計畫清單在 IndexedDB
+  還沒讀完時不能斷言「尚無計畫」：讀取中顯示進度並停用建立、匯入及還原入口；
+  讀取失敗時常駐說明「這不代表資料不見了」。本項只改畫面與入口，不改儲存方式。
+
+## v20.87（2026-09-25）格長混用的尖峰不再逐格比大小，「資料不足」真的傳到每一個顯示與匯出的地方
+
+- **格長混用（例如全日整點、只有尖峰拆 15 分鐘）時，尖峰原本是「逐格比大小」**，
+  完全不看格長——那正是 v20.83 宣告廢掉的舊算法。判準原本看**眾數格長**，
+  而這種檔案的眾數是 60，所以整份走了舊路：實測會挑到整點那一格
+  （**少報一半、時段完全錯**），而同一個畫面的 KPI 尖峰卡走的是正確的滾動視窗，
+  **兩個答案差一倍**。判準已改成「整份是不是每一格都剛好 60 分鐘」，
+  其餘一律累計到剛好 60 分鐘；分桶的判準一併改成同一個
+  （原本混用時那幾格細格會被併進整點小時）。
+- 同一個成因也讓「2 小時一格 → 資料不足」漏掉「多數整點 ＋ 少數 2 小時」那一種。
+- **「資料不足」原本只到得了「時段車種分析」一張表。** 產品端在讀標籤之前
+  就把它丟掉了，所以 KPI 尖峰卡整塊空白、可追溯明細與 Excel 寫 `0`、
+  歷季趨勢多一個 0 的點、結論草稿寫「沒有資料」、
+  「尖峰時段位移」把它當成 00 時而噴出**假異常**。現在每一個顯示與匯出的地方
+  都必須表態（`peakPcu` 的型別改成 `number | null`，由 TypeScript 逼出所有呼叫點）。
+- 畫面上兩段「解決方式」文字原本與程式相反（「一律照實際格距標示」、
+  「本版已改成累計分鐘數所以數字是對的」）。
+- 手冊六處更正：分區導覽的位置（在左側欄，不是最上方）、已移除的「最上方標題列」、
+  尖峰時段認定的預設值、「四種時段」的列數、「上半部八個區塊」殘留一處、
+  「並列」說明框內文寫「並排」。
+- 畫面的無障礙名稱（`aria-label`）改成「分區導覽」「…底下的大分頁」。
+- 守門補強五支，含一支**我自己上一版新加、卻會在正確的交付包上紅**的
+  （手冊副本位置），詳見本包 VALIDATION 的 v20.87 段（那一份當時的檔名是 `VALIDATION_v20.87.md`，已隨版號改名）。
+
+## v20.86（2026-09-25）尖峰欄真的寫出「資料不足」、2 小時一格對齊三支口徑，加上說明與守門的更正
+
+- **「資料不足」四個字從來沒有真的顯示出來。** 手冊、本 README 與更新說明三份文件都寫著
+  「湊不滿整整一小時，那一欄會顯示『資料不足』」，而程式實際顯示的是「—」——
+  而「—」在這個系統裡本來就代表「這一格沒有資料」。同一個符號指兩件事，
+  使用者看到會判成漏調查而回去翻原始檔。現在分開講：完全沒有格子 →「—」；
+  有格子但湊不出整整一小時 →「**資料不足**」。
+- **2 小時一格原本並沒有回「資料不足」**，而是把那 2 小時的量放進尖峰欄
+  （判準是「格距 > 0 且 < 60」，120 分鐘不成立所以走另一條路）。
+  使用者 2026-09-24 已裁示三支口徑對齊到最保守的做法，現在尖峰欄（上午／下午／
+  全調查時段尖峰）會回「資料不足」。**只擋尖峰欄**——「全調查時段」是累計量，
+  照樣寫出來，單位也照實際格距標示，並由「資料異常檢查」列成「調查格距異常」。
+- 手冊的更正（逐項見 `【更新說明】請先讀我.txt`）：換電腦的章號、「還原與備份」少列了**季度改名**（它唯一的入口）、
+  支線用一個字母範圍去寫等於宣告了七支線上限、匯出區塊寫「八個」而實際 7 個、
+  「三個切換鈕」實際四個、「顯示數值」3 個選項實際 5 個、選項名「並排」實際「並列」、
+  報告文字草稿「兩種總結」實際 11 個勾選、門檻建議值算錯一項、缺號的第 19 章。
+- 畫面文字一處：「依 2022 年臺灣公路容量手冊……判定基準為 PCU」拆成兩句，
+  明寫「用 PCU 挑哪一小時是**本系統的做法**，手冊沒有規定」。
+- 交接文件兩處：仍宣告七支線上限（共四處寫法）、以及「README 還是 vinext 範本」的過期敘述。
+- 守門補強五支，其中一支是**我自己宣稱修了卻沒修**的雜湊格式檢查
+  （詳見 `VALIDATION_v20.86.md` 第四節，每一支都有反證）。
+
+## v20.85（2026-09-25）第三輪獨立複查：分區名稱、手冊的分區導覽清單、雜湊與版號
+
+- 「本季總覽」那一塊的抬頭改成與側欄一致的「一　建立與匯入」（原本寫死成舊區名
+  「一 資料匯入」，同一個分區在同一個畫面上兩個名字），並改成從 `PAGE_ZONES` 推導。
+- 刪除 `PAGE_ZONES` 裡五個沒有任何地方讀取的兩字縮寫欄位——它們讓舊命名一直有地方可抄。
+- 手冊「認識畫面」的分區導覽按鈕清單更正（原本與同一頁下面那張表自相矛盾），手冊重新產生。
+- 更新說明宣告的手冊 SHA-256 更正，並新增一支**實際重算雜湊**比對的守門
+  （原本的守門只比檔名、只認 .js/.css，雜湊從沒算過）。
+- 更新說明與驗證報告裡「兩段共用同一個版號」全部正名，並新增守門。
+- 沒有變更任何交通量、PCU 或尖峰計算。
+
+## v20.84（2026-09-24）徹底檢查收尾
+
+- **主工具列的上午／下午改為吃「橫跨中午那一小時」的答案（K40）。** 在此之前
+  「時段車種分析」吃這個答案、尖峰卡不吃，使用者答「11:45～12:45 算上午」後
+  同一畫面會出現兩個不同的「上午尖峰」。四處（`periodScoped`、篩空判斷、
+  尖峰卡、各區塊的紀錄篩選）全部改走**唯一一支** `sideOfRecord()`。
+  沒有任何跨中午答案時完全不跑那段計算，既有資料一個數字都不變。
+- **三種「已經做好處理、卻沒有把情況講出來」的異常，全部補進資料異常檢查（K42／K43／K44）。**
+  依使用者 2026-09-24 定下的通則：這類情況**先判定是不是異常**，只有他確認不是異常，
+  才套用設想好的處理方式。三項都附解決方式與「前往哪一頁處理」。
+  - **平假日涵蓋不一致**：同一調查點平日 24 小時、假日只有 6 小時這種情形。
+    涵蓋不一致時匯出改用中性單位並多一欄「調查涵蓋（本列自己的）」；
+    **涵蓋一致時完全不變**（您的 5 份真實檔平假日都是完整 24 小時，已實測）。
+  - **PCU係數全為0**：以前會**安靜地**改用車輛數挑尖峰（那會換掉尖峰是哪一小時）。
+    現在未確認前寫「待設定 PCU 係數」，確認後才改用車輛數並保留原本的處理方式。
+  - **調查涵蓋無法判斷**：時段字串解析不出起訖；標為「重新匯入」，不給「按掉」的鈕。
+
+- **湊不滿一小時一律回「資料不足」（J1）**，與路口轉向對齊；兩支共用一張
+  逐位元相同、以 SHA-256 釘住的尖峰認定對照表（10 個情境，10/10 一致）。
+- **把 7 支線講成上限這件事，程式根本沒在擋（K39）**：實測 8、9 支都建得出來，
+  標籤弧距到 10 支線還有 127px。畫面三處與**手冊兩處**改成「常見 3～7 支，不以 7 支為上限」。
+  （⚠️ 這裡原本寫「手冊三處」，實際只有兩處；2026-09-25 更正。）
+- **車種組成／時段占比補上四捨五入說明（K41）**：逐項各自四捨五入，
+  加起來可能不等於 100%；刻意不把差額塞給任何一項。
+- `buildArmSettings()` 不再就地重排呼叫端的支線代碼陣列（K38）。
+- 手冊補上尖峰小時的認定方式與「全調查時段尖峰」的資料不足條件。
+
+## v20.83（2026-09-24）調查格距三件 ＋ 可比性判準
+
+- **尖峰小時的認定由「數格數」改成「累計分鐘數」**：格長混用時舊版會少報或多報
+  （實測兩個情境：少報一半、多報 300%）。
+- **湊不滿整整一小時的視窗，尖峰欄顯示「資料不足」**（2 小時一格、45 分鐘一格都一樣）。
+  ⚠️ 這會改變畫面數字，見 `【更新說明】請先讀我.txt`。
+- **2 小時以上一格、以及同一份檔案混用兩種以上格長**，都列進資料異常清單並附解決方式。
+- **可比性判準改用鍵值而非顯示字串**（平日 07:00–11:00 與假日 17:00–21:00 都標成
+  「實測 4 小時」，顯示字串一樣但不可比）。
+- **交通量、PCU 與既有計算公式未變更**；受影響的只有格長混用或組不成整小時的資料。
+
+## v20.82（2026-09-23）
+
+Claude 三支同步大檢查修正版：異常檢查在設了季度起訖時不再吃掉「沒有季度」的整類提醒；
+六個受控數字輸入框改用共用的 `NumberField`（按空不再黏 0）；`app/road-identity.ts`
+六條檔名代號比對規則補上 `S?`（`…TS15-01-…` 的路段名稱原本會變成整個檔名，導致歷季趨勢
+靜默斷成兩截）；「顯示調查日期」開關改為保存在本機（跟人走，不進計畫備份）；
+第一張 KPI 卡的抬頭在不足 24 小時時改寫成「調查時段實際交通量」；
+時段鍵 `peak24` 改名 `allPeak` 並保留讀取端遷移（⚠️ 這一批原本標成 v20.83，
+2026-09-25 正名為 v20.82——v20.83 是 09-24 的調查格距那一批）；
+「調查日期不只一個」的導覽按鈕移除。
+**交通量、PCU 與既有計算公式未變更**，黃金值 688,205 輛／日、530,122 PCU／日不變。
+
 ## v20.81（2026-09-20）
 
 匯入與異常檢查修正版：新增路段方向名稱成對檢查、同一工作表多個調查日期的全文掃描與
@@ -16,103 +161,93 @@ GPT 風險導向複查另修正四項跨模組缺口：新異常完整接入統�
 
 大檢查修正版：畫面說明與實際行為一致、車種組成尖峰口徑、合計行移除、歷季多線、匯出修正。歷史驗證紀錄已保留於 VALIDATION_v20.80.md。
 
-# vinext-starter
+# 全日交通量及車種組成分析系統
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+瀏覽器式、單機優先的交通調查分析工具。讀取調查廠商提供的 Excel，
+算出全日交通量、PCU 當量、尖峰小時與車種組成，並產出圖表、Excel、PDF 與文字草稿。
+**沒有伺服器、不上傳資料**：原始檔只在你的瀏覽器裡解析，結果存在這台電腦的
+IndexedDB／localStorage，換電腦要靠匯出備份。
 
-## Prerequisites
+> ⚠️ **這份 README 之前是 vinext 的通用範本**（講 Cloudflare D1、ChatGPT 登入那一套），
+> 與這支程式完全無關，而且會誤導維護者去找不存在的東西。2026-09-23 改寫成這一份。
+> 更完整的技術脈絡看 `PROJECT_HANDOFF.md`，逐版驗證證據看根目錄那一份 `VALIDATION_v20.85.md`
+> （⚠️ 檔名跟著版號走，根目錄**只保留本版那一份**，有測試釘住；
+> 這兩處原本寫死成兩版前的檔名，而那個檔案不存在）。
 
-- Node.js `>=22.13.0`
+## 四個核心統計範圍（三支程式共用，不可改名）
 
-## Quick Start
+| 鍵 | 顯示名稱 | 意義 | 單位 |
+| --- | --- | --- | --- |
+| `am` | 上午尖峰小時 | 12:00 前流率最高的 1 小時 | 輛/hr、PCU/hr |
+| `pm` | 下午尖峰小時 | 12:00 後流率最高的 1 小時 | 輛/hr、PCU/hr |
+| `all` | 全調查時段 | 調查涵蓋範圍內的**累計量** | 輛／調查時段 |
+| `allPeak` | 全調查時段尖峰 | 調查涵蓋範圍內流率最高的 **1 小時** | 輛/hr、PCU/hr |
+
+⚠️ **`allPeak` 不要求 24 小時的資料。** 只做了 4 小時的調查照樣算得出
+「那 4 小時裡最忙的一小時」。不要替它加上任何涵蓋時數的門檻——
+這件事已經被誤會過一次。（舊鍵名是 `peak24`，v20.83 改名，讀取端保留遷移。）
+
+⚠️ 「**調查日**」三個字只保留給**確認滿 24 小時**的資料；不足 24 小時一律寫「調查時段」。
+
+## 主要功能
+
+- **匯入**：多檔批次匯入 `.xlsx`／`.xls`／`.xlsm`，先預覽再寫入；（⚠️ 2026-09-25 補上 `.xlsm`——畫面的 `accept` 一直都收它，README 沒寫，使用者會以為不支援而先另存成 `.xlsx`，那一步有機會改動格式與合併儲存格）欄序、重複欄名、
+  全形數字、合併儲存格與同一張表多個調查日期都有對應處理。
+- **分析**：資料檢視（KPI 卡）、時段車種分析、可追溯明細、歷季趨勢、
+  平日／假日對比、逐調查點的車種組成。
+- **參數**：PCU 當量係數與轉向當量依**計畫**分別保存，可再依
+  `季度 × 調查點` → `季度 × 全調查點` → `全季度 × 調查點` → 全計畫預設覆寫。
+- **資料異常檢查（共 12 種）**：全日量變動、PCU變動、尖峰時段位移、車種占比變動、
+  零流量時段、方向名稱不成對、調查日期不只一個、調查格距異常、調查格距混用、
+  平假日涵蓋不一致、PCU係數全為0、調查涵蓋無法判斷。
+  每一項都附「解決方式」與「前往哪一頁處理」；處置分兩類——**人工確認**
+  （可能本來就是對的，確認後不再提醒）與**重新匯入**（資料本身讀不出來，確認也沒用）。
+  確認後側欄與摘要的數字會同步減少，但清單仍留著、可以叫回來。
+  ⚠️ 其中「PCU係數全為0」會讓**尖峰欄位顯示「待設定 PCU 係數」**、
+  「平假日涵蓋不一致」會讓**匯出改用中性單位並多一欄「調查涵蓋」**——
+  這兩項會改變畫面與匯出內容，不只是提醒。
+  （⚠️ 2026-09-25 補齊：這一行原本只列 7 種，而同一份 README 的版本紀錄
+  正是在講新增那幾種，自己前後矛盾。）
+- **輸出**：Excel（含原生可編輯圖表）、PDF 手冊、PNG 圖、結論草稿與報表草稿。
+
+## 開發
+
+需要 Node.js `>= 22.18.0`（與 `package.json` 的 `engines.node` 相同）。
 
 ```bash
-npm install
-npm run dev
-npm run build
+npm install     # 安裝依賴
+npm run dev     # 本機開發
+npm test        # lint + typecheck + glyph-guard + build + 單元測試
+npm run e2e     # Playwright 端對端（⚠️ 一律依序跑，不可平行）
+npm run build:pages   # 產生 GitHub Pages 的靜態網站
 ```
 
-This starter does not use `wrangler.jsonc`.
+- 網站原始碼在 `app/`，共用契約與守門在 `tests/`。
+- `app/direction-pair.ts`、`app/chart-levels.ts`、`app/number-field.tsx`
+  與姊妹專案**逐位元相同**；要改就三支一起改。
+  真正被 SHA-256 釘住的是**契約案例表**（規定「什麼輸入該得到什麼判定」）：
+  `tests/direction-pair-contract.mjs`、`tests/chart-levels-contract.mjs`
+  （`tests/shared-contract-pins.test.mjs`）、`tests/period-input-contract.mjs`
+  （`tests/cross-system-guards.test.mjs`）、`tests/never-revert-contract.mjs`
+  （`tests/never-revert.test.mjs`），以及實作本身逐位元相同的
+  `app/number-field.tsx`（`tests/number-field-identical.test.mjs`）。
+  ⚠️ `direction-pair`／`chart-levels` 的**實作**沒有釘：交通服務水準是
+  原生 JavaScript，本來就不可能與 TypeScript 逐位元相同。三支共用的是
+  案例表，只要三支都跑得過同一張表，實作用什麼語言寫都不影響判定一致。
+- `tests/never-revert-contract.mjs` 是**不可回頭清單**：已經定案、不可以
+  改回去的事都記在那裡，`tests/never-revert.test.mjs` 會掃描原始碼把關。
 
-## Included Shape
+## 幾條不會寫在程式碼裡、但一定要知道的規則
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+- **真實調查檔不得放進任何交付包。** 測試要用真實檔時放在專案同一層的
+  `realdata/`（遞迴掃描，資料夾名稱不限），那個資料夾不進版控也不進交付包。
+- **原始碼裡不得出現委託案的實際站號或調查點名稱**，一律用示範值
+  （`A00T00-01`、`999996`～`999999`、「示範…路」）。`tests/dependency-manifest.test.mjs` 會擋。
+- **不同調查點的交通量不可相加**，那個總和不對應任何一條路的實際流量。
+- **不做 Git 歷史改寫、不重建 repository。**
 
-## Workspace Auth Headers
+## 相關文件
 
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+- `PROJECT_HANDOFF.md` — 架構、資料流、已定案的口徑與證據界線
+- `VALIDATION_v20.85.md` — 逐版驗證紀錄（累積，含歷史）；檔名跟著版號走
+- `【更新說明】請先讀我.txt` — 給使用者看的版本說明

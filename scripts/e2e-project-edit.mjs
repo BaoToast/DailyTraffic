@@ -287,6 +287,82 @@ ok(
   reloaded.map((r) => `${r.code}／${r.name}`).join("、"),
 );
 
+/*
+ * 2026-09-27：IndexedDB 尚未回覆時，空的 React 初始 state 不能被當成
+ * 「真的沒有計畫」。同一個 context 已有上面建立的計畫，可證明讀完會回來。
+ */
+await ctx.addInitScript(() => {
+  const originalOpen = indexedDB.open.bind(indexedDB);
+  let first = true;
+  indexedDB.open = (...args) => {
+    if (!first) return originalOpen(...args);
+    first = false;
+    const delayed = { result: null, error: null, onsuccess: null, onerror: null, onupgradeneeded: null };
+    setTimeout(() => {
+      const actual = originalOpen(...args);
+      actual.onupgradeneeded = () => {
+        delayed.result = actual.result;
+        delayed.onupgradeneeded?.();
+      };
+      actual.onsuccess = () => {
+        delayed.result = actual.result;
+        delayed.onsuccess?.();
+      };
+      actual.onerror = () => {
+        delayed.error = actual.error;
+        delayed.onerror?.();
+      };
+    }, 4000);
+    return delayed;
+  };
+});
+const delayedPage = await ctx.newPage();
+delayedPage.on("pageerror", (e) => errors.push(String(e.message)));
+await delayedPage.goto("http://localhost:8193/");
+await delayedPage.waitForTimeout(900);
+const pendingText = await delayedPage.locator("body").innerText();
+ok("讀取未完成時明示正在讀取", pendingText.includes("正在讀取這台電腦上的資料"));
+ok(
+  "讀取未完成時不可以斷定尚無計畫",
+  !pendingText.includes("尚無計畫") && !pendingText.includes("尚未建立計畫") && !pendingText.includes("還沒有任何計畫"),
+);
+ok("讀取期間建立入口停用", await delayedPage.getByRole("button", { name: "建立新計畫" }).isDisabled());
+ok("讀取期間匯入入口停用", await delayedPage.getByRole("button", { name: "匯入資料", exact: true }).isDisabled());
+const outputToggle = delayedPage.locator('[data-collapse-zone="zone-output"]');
+if ((await outputToggle.getAttribute("aria-expanded")) === "false") await outputToggle.click();
+await delayedPage.locator('[data-goto-page="page-backup"]').click();
+await delayedPage.locator('[data-goto-item="還原計畫"]').first().click();
+ok("讀取期間還原備份入口停用", await delayedPage.locator('input[type="file"][accept=".json,application/json"]').isDisabled());
+await delayedPage.waitForTimeout(4400);
+const recoveredText = await delayedPage.locator("body").innerText();
+ok("讀取完成後既有計畫回來，沒有卡在載入中", recoveredText.includes(NEW_NAME) && !recoveredText.includes("正在讀取這台電腦上的資料"));
+await delayedPage.close();
+
+const emptyCtx = await browser.newContext();
+const emptyPage = await emptyCtx.newPage();
+await emptyPage.goto("http://localhost:8193/");
+await emptyPage.getByText("尚無計畫，請按＋建立。").waitFor({ timeout: 10000 });
+ok("真正空的計畫清單仍顯示建立指引", await emptyPage.getByText("尚無計畫，請按＋建立。").isVisible());
+ok("正常讀完後建立入口可用", await emptyPage.getByRole("button", { name: "建立新計畫" }).isEnabled());
+await emptyCtx.close();
+
+const failedCtx = await browser.newContext();
+await failedCtx.addInitScript(() => {
+  indexedDB.open = () => {
+    const failed = { result: null, error: new Error("simulated read failure"), onsuccess: null, onerror: null, onupgradeneeded: null };
+    setTimeout(() => failed.onerror?.(), 50);
+    return failed;
+  };
+});
+const failedPage = await failedCtx.newPage();
+await failedPage.goto("http://localhost:8193/");
+await failedPage.locator(".project-load-error").waitFor({ timeout: 10000 });
+ok("讀取失敗時留下不會消失的說明", (await failedPage.locator(".project-load-error").innerText()).includes("這不代表資料不見了"));
+await failedPage.waitForTimeout(3800);
+ok("toast 消失後錯誤說明仍留在畫面", await failedPage.locator(".project-load-error").isVisible());
+ok("讀取失敗時建立入口仍停用", await failedPage.getByRole("button", { name: "建立新計畫" }).isDisabled());
+await failedCtx.close();
+
 ok("整段沒有 JS 例外", errors.length === 0, errors.join(" | "));
 
 await browser.close();

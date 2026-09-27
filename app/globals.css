@@ -338,6 +338,7 @@
 @media(max-width:900px){.quality-strip{grid-template-columns:1fr 1fr}.validation-grid{grid-template-columns:repeat(2,1fr)}.threshold-grid,.export-checks{grid-template-columns:1fr 1fr}}
 .empty-project-list{margin:8px 2px;padding:12px;border:1px dashed #b9cbd7;border-radius:9px;color:var(--muted);font-size:10px;line-height:1.5}.empty-state{margin-bottom:14px;padding:24px;border:1px dashed #94c8c5;border-radius:12px;background:#f3fbfa;text-align:center}.empty-state strong{display:block;color:var(--navy);font-size:18px}.empty-state p{max-width:650px;margin:8px auto 16px;color:var(--muted);font-size:11px;line-height:1.7}
 .offline-note{margin:0 0 12px;padding:11px 14px;border:1px solid #f0cf9f;border-radius:9px;background:#fff8ed;color:#76501d;font-size:10px;line-height:1.6}.offline-note strong{color:#a55a08}
+.project-load-error{margin:0 0 12px;padding:12px 14px;border:1px solid #d88977;border-radius:9px;background:#fff0ec;color:#742a1d;font-weight:700;line-height:1.7}
 
 /* 時段車種分析（獨立區塊） */
 .period-panel{margin-top:18px;border-color:#bcdedd}.period-panel .panel-title span{color:#0c6f70}.period-help{padding:0 18px;margin:0 0 12px}.period-help strong{color:var(--navy)}
@@ -1084,7 +1085,7 @@ table td small.survey-date{color:var(--teal);font-weight:800;margin-top:2px}.per
 .chart-with-note-main>.donut{margin-top:0}
 
 /* ══════════════════════════════════════════════════════════════════
- *  五個分頁（分頁導覽 ＋ 分頁標題）
+ *  五個分區（分區導覽 ＋ 分區標題）
  * ══════════════════════════════════════════════════════════════════
  *
  * v20.64 起這是**真的分頁**，不是同一頁的錨點。使用者的原話：
@@ -1142,7 +1143,7 @@ table td small.survey-date{color:var(--teal);font-weight:800;margin-top:2px}.per
 
 /*
  * 窄畫面：側欄變成上方的橫向列（.workspace 在 760px 以下已改成 block），
- * 分頁導覽也跟著改成可橫向捲動的一列，不佔掉整個第一屏。
+ * 分區導覽也跟著改成可橫向捲動的一列，不佔掉整個第一屏。
  */
 @media(max-width:760px){
   .side-nav{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px}
@@ -3181,3 +3182,9 @@ table td small.survey-date.muted-cell{color:#3d5563;font-weight:400}
 .chart-note-level p:last-child{margin-bottom:0}
 /* 字一多就可能出現超長的路名或數字串，一律在框內換行。 */
 .chart-note p,.chart-note-level p{overflow-wrap:anywhere;word-break:normal}
+
+/*
+ * NumberField 的提醒文字樣式（三支共用元件所需，見 app/number-field.tsx）。
+ * ⚠️ 本專案沒有通用的 .warning 樣式，這一條是元件自己帶的。
+ */
+.warning-text{color:#a96614 !important}

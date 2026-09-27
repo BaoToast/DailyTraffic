@@ -42,7 +42,7 @@ test("平日＋假日：不能標成「每日」，因為那是兩天的加總",
 test("尖峰：剛好 60 分鐘才是「/hr」", () => {
   assert.equal(cellUnitFor("count", "am", "07:15～08:15"), "輛/hr");
   assert.equal(cellUnitFor("pcu", "pm", "18:00～19:00"), "PCU/hr");
-  assert.equal(cellUnitFor("pcu", "peak24", "08:00～09:00"), "PCU/hr");
+  assert.equal(cellUnitFor("pcu", "allPeak", "08:00～09:00"), "PCU/hr");
 });
 
 test("尖峰：湊不滿一小時的視窗要講出實際長度，不能當成時率", () => {
@@ -93,8 +93,8 @@ test("同一欄的單位，畫面與匯出必須一致", async () => {
     { period: "all", hours: ["24 小時", "實測 2 小時（非 24 小時）"] },
     { period: "am", hours: ["07:00～08:00"] },
     { period: "am", hours: ["07:00～07:45"] },
-    { period: "peak24", hours: ["18:00～20:00"] },
-    { period: "peak24", hours: ["07:00～08:00", "18:00～20:00"] },
+    { period: "allPeak", hours: ["18:00～20:00"] },
+    { period: "allPeak", hours: ["07:00～08:00", "18:00～20:00"] },
   ];
   for (const metric of ["vehicles", "pcu"]) {
     for (const { period, hours } of cases) {
@@ -125,12 +125,16 @@ test("同一欄的單位，畫面與匯出必須一致", async () => {
 /*
  * 混用時間格要出警告——而且不可以誤報。
  *
- * rollingPeak 用「眾數格長」算 needed = 60 / 格長，然後**數格數**、
- * 不是累計分鐘數。「全日整點＋尖峰拆 15 分鐘」的版型會讓尖峰那一小時
- * 只取到其中一格：實測整點 100／15 分鐘格 50 的資料，真尖峰是 07 時的 200，
- * 系統卻報 00:00~01:00 的 100。總量守恆，總量檢查抓不到。
+ * ⚠️ 2026-09-25 更新：這一段原本寫著「rollingPeak 用眾數格長算
+ *   needed = 60 / 格長，然後數格數」「本版只加提醒、不改挑選邏輯」，
+ *   那是 v20.83 **之前**的狀況。使用者已於 2026-09-24 拍板，
+ *   rollingPeak 現在是**累計每一格自己的長度、只接受剛好 60 分鐘**
+ *  （湊不滿回「資料不足」），所以混用格長不會再算出非整小時的尖峰。
  *
- * 本版只加提醒、不改挑選邏輯（改了會變更計算口徑）。
+ * 那為什麼還要警告？因為**格長混用本身就是資料異常**——同一個調查點
+ * 同一天出現兩種規律的格長，通常是兩份調查表被合在一起，值得回頭確認。
+ * 警告文字也已經跟著改（不可以再說「尖峰小時以最常出現的格長為準」）。
+ *
  * 判準必須是「兩種規律的格長」，不是「格長不完全一致」——後者會把
  * 調查中間的休息時段一起誤報（路口轉向那邊實測誤報 19/55）。
  */
@@ -203,5 +207,63 @@ test("混用時間格要出警告，但休息時段與單一格長不可誤報",
     warned(shortWithGap),
     false,
     "短時段只漏一列造成的單次跳號（占 25%）不該報混用時間格",
+  );
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  「尖峰（…）」那幾個欄名不可以把單位寫死（2026-09-23 反向對帳，C 類）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 本季交通量表、可追溯明細表，以及它們的 Excel／CSV 匯出，六處欄名原本
+ * 寫死「PCU/小時」。但那幾欄的值是 peakFromBuckets 算出來的**滾動尖峰**，
+ * 視窗不保證是 60 分鐘：
+ *   ・15 分鐘細格＋中間有空檔 → 可能只湊到 45 分鐘，標成 /hr **低估 25%**
+ *   ・原始檔以 2 小時為一格     → 視窗是 120 分鐘，標成 /hr **高估一倍**
+ * 而同一個數字在結論草稿與報告草稿那邊走的是 cellUnitFor，會正確寫成
+ * 「PCU/該時段（45 分鐘）」——使用者在表格查到一種單位、在草稿看到另一種。
+ *
+ * ⚠️ 這一支是**來源掃描**，所以特別容易變成「假的綠」：
+ *   ① 把註解一起掃進去 → 上面那段說明裡就有「PCU/小時」四個字，
+ *      不剝掉註解的話這一支會永遠紅，然後被人加例外關掉。
+ *   ② 欄名被刪光時「沒找到違規」也會通過 → 所以下面有一條**對照斷言**：
+ *      至少要找到 6 個走 peakColumnUnit 的尖峰欄名。找不到就是紅的。
+ */
+test("⚠️ 畫面與匯出的「尖峰（…）」欄名一律走 peakColumnUnit，不可以寫死單位", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { dirname, join } = await import("node:path");
+  const here = dirname(fileURLToPath(import.meta.url));
+  const source = readFileSync(
+    join(here, "..", "app", "DashboardClient.tsx"),
+    "utf8",
+  )
+    /* ⚠️ 先剝註解：說明文字裡本來就會出現「PCU/小時」。 */
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+
+  const headers = [...source.matchAll(/尖峰(?:合計)?（([^）\n]*)）/g)].map(
+    (match) => match[1],
+  );
+  const derived = headers.filter((unit) => unit.includes("peakColumnUnit"));
+  const hardcoded = headers.filter((unit) =>
+    /PCU\s*\/\s*(小時|hr)|輛\s*\/\s*(小時|hr)/.test(unit),
+  );
+
+  assert.deepEqual(
+    hardcoded,
+    [],
+    `這幾個尖峰欄名把單位寫死了：${hardcoded.join("、")}\n` +
+      "滾動尖峰的視窗不保證是 60 分鐘，寫死會讓表格與草稿對同一個數字給兩種單位。\n" +
+      "請改用 peakColumnUnit（它走的是與草稿同一支 columnUnitFor／cellUnitFor）。",
+  );
+  /*
+   * 對照斷言：這一支必須真的掃到東西。
+   * 沒有這一條的話，欄名全被改名或刪掉時上面那條會安靜地通過。
+   */
+  assert.ok(
+    derived.length >= 6,
+    `只找到 ${derived.length} 個走 peakColumnUnit 的尖峰欄名（應該至少 6 個）——` +
+      "欄名改寫過了嗎？這一支現在守不到任何東西，請修這支測試而不是放著。",
   );
 });

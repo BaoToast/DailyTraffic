@@ -299,3 +299,29 @@ export function sumVehiclePcu(
     vehiclePcuByTarget(record, core, coreTurns, settings, scopes),
   ).reduce((sum, value) => sum + value, 0);
 }
+
+/**
+ * 這一筆有沒有「任何一個車種的 PCU 貢獻不是 0」。
+ *
+ * ⚠️ 這是判斷「當量係數設定過沒有」的唯一正確證據，`sumVehiclePcu()` 不是。
+ *   使用者可以把某個車種的係數設成**負數**（系統允許、也有人真的這樣用），
+ *   於是同一筆裡 +X 與 −X 互相抵銷，合計變成 0 或負數，而係數其實設好了。
+ *   拿合計去判斷會得到「係數全為 0」這個錯的結論，然後：
+ *     ・「資料異常檢查」列出「PCU係數全為0」並把尖峰欄遮成「待設定 PCU 係數」
+ *     ・「時段車種分析」那一端卻算得出正常的尖峰
+ *   同一筆資料在同一個畫面上有兩個答案（2026-09-26 抓到）。
+ *
+ * ⚠️ 用 `!== 0` 不是 `> 0`：負係數是使用者刻意設的，一樣算「設定過」。
+ * ⚠️ 先 `Number.isFinite` 擋掉 NaN／Infinity——那不是「設定過」的證據。
+ */
+export function hasNonZeroVehiclePcu(
+  record: VehicleRecordLike,
+  core: CorePcuFactors,
+  coreTurns: CoreTurnPcuFactors,
+  settings: VehicleClassSetting[],
+  scopes?: PcuScopes | null,
+) {
+  return Object.values(
+    vehiclePcuByTarget(record, core, coreTurns, settings, scopes),
+  ).some((value) => Number.isFinite(value) && Number(value) !== 0);
+}

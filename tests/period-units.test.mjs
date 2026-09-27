@@ -18,7 +18,7 @@ import test from "node:test";
 import { metricUnitFor, PERIOD_KEYS, PERIOD_LABELS } from "../app/period-analysis.ts";
 
 test("C1 尖峰欄位永遠是流率，不受任何選項影響", () => {
-  for (const period of ["peak24", "am", "pm"])
+  for (const period of ["allPeak", "am", "pm"])
     for (const separateDays of [false, true])
       for (const partial of [false, true]) {
         assert.equal(

@@ -260,6 +260,40 @@ for (const [index, label] of ["備份本計畫", "備份全部計畫", "還原�
  * ══════════════════════════════════════════════════════════════════
  */
 console.log("\n══ ④ 全部計畫的備份檔內容 ══");
+/*
+ * ⚠️ 先讓兩個計畫的 PCU 係數**不一樣**，下面的比對才有意義。
+ *
+ * 2026-09-23 的獨立複查抓到：`buildBackupPayload()` 的 pcuFactors／
+ * turnPcuFactors 原本是從外層 state 讀的，而那兩個 state 只載入**目前這個
+ * 計畫**的值。於是「備份全部計畫」時每一份 bundle 拿到的都是同一組係數，
+ * 還原之後所有計畫的 PCU 全部變成一樣——而 ⑥ 的逐筆比對**恆真**，
+ * 因為原檔與副本本來就攜帶同一組值。
+ *
+ * 換句話說：兩個計畫的係數只要相同，這支 e2e 就永遠抓不到這個缺陷。
+ * 所以這裡直接寫進 localStorage（那就是程式自己讀的地方），再重新整理。
+ */
+const projectIds = await page.evaluate(() =>
+  [...document.querySelectorAll("#projectSwitch option")].map((o) => o.value),
+);
+ok(
+  "取得兩個計畫的 id（下一條要靠它分別設定不同的係數）",
+  projectIds.length === 2,
+  projectIds.join("、"),
+);
+if (projectIds.length === 2) {
+  await page.evaluate((ids) => {
+    const key = "traffic-pcu-factors-by-project-v1";
+    const map = JSON.parse(localStorage.getItem(key) || "{}");
+    /* 四個核心車種都要給，否則 isValidPcu() 會判定無效而落回系統預設。 */
+    map[ids[0]] = { motorcycle: 0.5, small: 1, large: 2.5, special: 2 };
+    map[ids[1]] = { motorcycle: 0.5, small: 1, large: 3.5, special: 2 };
+    localStorage.setItem(key, JSON.stringify(map));
+  }, projectIds);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(3000);
+  await gotoBlock(page, "backup-all");
+  await page.waitForTimeout(600);
+}
 downloads.length = 0;
 await page
   .locator('#backup-all button:has-text("下載全部計畫備份")')
@@ -318,6 +352,23 @@ if (downloads.length === 1) {
       "兩份內容不相同（相同就代表兩份都是同一個計畫的複本）",
       JSON.stringify(a.records) !== JSON.stringify(b.records),
       failOnly("兩個計畫的 records 一模一樣"),
+    );
+    /*
+     * ⚠️ 這一條是 2026-09-23 補的，抓的是一個真的發生過的缺陷：
+     *   每一份 bundle 的 pcuFactors 都是**目前畫面上那個計畫**的係數。
+     *   上面剛剛刻意把甲設成 large=2.5、乙設成 large=3.5，
+     *   所以備份檔裡這兩個值必須不同，而且要分別對得上。
+     *
+     *   只驗「不同」不夠：兩份都錯成同一個值時「不同」會紅，
+     *   但兩份剛好互換時「不同」還是綠的。所以逐值對。
+     */
+    ok(
+      "每個計畫帶的是自己的 PCU 係數（不是目前畫面上那個計畫的）",
+      a?.pcuFactors?.large === 2.5 && b?.pcuFactors?.large === 3.5,
+      failOnly(
+        `甲 large=${a?.pcuFactors?.large}（應為 2.5）／乙 large=${b?.pcuFactors?.large}（應為 3.5）` +
+          "——兩份相同就代表 buildBackupPayload() 是從外層 state 讀係數的",
+      ),
     );
   }
 }

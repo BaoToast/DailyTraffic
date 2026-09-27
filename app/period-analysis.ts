@@ -8,6 +8,12 @@ import {
   type VehicleClassSetting,
   type VehicleRecordLike,
 } from "./vehicle-analysis.ts";
+/*
+ * ⚠️ 只取遷移函式一支。舊鍵 `peak24` → `allPeak` 的判斷只能有一份，
+ *   兩個讀取端（結論草稿範本、比較報表範本）共用它。
+ *   `app/conclusion.ts` 沒有任何 import，取它不會造成循環相依。
+ */
+import { migratePeriodKeys } from "./conclusion.ts";
 
 /*
  * 時段車種分析（依 2022 年臺灣公路容量手冊之尖峰小時概念實作）
@@ -38,20 +44,54 @@ import {
  *                能看出單一支線自己最忙的時段，但各方向不可相加。
  */
 
-export type PeriodKey = "all" | "peak24" | "am" | "pm";
+/**
+ * ══════════════════════════════════════════════════════════════════════
+ *  四個核心統計範圍（三支程式共用的定義，使用者 2026-09-21 定案）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者原話：「這 4 個名詞是我們交通調查的 4 個核心」。
+ *
+ *   鍵        顯示名稱          意義                              單位
+ *   am        上午尖峰小時      12:00 前流率最高的 1 小時          輛/hr、PCU/hr
+ *   pm        下午尖峰小時      12:00 後流率最高的 1 小時          輛/hr、PCU/hr
+ *   all       全調查時段        調查涵蓋範圍內的**累計量**         輛／調查時段
+ *   allPeak   全調查時段尖峰    調查涵蓋範圍內流率最高的 1 小時    輛/hr、PCU/hr
+ *
+ * ⚠️⚠️ **`allPeak` 絕對不要求 24 小時的資料。**
+ *   只做了 4 小時的調查照樣算得出「那 4 小時裡最忙的一小時」，
+ *   而且那個數字完全誠實。不要替它加上任何涵蓋時數的門檻。
+ *
+ * ── 這個鍵為什麼叫 allPeak（v20.83 改名紀錄）─────────────────────────
+ *
+ *   舊名是 `peak24`。名字裡的 24 是歷史包袱，而且**真的害人誤會過**：
+ *   2026-09-21 有 AI 因為看到 24 就推論「不足 24 小時要整組留空」，
+ *   差點把一個正確的設計改壞，是使用者當場擋下來的。
+ *
+ *   改名前查過兩件事：
+ *     ① 它會被寫進結論草稿範本（`traffic-conclusion-templates-v1`
+ *        → `condition.periods`），所以**改名必須配一段遷移**；
+ *     ② 使用者 2026-09-23 確認**目前還沒有任何既存範本**。
+ *   兩者都處理了：`migratePeriodKeys()` 在讀取範本時把舊的 `peak24`
+ *   換成 `allPeak`，所以就算哪一台電腦上真的存過舊範本也讀得回來。
+ *
+ * ⚠️ **不要把遷移那一段拿掉**，也不要改回 `peak24`。
+ * ⚠️ 「調查日」三個字只保留給**確認滿 24 小時**的資料。
+ *   `all` 的分母在滿 24 小時時才寫「調查日」，否則寫「調查時段」。
+ */
+export type PeriodKey = "all" | "allPeak" | "am" | "pm";
 
-export const PERIOD_KEYS: PeriodKey[] = ["all", "peak24", "am", "pm"];
+export const PERIOD_KEYS: PeriodKey[] = ["all", "allPeak", "am", "pm"];
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
   all: "全調查時段",
-  peak24: "全調查時段尖峰",
+  allPeak: "全調查時段尖峰",
   am: "上午尖峰小時",
   pm: "下午尖峰小時",
 };
 
 export const PERIOD_HINTS: Record<PeriodKey, string> = {
   all: "這份調查涵蓋的時段全部加總（24 小時的調查就是一整天）",
-  peak24: "在調查涵蓋的時段內，當量交通量最高的 1 小時",
+  allPeak: "在調查涵蓋的時段內，當量交通量最高的 1 小時",
   am: "中午 12:00 之前，當量交通量最高的 1 小時",
   pm: "中午 12:00 之後，當量交通量最高的 1 小時",
 };
@@ -193,7 +233,7 @@ export type PeriodRecord = VehicleRecordLike & {
 };
 
 import {
-  intervalMinutesOf,
+  formatRange,
   parseTimeRange,
   rollingPeak,
   surveyCoverage,
@@ -220,7 +260,10 @@ export function hourStartOf(hour: string): number {
     .match(/(\d{1,2})\s*:\s*(\d{2})/);
   if (!match) return -1;
   const value = Number(match[1]);
-  return Number.isFinite(value) && value >= 0 && value <= 24 ? value % 24 : -1;
+  /* ⚠️ 2026-09-25：拿掉恆真的 Number.isFinite。regex 的 capture 只可能是 \d，
+     `Number("07")` 一定是有限數，所以那道檢查永遠成立——真正在擋的是
+     範圍檢查。恆真的檢查比沒有檢查更糟：它讓下一個人以為這裡已經安全。 */
+  return value >= 0 && value <= 24 ? value % 24 : -1;
 }
 
 /*
@@ -268,7 +311,9 @@ export function startMinutesOf(hour: string): number {
   if (!match) return -1;
   const h = Number(match[1]);
   const m = Number(match[2]);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return -1;
+  /* ⚠️ 2026-09-25：拿掉恆真的 Number.isFinite。regex 的 capture 只可能是 \d，
+     `Number("07")` 一定是有限數，所以那道檢查永遠成立——真正在擋的是
+     範圍檢查。恆真的檢查比沒有檢查更糟：它讓下一個人以為這裡已經安全。 */
   if (h < 0 || h > 24 || m < 0 || m > 59) return -1;
   return (h % 24) * 60 + m;
 }
@@ -284,7 +329,9 @@ export function endMinutesOf(hour: string): number {
   const last = times[times.length - 1];
   const h = Number(last[1]);
   const m = Number(last[2]);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return -1;
+  /* ⚠️ 2026-09-25：拿掉恆真的 Number.isFinite。regex 的 capture 只可能是 \d，
+     `Number("07")` 一定是有限數，所以那道檢查永遠成立——真正在擋的是
+     範圍檢查。恆真的檢查比沒有檢查更糟：它讓下一個人以為這裡已經安全。 */
   if (h < 0 || h > 24 || m < 0 || m > 59) return -1;
   // 收尾位置的 24:00 與 00:00 都代表「一天的結束」。
   const clock = h * 60 + m;
@@ -380,8 +427,48 @@ export type PeriodCell = {
   pcu: number;
   /** 尖峰時段標籤；全調查時段寫實際涵蓋時數（24 小時的調查就是「24 小時」） */
   hour: string;
+  /**
+   * ══════════════════════════════════════════════════════════════════
+   *  這一格的調查涵蓋「指紋」——比可比性要用它，不可以用 hour
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * ⚠️ GPT 獨立複查 2026-09-24 抓到：草稿拿 `hour` 判斷兩筆能不能比較，
+   *   而 `hour` 是**給人看的標籤**。平日調查 07:00–11:00、假日調查
+   *   17:00–21:00 時，兩邊的 `hour` 都是「實測 4 小時（非 24 小時）」——
+   *   字串相同、檢查通過，於是草稿照樣算出差異百分比，而那兩段時間
+   *   根本不是同一段。畫面與 Excel 用的 `sameSurveyCoverage()` 比的是
+   *   **每一個連續區塊的起訖**，本來就擋住這一種，只有草稿沒擋。
+   *
+   * 這個欄位就是 `sameSurveyCoverage()` 的可序列化版本：
+   * 總分鐘數 ＋ 每一個連續區塊的起訖，順序固定。
+   * 字串相同 ⇔ `sameSurveyCoverage()` 為 true。
+   *
+   * ⚠️ 比可比性一律用這一個，**不要再拿 hour 去比**。
+   */
+  coverageKey: string;
   /** 該格是否有資料 */
   hasData: boolean;
+  /**
+   * ══════════════════════════════════════════════════════════════════
+   *  這一格有車、但 PCU 合計是 0 ＝ 當量係數等於沒設定（K43）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * ⚠️ 2026-09-24 使用者定下的通則：「針對這類假設情況，你首先要判定的是
+   *   **這是否為異常**，只有使用者確認不是異常情形，才套用你建議的處理方式」。
+   *
+   *   在此之前，`peakWindow()`／`peakBucket()` 碰到 PCU 全為 0 會**安靜地
+   *   改用車輛數**挑尖峰小時。那會改變「尖峰是哪一小時」（機車多的時段
+   *   車輛數高、PCU 低，兩者常常不是同一小時），而畫面與資料異常檢查
+   *   一個字都沒提——使用者只會看到一個看起來很正常的尖峰時段。
+   *
+   * ⚠️ 這個欄位**不改變任何計算**（尖峰仍照原本的規則挑出來），
+   *   它只是把「這一格的 PCU 其實等於沒設定」這件事講出來，讓：
+   *     ・資料異常檢查列出「PCU 當量係數全為 0」並提供「已人工確認」；
+   *     ・畫面在未確認前顯示「待設定 PCU 係數」，而不是一個可以直接
+   *       被引用的尖峰時段。
+   *   沒有讀這個欄位的舊呼叫端行為完全不變。
+   */
+  pcuUnset: boolean;
 };
 
 export type PeriodScope = {
@@ -411,7 +498,35 @@ export type PeriodRow = {
 };
 
 function emptyCell(hour: string): PeriodCell {
-  return { vehicles: {}, vehiclePcu: {}, total: 0, pcu: 0, hour, hasData: false };
+  return {
+    vehicles: {},
+    vehiclePcu: {},
+    total: 0,
+    pcu: 0,
+    hour,
+    coverageKey: "",
+    hasData: false,
+    pcuUnset: false,
+  };
+}
+
+/**
+ * 把一組時段字串壓成可比較的涵蓋指紋。
+ *
+ * ⚠️ 與 `sameSurveyCoverage()` 必須等價：字串相同 ⇔ 那一支回 true。
+ *   它比的是總分鐘數與每一個連續區塊的起訖，這裡就照那三項組字。
+ * ⚠️ 讀不到任何時段時回空字串，代表「不知道涵蓋」——呼叫端看到空字串
+ *   要當成「無法判斷可比性」，不可以當成「涵蓋相同」。
+ */
+export function coverageKeyOf(hours: Iterable<string>): string {
+  const coverage = surveyCoverage(hours);
+  if (!coverage.coveredMinutes) return "";
+  return (
+    `${coverage.coveredMinutes}m|` +
+    coverage.blocks
+      .map((block) => `${formatRange(block.start, block.end)}`)
+      .join("+")
+  );
 }
 
 /**
@@ -446,6 +561,8 @@ type HourBucket = {
   vehiclePcu: Record<string, number>;
   total: number;
   pcu: number;
+  /** 至少一個原始車種有非零 PCU；不能用合計判斷，正負可能抵銷。 */
+  hasNonzeroPcu: boolean;
   hour: string;
 };
 
@@ -459,6 +576,7 @@ function accumulate(bucket: HourBucket, record: PeriodRecord, factors: PeriodFac
   for (const [key, value] of Object.entries(pcu)) {
     bucket.vehiclePcu[key] = (bucket.vehiclePcu[key] ?? 0) + value;
     bucket.pcu += value;
+    if (Number.isFinite(value) && value !== 0) bucket.hasNonzeroPcu = true;
   }
 }
 
@@ -489,6 +607,8 @@ function fullDayLabel(buckets: HourBucket[], separateDays: boolean): string {
 
 function cellFromBuckets(buckets: HourBucket[], hourLabel: string): PeriodCell {
   const cell = emptyCell(hourLabel);
+  /* 涵蓋指紋與 hour 標籤來自同一批 bucket，兩者不可能指不同的事。 */
+  cell.coverageKey = coverageKeyOf(buckets.map((bucket) => bucket.display));
   for (const bucket of buckets) {
     for (const [key, value] of Object.entries(bucket.vehicles))
       cell.vehicles[key] = (cell.vehicles[key] ?? 0) + value;
@@ -498,6 +618,8 @@ function cellFromBuckets(buckets: HourBucket[], hourLabel: string): PeriodCell {
     cell.pcu += bucket.pcu;
   }
   cell.hasData = buckets.length > 0;
+  /* 合計為零或負數也可能是合法負係數；只有逐車種貢獻全零才是 K43。 */
+  cell.pcuUnset = cell.total > 0 && !buckets.some((bucket) => bucket.hasNonzeroPcu);
   return cell;
 }
 
@@ -529,8 +651,24 @@ function peakBucket(buckets: HourBucket[]) {
  * 並回傳視窗內的所有格子，之後由 cellFromBuckets 加總成一格。
  * 視窗不會跨越資料空隙，也不會跨越不同日別。
  */
-function peakWindow(buckets: HourBucket[], subHourly: boolean) {
-  if (!subHourly) {
+function peakWindow(buckets: HourBucket[], uniformHourly: boolean) {
+  /*
+   * ⚠️ 2026-09-25 第五輪複查：格距**超過** 60 分鐘（例如 2 小時一格）時，
+   *   原本走下面的 peakBucket()，也就是把那 2 小時的量直接放進尖峰欄。
+   *
+   *   使用者 2026-09-24 的裁示是「口徑請對齊，以路口轉向那個保守作法為主」，
+   *   而路口轉向的 rollingPeak 對 2 小時一格是**湊不出 60 分鐘 → 不給值**。
+   *   手冊、README 與更新說明三份文件也都寫著 2 小時一格會得到「資料不足」。
+   *   只有這一支程式沒對齊——而且 `app/partial-day.ts` 的註解還寫著
+   *   「2 小時一格本來就回資料不足」，那句話其實走不到（2 小時一格
+   *   `subHourly` 是 false，根本不會進 rollingPeak）。
+   *
+   * ⚠️ 只擋**尖峰**欄。「全調查時段」那一格是累計量，車輛數本身是對的，
+   *   照樣寫出來，單位也照實際格距標示（見 cellUnitFor）。
+   * ⚠️ 這一項同時會被「資料異常檢查」列成「調查格距異常」並給解決方式，
+   *   所以使用者不會只看到一個空欄位而不知道為什麼。
+   */
+  if (uniformHourly) {
     const best = peakBucket(buckets);
     return best ? { buckets: [best], label: best.display } : null;
   }
@@ -540,8 +678,11 @@ function peakWindow(buckets: HourBucket[], subHourly: boolean) {
     list.push(bucket);
     byDay.set(bucket.day, list);
   }
-  // PCU 全為 0（例如當量係數尚未設定，或使用者刻意把係數設成 0）時，
-  // 退而以車輛數決定尖峰——這與每小時路徑的 peakBucket() 行為一致。
+  /*
+   * 尖峰排序與「係數是否設定」是兩個不同問題。後者由 hasNonzeroPcu 判斷；
+   * 前者保留既有的正 PCU 可用性判準。若所有合計 PCU 都非正，仍以實際車數
+   * 排序，避免零車流視窗的 0 大於負 PCU 而被挑中、最後誤報「資料不足」。
+   */
   const anyPcu = buckets.some((bucket) => bucket.pcu > 0);
   const weightOf = (bucket: HourBucket) => (anyPcu ? bucket.pcu : bucket.total);
   let best: { buckets: HourBucket[]; label: string; value: number } | null = null;
@@ -613,6 +754,23 @@ export type PeriodAnalysisOptions = {
    *   兩邊都挑不到）。有回答時才會把那個視窗指派到使用者說的那一邊。
    */
   noonAnswers?: NoonAnswers;
+  /**
+   * 使用者已按「已人工確認」的「PCU 係數全為 0」項目（K43）。
+   * 鍵值與 noonStraddleKey 同一套：`調查點|日別`。
+   *
+   * ⚠️ **選填，而且預設是「未確認」**。使用者 2026-09-24 定下的通則：
+   *   「針對這類假設情況，你首先要判定的是**這是否為異常**，只有使用者
+   *     確認不是異常情形，才套用你建議的處理方式」。
+   *
+   *   所以 PCU 全為 0 時，**未確認之前尖峰欄位一律寫「待設定 PCU 係數」**，
+   *   不給一個看起來正常、可以直接抄進報告的時段。確認之後才沿用原本的
+   *   作法（退而以車輛數挑尖峰）。
+   *
+   * ⚠️ 只影響**尖峰**三格（allPeak／am／pm）。「全調查時段」那一格是累計的
+   *   車輛數與 PCU，車輛數本身是對的，照樣寫出來——把它也遮掉會讓使用者
+   *   連「這一季到底有沒有資料」都看不出來。
+   */
+  pcuUnsetConfirmed?: Record<string, boolean>;
 };
 
 /**
@@ -647,6 +805,7 @@ export function buildPeriodAnalysis(
     scopeNameFor,
     peakScope = "point",
     noonAnswers,
+    pcuUnsetConfirmed,
   } = options;
   /*
    * 每一個調查點各自判斷「時間格是不是不足一小時」。
@@ -662,12 +821,48 @@ export function buildPeriodAnalysis(
     list.push(record.hour ?? "");
     hoursByRoad.set(record.roadId, list);
   }
-  const subHourlyByRoad = new Map<string, boolean>();
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  ⚠️ 2026-09-25 第六輪獨立複查：判準由「眾數格長」改成
+   *     「**整份是不是都剛好 60 分鐘一格**」
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 舊判準是 `intervalMinutesOf()`（**眾數**）：
+   *   ・眾數 < 60 → 走滾動視窗（對）
+   *   ・眾數 == 60 → 走 `peakBucket()`（逐格比大小，**完全不看格長**）
+   *   ・眾數 > 60 → 不給值
+   *
+   * 於是「全日整點每格 100、只有 07–09 拆成 15 分鐘每格 50」這種**格長混用**
+   * 的檔案，眾數是 60（22 格整點 vs 8 格 15 分鐘），走 `peakBucket()` 挑到
+   * `00:00～01:00` 的 100——而真尖峰是 07:00–08:00 的 200。
+   * **少報一半、時段完全錯**，而那正是 v20.83 的更新說明拿來當「已修」證據
+   * 的同一個例子。同一份資料 KPI 尖峰卡走 `rollingPeak()` 得到 200，
+   * **同一個畫面上兩個答案差一倍**。
+   *
+   * 「眾數 > 60 才不給值」也同樣漏：「20 格整點 ＋ 2 格 2 小時」眾數是 60，
+   * 於是那個 2 小時格會被挑成尖峰、單位寫成「該時段（120 分鐘）」——
+   * 而手冊寫的是無條件的「2 小時一格會顯示資料不足」。
+   *
+   * 新判準：**每一格都剛好 60 分鐘**才走取單格那條路（那條路在這種資料上
+   * 與滾動視窗同解，而且保留既有的同值取較早行為）；其餘一律走滾動視窗，
+   * 由它「累計到剛好 60 分鐘、湊不滿就不給值」統一處理
+   * 15／20／30 分鐘、45 分鐘、2 小時、以及任何混用。
+   * `oversized` 這個旗標因此不再需要——2 小時一格走滾動視窗自然湊不出 60。
+   */
+
+  const uniformHourlyByRoad = new Map<string, boolean>();
   for (const [roadId, hours] of hoursByRoad) {
-    const minutes = intervalMinutesOf(hours);
-    subHourlyByRoad.set(roadId, minutes > 0 && minutes < 60);
+    const lengths = hours
+      .map((hour) => parseTimeRange(hour))
+      .filter((range): range is NonNullable<typeof range> => Boolean(range))
+      .map((range) => range.end - range.start);
+    uniformHourlyByRoad.set(
+      roadId,
+      lengths.length > 0 && lengths.every((length) => length === 60),
+    );
   }
-  const isSubHourly = (roadId: string) => subHourlyByRoad.get(roadId) ?? false;
+  /** `true` ＝ 這個調查點每一格都剛好 60 分鐘（可以直接取最大的那一格）。 */
+  const isUniformHourly = (roadId: string) => uniformHourlyByRoad.get(roadId) ?? false;
   type ScopeState = {
     roadId: string;
     roadName: string;
@@ -729,7 +924,13 @@ export function buildPeriodAnalysis(
     // 每小時一列的資料以「起始小時」分桶（維持原本行為）；
     // 15 分鐘一格的部分時段調查則必須保留每一格，之後才能用滾動視窗求尖峰，
     // 若也併成整點小時，就只會得到固定時鐘區間的結果而不是真正的尖峰小時。
-    const subHourly = isSubHourly(record.roadId);
+    /*
+     * ⚠️ 2026-09-25 第六輪：這裡原本用「眾數格長 < 60」決定要不要保留每一格。
+     *   格長混用而眾數是 60 時（整點多、只有尖峰拆 15 分鐘），
+     *   **八格 15 分鐘會被併進整點小時**，於是下游不論走哪一條路都看不到細格，
+     *   尖峰自然錯。判準改成「整份都剛好 60 分鐘才併」。
+     */
+    const subHourly = !isUniformHourly(record.roadId);
     const range = parseTimeRange(record.hour);
     const startMinutes = subHourly
       ? (range?.start ?? hourStartOf(record.hour) * 60)
@@ -752,6 +953,7 @@ export function buildPeriodAnalysis(
         vehiclePcu: {},
         total: 0,
         pcu: 0,
+        hasNonzeroPcu: false,
         hour: record.hour,
       };
       state.hours.set(label, bucket);
@@ -947,7 +1149,7 @@ export function buildPeriodAnalysis(
       if (state.scopeCode !== "ALL") continue;
       const buckets = sortedBucketsOf(state);
       const pick = (list: HourBucket[]): WindowPick | undefined => {
-        const window = peakWindow(list, isSubHourly(state.roadId));
+        const window = peakWindow(list, isUniformHourly(state.roadId));
         if (!window) return undefined;
         return {
           labels: new Set(window.buckets.map((bucket) => bucket.label)),
@@ -958,10 +1160,10 @@ export function buildPeriodAnalysis(
        * 使用者說某個跨中午的視窗算上午（或下午）時，它就直接當那一邊的
        * 尖峰——前提是它比那一邊原本挑到的還大（不然指派過去反而把尖峰改小）。
        */
-      const straddles = straddleWindowsOf(buckets, isSubHourly(state.roadId));
+      const straddles = straddleWindowsOf(buckets, !isUniformHourly(state.roadId));
       const sides = noonSides(state.roadId, straddles, noonAnswers);
       pointWindows.set(windowKeyOf(state), {
-        peak24: pick(buckets),
+        allPeak: pick(buckets),
         am: sides.pickFor(
           "am",
           pick(
@@ -1010,9 +1212,68 @@ export function buildPeriodAnalysis(
         label: pick.label,
       };
     };
-    const scopeSubHourly = isSubHourly(state.roadId);
+    const scopeSubHourly = !isUniformHourly(state.roadId);
+    const scopeUniformHourly = isUniformHourly(state.roadId);
+    /*
+     * ── K43：PCU 全為 0 且未經確認時，尖峰格寫「待設定 PCU 係數」──
+     *
+     * 使用者 2026-09-24 的通則：這類情況先判定是不是異常，**只有使用者確認
+     * 不是異常，才套用設想好的處理方式**。原本的處理方式是「PCU 全為 0 就
+     * 退而以車輛數挑尖峰」，那會改變「尖峰是哪一小時」（機車多的時段車輛數高、
+     * PCU 低），而畫面上完全看不出來。
+     *
+     * ⚠️ 只遮**尖峰**三格。「全調查時段」那一格是累計量，車輛數本身是對的，
+     *   照樣寫出來——把它也遮掉會讓使用者連「這一季有沒有資料」都看不出來。
+     * ⚠️ 判斷用這一列自己的格子（`buckets`），不是整批：PCU 係數是逐調查點
+     *   覆寫的，某一個調查點沒設定不代表別人也沒設定。
+     * ⚠️ `hasData: false`，所以下游（草稿、Excel、比較）會一律當成「沒有可用
+     *   數值」而不是 0——與「湊不滿一小時→資料不足」同一種處理。
+     */
+    const pcuUnsetHere =
+      buckets.some((bucket) => bucket.total > 0) &&
+      !buckets.some((bucket) => bucket.hasNonzeroPcu);
+    const pcuUnsetAcked = Boolean(
+      pcuUnsetConfirmed?.[noonStraddleKey(state.roadId, state.dayType ?? "")],
+    );
+    const peakCell = (
+      window: { buckets: HourBucket[]; label: string } | null,
+      /*
+       * 判斷「沒資料」還是「湊不出一小時」要看**這一格自己的範圍**：
+       * 上午那一格要看上午的格子，不是整天的。預設為整天（全調查時段尖峰）。
+       */
+      scopeBuckets: HourBucket[] = buckets,
+    ): PeriodCell => {
+      if (pcuUnsetHere && !pcuUnsetAcked) {
+        const cell = emptyCell("待設定 PCU 係數");
+        cell.pcuUnset = true;
+        return cell;
+      }
+      /*
+       * ⚠️ 2026-09-25 第五輪複查：原本一律 `emptyCell("—")`，而「—」在這個
+       *   系統裡代表「這一格沒有資料」（手冊第 17 章就是這樣寫的）。
+       *   於是同一個符號指兩件事：沒調查／有資料但湊不出整整一小時。
+       *   使用者看到「—」會判成漏調查而回去翻原始檔。
+       *   三份文件都寫著「那一欄會顯示『資料不足』」，而那四個字從來沒有
+       *   真的顯示出來——這一版讓它真的寫出來。
+       */
+      if (window) return cellFromBuckets(window.buckets, window.label);
+      const hasAnyData = (list: HourBucket[]) =>
+        list.some((bucket) => bucket.pcu > 0 || bucket.total > 0);
+      /* 實測零車流量也是資料；先以同一視窗算法確認是否湊滿一小時。 */
+      const hasCompleteHour = scopeBuckets.length > 0 && Boolean(
+        peakWindow(
+          scopeBuckets.map((bucket) => ({ ...bucket, total: 1, pcu: 1 })),
+          scopeUniformHourly,
+        ),
+      );
+      return emptyCell(
+        hasAnyData(scopeBuckets) || (scopeBuckets.length > 0 && !hasCompleteHour)
+          ? "資料不足"
+          : "—",
+      );
+    };
     const peak =
-      applyShared("peak24", buckets) ?? peakWindow(buckets, scopeSubHourly);
+      applyShared("allPeak", buckets) ?? peakWindow(buckets, scopeUniformHourly);
     /*
      * ⚠️ 這一段在 point 模式下不會執行（applyShared 已經給了答案，而且那個
      *   答案是調查點層級算好、各方向共用的——各方向必須在同一個視窗裡取值，
@@ -1041,7 +1302,7 @@ export function buildPeriodAnalysis(
       applyAnswer(
         peakWindow(
           morning.filter((bucket) => !ownSides.blocked.am.has(bucket.label)),
-          scopeSubHourly,
+          scopeUniformHourly,
         ),
         "am",
       );
@@ -1050,7 +1311,7 @@ export function buildPeriodAnalysis(
       applyAnswer(
         peakWindow(
           afternoon.filter((bucket) => !ownSides.blocked.pm.has(bucket.label)),
-          scopeSubHourly,
+          scopeUniformHourly,
         ),
         "pm",
       );
@@ -1073,9 +1334,9 @@ export function buildPeriodAnalysis(
         // 07:00~09:00、17:00~19:00 的部分時段案件也照樣標成 24 小時，
         // 使用者會誤以為那是完整的全日量並直接拿去跟別季比較。
         all: cellFromBuckets(buckets, fullDayLabel(buckets, separateDays)),
-        peak24: peak ? cellFromBuckets(peak.buckets, peak.label) : emptyCell("—"),
-        am: amPeak ? cellFromBuckets(amPeak.buckets, amPeak.label) : emptyCell("—"),
-        pm: pmPeak ? cellFromBuckets(pmPeak.buckets, pmPeak.label) : emptyCell("—"),
+        allPeak: peakCell(peak, buckets),
+        am: peakCell(amPeak, morning),
+        pm: peakCell(pmPeak, afternoon),
       },
     });
   }
@@ -1095,17 +1356,17 @@ export function buildPeriodAnalysis(
   for (const state of scopes.values()) {
     if (state.scopeCode !== "ALL") continue;
     const buckets = sortedBucketsOf(state);
-    const subHourly = isSubHourly(state.roadId);
+    const subHourly = !isUniformHourly(state.roadId);
     const windows = straddleWindowsOf(buckets, subHourly);
     for (const [day, window] of windows) {
       const sameDay = (bucket: HourBucket) => bucket.day === day;
       const amBest = peakWindow(
         buckets.filter((bucket) => sameDay(bucket) && isMorningHour(bucket.hour)),
-        subHourly,
+        isUniformHourly(state.roadId),
       );
       const pmBest = peakWindow(
         buckets.filter((bucket) => sameDay(bucket) && isAfternoonHour(bucket.hour)),
-        subHourly,
+        isUniformHourly(state.roadId),
       );
       const amValue = amBest ? weightSum(amBest.buckets) : 0;
       const pmValue = pmBest ? weightSum(pmBest.buckets) : 0;
@@ -1122,7 +1383,7 @@ export function buildPeriodAnalysis(
        *   改用「是不是這一天最忙的一小時」就兩種來源都涵蓋：
        *   15 分鐘滾動湊出來的 11:45–12:45、以及原始檔自己寫的 11:30～12:30。
        */
-      const dayBest = peakWindow(buckets.filter(sameDay), subHourly);
+      const dayBest = peakWindow(buckets.filter(sameDay), isUniformHourly(state.roadId));
       const dayValue = dayBest ? weightSum(dayBest.buckets) : 0;
       if (window.value < dayValue - 1e-9) continue;
       straddles.push({
@@ -1214,8 +1475,20 @@ export function normalizePeriodExportSelection(
   const base = defaultPeriodExportSelection();
   if (!value || typeof value !== "object") return base;
   const raw = value as Partial<PeriodExportSelection>;
+  /*
+   * ⚠️ 2026-09-23 修正：這裡原本直接用 `PERIOD_KEYS.includes()` 過濾。
+   *   `peak24` 在 v20.83 改名成 `allPeak`，而**比較報表範本**
+   *   （`comparisonReports[].periodExport.periods`）存的是同一組鍵值。
+   *   直接過濾的話，舊範本裡的 `"peak24"` 會被**無聲丟掉**——而且因為
+   *   陣列裡通常還有別的元素，也不會落到 `base.periods` 的退路，
+   *   使用者只會發現「全調查時段尖峰」那一項不見了。
+   *
+   *   結論草稿範本那一端早就走 `migratePeriodKeys()`；這一端是
+   *   **同一個鍵值的第二個讀取端**，漏了就只修了一半。
+   *   兩端共用同一支遷移函式，不要在這裡另外抄一份判斷。
+   */
   const periods = Array.isArray(raw.periods)
-    ? raw.periods.filter((key): key is PeriodKey => PERIOD_KEYS.includes(key as PeriodKey))
+    ? migratePeriodKeys(raw.periods)
     : base.periods;
   const metrics = Array.isArray(raw.metrics)
     ? raw.metrics.filter((key): key is MetricKey => METRIC_KEYS.includes(key as MetricKey))
@@ -1288,10 +1561,22 @@ export function buildPeriodExportSheets(
           }）`,
       ),
     );
+  /*
+   * ⚠️ 2026-09-25 第六輪獨立複查：這一段原本對每一格都寫出一個數字，
+   *   而「資料不足」「待設定 PCU 係數」「沒有資料」這三種格子的
+   *   `vehicles`／`vehiclePcu` 都是空物件，於是 Excel 裡每一欄都寫 **0**——
+   *   而畫面上同一格印的是「—」。讀 Excel 的人會把它當成
+   *   「那一小時一台車都沒有」，而旁邊的「分析時段」欄寫著「資料不足」，
+   *   兩欄互相矛盾。
+   *   現在 `hasData === false` 的格子一律寫 `null`（Excel／CSV 是空格），
+   *   由「分析時段」那一欄說明原因。
+   */
   const metricValues = (row: PeriodRow, period: PeriodKey) =>
     metrics.flatMap((metric) =>
       catalog.map((item) => {
-        const value = periodCellValue(row.periods[period], item.key, metric);
+        const cell = row.periods[period];
+        if (!cell.hasData) return null;
+        const value = periodCellValue(cell, item.key, metric);
         return metric === "share"
           ? Number(value.toFixed(2))
           : Number(value.toFixed(metric === "pcu" ? 1 : 0));

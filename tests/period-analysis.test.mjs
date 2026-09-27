@@ -6,6 +6,7 @@ import {
   defaultPeriodExportSelection,
   hourStartOf,
   metricUnitFor,
+  noonStraddleKey,
   normalizePeriodExportSelection,
   periodCellValue,
   shareOf,
@@ -68,7 +69,7 @@ test("上午尖峰只看12點前、下午尖峰只看12點後，且以PCU判定"
   assert.equal(combined.periods.am.pcu, 350);
   assert.equal(combined.periods.pm.hour, "18:00～19:00");
   assert.equal(combined.periods.pm.pcu, 600);
-  assert.equal(combined.periods.peak24.hour, "18:00～19:00");
+  assert.equal(combined.periods.allPeak.hour, "18:00～19:00");
   // 這份測資只有 4 個小時，「全日」欄位就必須說清楚是實測 4 小時，
   // 不能一律寫成 24 小時讓人誤以為是完整全日量。
   assert.equal(combined.periods.all.hour, "實測 4 小時（非 24 小時）");
@@ -360,7 +361,7 @@ test("全日欄位的單位是每日，尖峰欄位才是每小時", () => {
   assert.equal(metricUnitFor("pcu", "all"), "PCU/日");
   assert.equal(metricUnitFor("count", "all"), "輛/日");
   assert.equal(metricUnitFor("pcu", "am"), "PCU/hr");
-  assert.equal(metricUnitFor("count", "peak24"), "輛/hr");
+  assert.equal(metricUnitFor("count", "allPeak"), "輛/hr");
   assert.equal(metricUnitFor("share", "all"), "%");
   const sheets = buildPeriodExportSheets(
     buildPeriodRows([roadRow("08:00～09:00", "A", { small: 100 })], { factors }),
@@ -414,7 +415,7 @@ test("同一小時用不同分隔符寫也算同一個時段", () => {
     { factors },
   );
   const all = rows.find((row) => row.scopeCode === "ALL");
-  assert.equal(all.periods.peak24.pcu, 190, "兩份檔案的同一小時要合併計算");
+  assert.equal(all.periods.allPeak.pcu, 190, "兩份檔案的同一小時要合併計算");
 });
 
 test("時段字串無法解析的資料不納入分析", () => {
@@ -427,7 +428,7 @@ test("時段字串無法解析的資料不納入分析", () => {
   );
   const all = rows.find((row) => row.scopeCode === "ALL");
   assert.equal(all.periods.all.total, 10);
-  assert.equal(all.periods.peak24.hour, "07:00～08:00");
+  assert.equal(all.periods.allPeak.hour, "07:00～08:00");
 });
 
 test("完全沒有車流時不會拿第一筆冒充尖峰", () => {
@@ -436,18 +437,120 @@ test("完全沒有車流時不會拿第一筆冒充尖峰", () => {
     { factors },
   );
   const all = rows.find((row) => row.scopeCode === "ALL");
-  assert.equal(all.periods.peak24.hour, "—");
+  assert.equal(all.periods.allPeak.hour, "—");
   assert.equal(all.periods.am.hour, "—");
   assert.equal(all.periods.pm.hour, "—");
 });
 
-test("當量係數尚未設定（PCU 全為 0）時改以車輛數判定尖峰", () => {
-  const zero = { core: { motorcycle: 0, small: 0, large: 0, special: 0 }, coreTurns, settings: [] };
-  const rows = buildPeriodRows(
-    [roadRow("07:00～08:00", "A", { small: 10 }), roadRow("09:00～10:00", "A", { small: 90 })],
-    { factors: zero },
-  );
-  assert.equal(rows.find((row) => row.scopeCode === "ALL").periods.am.hour, "09:00～10:00");
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  K43（2026-09-24）：PCU 全為 0 要先當成異常，確認後才退回車輛數
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者定下的通則：
+ *   「針對這類假設情況，你首先要判定的是**這是否為異常**，只有使用者確認
+ *     不是異常情形，才套用你建議的處理方式，這個邏輯請你一定要懂」
+ *
+ * 在此之前，PCU 全為 0 時系統會**安靜地**改用車輛數挑尖峰。那會改變
+ * 「尖峰是哪一小時」（機車多的時段車輛數高、PCU 低，兩者常常不是同一小時），
+ * 而畫面與資料異常檢查一個字都沒提——使用者只會看到一個看起來很正常的時段，
+ * 而且可以直接抄進報告。
+ *
+ * ⚠️ 這一組兩項要一起看：退回車輛數這個**處理方式本身保留**（第二項在守），
+ *   改的只是「什麼時候才可以套用它」。只留第二項，等於改版沒發生；
+ *   只留第一項，等於把一個有用的處理方式整個拿掉。
+ */
+const ZERO_FACTORS = {
+  core: { motorcycle: 0, small: 0, large: 0, special: 0 },
+  coreTurns,
+  settings: [],
+};
+const ZERO_ROWS = [
+  roadRow("07:00～08:00", "A", { small: 10 }),
+  roadRow("09:00～10:00", "A", { small: 90 }),
+];
+
+test("⚠️ K43 未確認時：PCU 全為 0 的尖峰格寫「待設定 PCU 係數」，不給時段", () => {
+  const cell = buildPeriodRows(ZERO_ROWS, { factors: ZERO_FACTORS }).find(
+    (row) => row.scopeCode === "ALL",
+  ).periods.am;
+  assert.equal(cell.hour, "待設定 PCU 係數");
+  assert.equal(cell.hasData, false, "要當成「沒有可用數值」，不是 0");
+  assert.equal(cell.pcuUnset, true);
+});
+
+test("⚠️ K43 未確認時：「全調查時段」那一格照樣寫得出車輛數（不可以連它一起遮）", () => {
+  /*
+   * 遮掉它會讓使用者連「這一季到底有沒有資料」都看不出來。
+   * 全調查時段是累計量，車輛數本身是對的。
+   */
+  const cell = buildPeriodRows(ZERO_ROWS, { factors: ZERO_FACTORS }).find(
+    (row) => row.scopeCode === "ALL",
+  ).periods.all;
+  assert.equal(cell.total, 100);
+  assert.equal(cell.hasData, true);
+  assert.equal(cell.pcuUnset, true, "旗標仍要是 true，異常檢查才列得出來");
+});
+
+test("⚠️ K43 已確認之後：才改以車輛數判定尖峰（原本的處理方式保留）", () => {
+  /*
+   * ⚠️ 鍵值與 noonAnswers 同一套（`調查點|日別`），而且有同一個陷阱：
+   *   `separateDays` 為 false 時，列本身不帶日別（state.dayType 是空字串），
+   *   所以要查的是**共用鍵** `R1|`；分日別時才是 `R1|平日`。
+   *   畫面層（DashboardClient）對 noonAnswers 就是兩個鍵都寫，這裡沿用同一個契約。
+   *   只驗一種的話，真正在用的那一種可能是壞的而測試照樣綠。
+   */
+  const acked = (key) =>
+    buildPeriodRows(ZERO_ROWS, {
+      factors: ZERO_FACTORS,
+      separateDays: key.endsWith("平日"),
+      pcuUnsetConfirmed: { [key]: true },
+    }).find((row) => row.scopeCode === "ALL").periods.am;
+
+  const shared = acked(noonStraddleKey("R1", ""));
+  assert.equal(shared.hour, "09:00～10:00", "不分日別時要吃共用鍵 R1|");
+  assert.equal(shared.hasData, true);
+
+  const perDay = acked(noonStraddleKey("R1", "平日"));
+  /* 分日別時標籤本來就會帶日別前綴（「平日 09:00～10:00」），這不是遮罩。 */
+  assert.equal(perDay.hour, "平日 09:00～10:00", "分日別時要吃 R1|平日");
+  assert.equal(perDay.hasData, true);
+});
+
+test("⚠️ K43 不可以誤傷：PCU 正常時尖峰照舊，pcuUnset 為 false", () => {
+  const cell = buildPeriodRows(ZERO_ROWS, { factors }).find(
+    (row) => row.scopeCode === "ALL",
+  ).periods.am;
+  assert.equal(cell.hour, "09:00～10:00");
+  assert.equal(cell.pcuUnset, false);
+});
+
+test("負的自訂 PCU 係數不可誤報為『PCU 係數全為 0』", () => {
+  const negativeFactors = { core: { ...core, small: -1 }, coreTurns, settings: [] };
+  const cell = buildPeriodRows([roadRow("07:00～08:00", "A", { small: 10 })], {
+    factors: negativeFactors,
+  }).find((row) => row.scopeCode === "ALL").periods.all;
+  assert.equal(cell.pcu, -10);
+  assert.equal(cell.pcuUnset, false);
+  const peak = buildPeriodRows([roadRow("07:00～08:00", "A", { small: 10 })], {
+    factors: negativeFactors,
+  }).find((row) => row.scopeCode === "ALL").periods.allPeak;
+  assert.notEqual(peak.hour, "待設定 PCU 係數");
+});
+
+test("正負 PCU 抵銷為零也不可誤報為所有係數都零", () => {
+  const mixedFactors = { core: { ...core, large: -1 }, coreTurns, settings: [] };
+  const cell = buildPeriodRows(
+    [roadRow("07:00～08:00", "A", { small: 10, large: 10 })],
+    { factors: mixedFactors },
+  ).find((row) => row.scopeCode === "ALL").periods.all;
+  assert.equal(cell.pcu, 0);
+  assert.equal(cell.pcuUnset, false);
+  const peak = buildPeriodRows(
+    [roadRow("07:00～08:00", "A", { small: 10, large: 10 })],
+    { factors: mixedFactors },
+  ).find((row) => row.scopeCode === "ALL").periods.allPeak;
+  assert.notEqual(peak.hour, "待設定 PCU 係數");
 });
 
 test("同名調查點的列會各自成群，合計列緊接著自己的方向", () => {
@@ -504,4 +607,204 @@ test("匯出設定會保存尖峰時段認定與路口流量視角，且能被�
   const bogus = normalizePeriodExportSelection({ peakScope: "亂寫", flowView: 123 });
   assert.equal(bogus.peakScope, "follow");
   assert.equal(bogus.flowView, "follow");
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 產品路徑上的「資料不足」（2026-09-25 第五輪獨立複查）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 第五輪抓到兩件事，兩件都是「契約測試綠、產品行為相反」：
+ *
+ *  ① `tests/peak-hour-contract.test.mjs` 驗的是 `rollingPeak()`，
+ *     而 **2 小時一格根本走不到 rollingPeak**——`subHourly` 的判準是
+ *     「格距 > 0 且 < 60」，120 分鐘是 false，於是走 `peakBucket()`
+ *     直接取那一格，把 2 小時的量放進尖峰欄。
+ *     手冊、README 與更新說明三份文件都寫著 2 小時一格會得到「資料不足」。
+ *  ② 湊不出一小時時，欄位標籤原本是「—」，而「—」在這個系統裡代表
+ *     「這一格沒有資料」（手冊第 17 章）。同一個符號指兩件事。
+ *
+ * 所以這一支**從產品入口**（buildPeriodRows）驗，不是驗底層函式。
+ */
+test("⚠️ 2 小時一格：尖峰欄要「資料不足」，全調查時段照樣算得出來", () => {
+  const rows = buildPeriodRows(
+    [
+      roadRow("07:00～09:00", "A", { motorcycle: 100, small: 100 }),
+      roadRow("09:00～11:00", "A", { motorcycle: 100, small: 200 }),
+      roadRow("15:00～17:00", "A", { motorcycle: 100, small: 300 }),
+    ],
+    { factors },
+  );
+  const combined = rows.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined, "抓不到合計那一列");
+  for (const key of ["allPeak", "am", "pm"])
+    assert.equal(
+      combined.periods[key].hour,
+      "資料不足",
+      `${key} 那一格寫的是「${combined.periods[key].hour}」——`
+        + "2 小時一格湊不出整整一小時，不可以把 2 小時的量放進尖峰欄",
+    );
+  /* 反過來：累計量本身是對的，不可以連它一起遮掉。 */
+  assert.ok(
+    combined.periods.all.total > 0,
+    "「全調查時段」是累計量，車輛數本身是對的，不可以一起變成資料不足",
+  );
+});
+
+test("⚠️ 前置：整點一格（剛好 60 分鐘）不可以被上一條連帶弄壞", () => {
+  const rows = buildPeriodRows(
+    [
+      roadRow("07:00～08:00", "A", { motorcycle: 100, small: 100 }),
+      roadRow("08:00～09:00", "A", { motorcycle: 100, small: 300 }),
+      roadRow("15:00～16:00", "A", { motorcycle: 100, small: 500 }),
+    ],
+    { factors },
+  );
+  const combined = rows.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined);
+  assert.equal(combined.periods.am.hour, "08:00～09:00");
+  assert.equal(combined.periods.pm.hour, "15:00～16:00");
+});
+
+test("⚠️ 45 分鐘一格：尖峰欄是「資料不足」，不是「—」", () => {
+  const rows = buildPeriodRows(
+    [
+      roadRow("07:00～07:45", "A", { motorcycle: 100, small: 100 }),
+      roadRow("07:45～08:30", "A", { motorcycle: 100, small: 200 }),
+    ],
+    { factors },
+  );
+  const combined = rows.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined);
+  assert.equal(
+    combined.periods.allPeak.hour,
+    "資料不足",
+    "有資料、只是湊不出整整一小時——要與「沒有資料」分開講",
+  );
+});
+
+test("45 分鐘零車流紀錄在時段分析仍是資料不足", () => {
+  const rows = buildPeriodRows([roadRow("07:00～07:45", "A", { small: 0 })], { factors });
+  const combined = rows.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined);
+  assert.equal(combined.periods.allPeak.hour, "資料不足");
+  assert.equal(combined.periods.am.hour, "資料不足");
+  assert.equal(combined.periods.pm.hour, "—");
+});
+
+test("負 PCU 細格與零車流完整時段並存時，不可誤說資料不足", () => {
+  const rows = [0, 15, 30, 45, 60, 75, 90, 105].map((minute) => {
+    const start = 7 * 60 + minute;
+    const end = start + 15;
+    const stamp = (value) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+    return roadRow(`${stamp(start)}～${stamp(end)}`, "A", { small: minute < 60 ? 10 : 0 });
+  });
+  const negativeFactors = { core: { ...core, small: -1 }, coreTurns, settings: [] };
+  const peak = buildPeriodRows(rows, { factors: negativeFactors })
+    .find((row) => row.scopeCode === "ALL").periods.allPeak;
+  assert.notEqual(peak.hour, "資料不足", "已有完整 60 分鐘且量到車，不能因零車流視窗權重較高就丟掉尖峰");
+  assert.equal(peak.hasData, true);
+});
+
+test("⚠️ 反過來也要成立：那一段完全沒有資料時仍然是「—」", () => {
+  /*
+   * 只有上午有資料時，下午那一格是「沒有資料」，不是「湊不出一小時」。
+   * 少了這一條，把「—」整個換成「資料不足」也會過。
+   */
+  const rows = buildPeriodRows(
+    [
+      roadRow("07:00～08:00", "A", { motorcycle: 100, small: 100 }),
+      roadRow("08:00～09:00", "A", { motorcycle: 100, small: 300 }),
+    ],
+    { factors },
+  );
+  const combined = rows.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined);
+  assert.equal(combined.periods.pm.hour, "—", "下午完全沒有資料，要維持「—」");
+});
+
+test("⚠️ 格長混用（整點 ＋ 尖峰拆 15 分鐘）：尖峰要走累計分鐘數，不可以逐格比大小", () => {
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  第六輪獨立複查抓到的最嚴重一件
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 舊判準是「眾數格長 < 60 才走滾動視窗」。這一份資料的眾數是 60
+   * （整點格比 15 分鐘格多），所以走的是 `peakBucket()`——逐格比大小、
+   * 完全不看格長，於是挑到整點那一格 100，而真尖峰是 07:00–08:00 的 200。
+   * **少報一半、時段完全錯**，而這正是 v20.83 更新說明拿來當「已修」證據
+   * 的同一個例子；同一份資料 KPI 尖峰卡走 rollingPeak 得到 200，
+   * 同一個畫面上兩個答案差一倍。
+   *
+   * ⚠️ 反證：把判準改回「眾數 < 60」→ 這一支紅（實測 am 變成 00:00～01:00）。
+   */
+  const rows = [];
+  /* 00:00～07:00 與 09:00～24:00 每格 100（整點）。 */
+  for (const h of [0, 1, 2, 3, 4, 5, 6, 9, 10, 11]) {
+    const two = String(h).padStart(2, "0");
+    const next = String(h + 1).padStart(2, "0");
+    rows.push(roadRow(`${two}:00～${next}:00`, "A", { small: 100 }));
+  }
+  /* 07:00～09:00 拆成 15 分鐘，每格 50（八格，合計 400；任一小時 200）。 */
+  for (let i = 0; i < 8; i += 1) {
+    const start = 7 * 60 + i * 15;
+    const end = start + 15;
+    const fmt = (m) =>
+      `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    rows.push(roadRow(`${fmt(start)}～${fmt(end)}`, "A", { small: 50 }));
+  }
+  const out = buildPeriodRows(rows, { factors });
+  const combined = out.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined, "抓不到合計那一列");
+  assert.equal(
+    combined.periods.am.hour,
+    "07:00～08:00",
+    `上午尖峰寫的是「${combined.periods.am.hour}」——`
+      + "格長混用時不可以逐格比大小（那會挑到整點那一格）",
+  );
+  assert.equal(
+    combined.periods.am.total,
+    200,
+    "上午尖峰的量要是四格 15 分鐘的合計 200，不是單一整點格的 100",
+  );
+  assert.equal(
+    combined.periods.allPeak.total,
+    200,
+    "全調查時段尖峰同理",
+  );
+});
+
+test("⚠️ 混用了 2 小時格（眾數仍是 60）：那一格不可以被挑成尖峰", () => {
+  /*
+   * `oversized` 舊判準看的是**眾數**，所以「多數整點 ＋ 少數 2 小時」
+   * 的調查點不會被擋，而那個 2 小時格的量大約兩倍，一定會被挑中，
+   * 單位還會寫成「該時段（120 分鐘）」——手冊寫的是無條件的
+   * 「2 小時一格會顯示資料不足」。
+   */
+  const rows = [];
+  for (const h of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+    const two = String(h).padStart(2, "0");
+    const next = String(h + 1).padStart(2, "0");
+    rows.push(roadRow(`${two}:00～${next}:00`, "A", { small: 100 }));
+  }
+  /* 15:00～17:00 一格，量 500（>任何整點格）。 */
+  rows.push(roadRow("15:00～17:00", "A", { small: 500 }));
+  const out = buildPeriodRows(rows, { factors });
+  const combined = out.find((row) => row.scopeCode === "ALL");
+  assert.ok(combined);
+  assert.notEqual(
+    combined.periods.allPeak.hour,
+    "15:00～17:00",
+    "2 小時那一格被挑成尖峰了——它不是一小時的流率",
+  );
+  assert.equal(
+    combined.periods.allPeak.total,
+    100,
+    "尖峰要落在某一個整點格（量 100），而不是那個 2 小時格",
+  );
+  assert.equal(
+    combined.periods.pm.hour,
+    "資料不足",
+    "下午只有那一格 2 小時，湊不出整整一小時 → 要寫「資料不足」",
+  );
 });

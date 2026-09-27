@@ -18,7 +18,67 @@
  * ・單位一律由呼叫端用 cellUnitFor() 逐格算好傳進來，這裡只照抄。
  */
 
-export type PeriodKey = "all" | "peak24" | "am" | "pm";
+/**
+ * ══════════════════════════════════════════════════════════════════════
+ *  四個核心統計範圍（三支程式共用的定義，使用者 2026-09-21 定案）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者原話：「這 4 個名詞是我們交通調查的 4 個核心」。
+ *
+ *   鍵        顯示名稱          意義                              單位
+ *   am        上午尖峰小時      12:00 前流率最高的 1 小時          輛/hr、PCU/hr
+ *   pm        下午尖峰小時      12:00 後流率最高的 1 小時          輛/hr、PCU/hr
+ *   all       全調查時段        調查涵蓋範圍內的**累計量**         輛／調查時段
+ *   allPeak   全調查時段尖峰    調查涵蓋範圍內流率最高的 1 小時    輛/hr、PCU/hr
+ *
+ * ⚠️⚠️ **`allPeak` 絕對不要求 24 小時的資料。**
+ *   只做了 4 小時的調查照樣算得出「那 4 小時裡最忙的一小時」，
+ *   而且那個數字完全誠實。不要替它加上任何涵蓋時數的門檻。
+ *
+ * ── 這個鍵為什麼叫 allPeak（v20.83 改名紀錄）─────────────────────────
+ *
+ *   舊名是 `peak24`。名字裡的 24 是歷史包袱，而且**真的害人誤會過**：
+ *   2026-09-21 有 AI 因為看到 24 就推論「不足 24 小時要整組留空」，
+ *   差點把一個正確的設計改壞，是使用者當場擋下來的。
+ *
+ *   改名前查過兩件事：
+ *     ① 它會被寫進結論草稿範本（`traffic-conclusion-templates-v1`
+ *        → `condition.periods`），所以**改名必須配一段遷移**；
+ *     ② 使用者 2026-09-23 確認**目前還沒有任何既存範本**。
+ *   兩者都處理了：`migratePeriodKeys()` 在讀取範本時把舊的 `peak24`
+ *   換成 `allPeak`，所以就算哪一台電腦上真的存過舊範本也讀得回來。
+ *
+ * ⚠️ **不要把遷移那一段拿掉**，也不要改回 `peak24`。
+ * ⚠️ 「調查日」三個字只保留給**確認滿 24 小時**的資料。
+ *   `all` 的分母在滿 24 小時時才寫「調查日」，否則寫「調查時段」。
+ */
+export type PeriodKey = "all" | "allPeak" | "am" | "pm";
+
+/**
+ * 舊範本的時段鍵值遷移（v20.83）。
+ *
+ * `peak24` 在 v20.83 改名為 `allPeak`（理由見上面那一段）。
+ * 那個鍵**會被寫進使用者存的結論草稿範本**，所以讀取端一定要認得舊名，
+ * 否則既有範本套用之後「全調查時段尖峰」那一項會安靜地消失——
+ * 使用者只會發現草稿少了一段，不會知道為什麼。
+ *
+ * ⚠️ **只在讀取時換，不回寫舊名。** 寫出去的一律是新名。
+ * ⚠️ 這一支**不可以拿掉**，即使確認過「目前沒有既存範本」——
+ *   那句話只對「現在這一台電腦」成立。
+ */
+export function migratePeriodKeys(list: unknown): PeriodKey[] {
+  if (!Array.isArray(list)) return [];
+  const out: PeriodKey[] = [];
+  for (const raw of list) {
+    const key = raw === "peak24" ? "allPeak" : raw;
+    if (
+      (key === "all" || key === "allPeak" || key === "am" || key === "pm") &&
+      !out.includes(key)
+    )
+      out.push(key);
+  }
+  return out;
+}
 
 export const CONCLUSION_PERIOD_LABELS: Record<PeriodKey, string> = {
   /*
@@ -28,7 +88,7 @@ export const CONCLUSION_PERIOD_LABELS: Record<PeriodKey, string> = {
    *   這裡是**時段名稱**，不是數量名稱——數量的分母另有規則（見 scopeUnit）。
    */
   all: "全調查時段",
-  peak24: "全調查時段尖峰",
+  allPeak: "全調查時段尖峰",
   am: "上午尖峰小時",
   pm: "下午尖峰小時",
 };
@@ -177,6 +237,20 @@ export type ConclusionCell = {
   hasData: boolean;
   total: number;
   pcu: number;
+  /**
+   * 這一格的調查涵蓋指紋（`coverageKeyOf()`）。
+   *
+   * ⚠️ **比可比性一律用這一個，不可以用 `hour`。**
+   *   GPT 獨立複查 2026-09-24 抓到：`hour` 是給人看的標籤，
+   *   平日 07:00–11:00 與假日 17:00–21:00 的 `hour` 都是
+   *   「實測 4 小時（非 24 小時）」——字串相同、檢查通過，
+   *   於是草稿照樣算出差異百分比，而那兩段時間根本不是同一段。
+   *   畫面與 Excel 用的 `sameSurveyCoverage()` 比的是每一個連續區塊的
+   *   起訖，本來就擋住這一種，只有草稿沒擋。
+   * ⚠️ 選填是為了讓舊測資與舊呼叫端不必全部改；**缺值時退回比 `hour`**
+   *   ——那是改版前的行為，不會比原本更差。
+   */
+  coverageKey?: string;
   /** 由 cellUnitFor() 算好的單位，這裡只照抄。 */
   unitCount: string;
   unitPcu: string;
@@ -316,8 +390,32 @@ export function selectRows(
       const flowView = condition.flowView || "both";
       if (flowView !== "both") {
         const inbound = row.scopeCode.startsWith("IN:");
-        if (flowView === "origin" && inbound) return false;
-        if (flowView === "destination" && !inbound) return false;
+        /*
+         * ⚠️ 2026-09-23 修正：這個條件原本**會把一般路段整批濾掉**。
+         *
+         *   `conclusionRows()` 的「駛入」那一輪刻意只產路口的支線
+         *   （合計列與一般路段都被 `continue` 跳過，理由見那裡的註解）。
+         *   所以一般路段與「全部方向合計」那幾列**永遠沒有 `IN:` 前綴**，
+         *   於是 `flowView === "destination"` 時它們全部 return false。
+         *
+         *   實測（6 列：中山路 ALL/A/B、七叉路口 ALL/A/IN:A）：
+         *     both 留 6 列、origin 留 5 列、**destination 只留 1 列**。
+         *   而同一份草稿在下面印著
+         *     「…上列視角只作用在路口的支線上，**路段各列不受影響**。」
+         *   ——資料靜靜消失，草稿本身還給出相反的保證，
+         *   連帶「範圍內的最大與最小」被寫成「可比較的合計列不足兩筆」，
+         *   把「被條件濾光了」歸因成「資料不夠」。
+         *
+         *   修法：這個視角**只作用在路口的支線上**（那正是註解一直在講的），
+         *   所以只有「本來就有駛出／駛入之分」的那些列才參與篩選。
+         *   一般路段與合計列一律保留——與註解、與畫面上的行為一致。
+         */
+        const hasFlowDirection =
+          row.surveyType === "intersection" && row.scopeCode !== "ALL";
+        if (hasFlowDirection) {
+          if (flowView === "origin" && inbound) return false;
+          if (flowView === "destination" && !inbound) return false;
+        }
       }
       return true;
     })
@@ -381,16 +479,56 @@ function describeCell(
   const wants = (key: ConclusionMetricKey) => condition.metrics.includes(key);
   /* 這裡也要夾：describeCell 直接吃 condition，不經過 buildConclusion 的那一次。 */
   const digits = safeConclusionDigits(condition.digits);
-  if (!cell || !cell.hasData)
+  /*
+   * ⚠️ 2026-09-25 第六輪獨立複查：這裡原本一律寫「這一列沒有資料」，
+   *   而 `hasData: false` 有兩種來源——「真的沒有資料」與
+   *   「有資料但時間格距湊不出整整一小時」（那一格的 `hour` 是「資料不足」）。
+   *   寫成「沒有資料」會讓使用者回去翻原始檔找一個不存在的漏調查，
+   *   那正是這一輪要消除的歧義。`hour` 已經寫明是哪一種，照它講。
+   */
+  if (!cell || !cell.hasData) {
+    if (cell?.hour === "資料不足")
+      return [
+        `　　${CONCLUSION_PERIOD_LABELS[period]}：這一列的時間格距湊不出整整一小時，` +
+          `因此不列尖峰值（原始資料本身有量，請看「資料異常檢查」的調查格距項目）。`,
+      ];
+    if (cell?.hour === "待設定 PCU 係數")
+      return [
+        `　　${CONCLUSION_PERIOD_LABELS[period]}：這一列的 PCU 當量係數尚未設定，` +
+          `因此不列數值（到「參數設定」設定係數後會自動補上）。`,
+      ];
     return [`　　${CONCLUSION_PERIOD_LABELS[period]}：這一列沒有資料。`];
+  }
 
   const parts: string[] = [];
   if (wants("peakHour") && cell.hour) parts.push(cell.hour);
   if (wants("count")) parts.push(`${whole(cell.total)} ${cell.unitCount}`);
   if (wants("pcu")) parts.push(`${num(cell.pcu, digits)} ${cell.unitPcu}`);
 
+  /*
+   * ⚠️ 這一行後面什麼都沒有時，不可以只留一個冒號。
+   *
+   *   使用者只勾了「各方向／支線分列」或「平日與假日對比」這種**修飾項**、
+   *   沒有勾任何數值項時，舊版會印出一排「全調查時段：」然後什麼都沒有——
+   *   那是一個承諾了數字卻交不出數字的句子，使用者會以為程式壞了或資料沒有。
+   *   實際情形是「他沒有勾任何數值項」，那要**講出來**。
+   *
+   *   ⚠️ 判斷用的是「這一行有沒有東西」，不是「有沒有勾某幾個鍵」——
+   *   日後新增數值項時不必回來改這裡。
+   */
+  const hasRowValue =
+    parts.length > 0 ||
+    wants("topVehicle") ||
+    wants("composition") ||
+    wants("compositionPcu");
   const lines = [
-    `　　${CONCLUSION_PERIOD_LABELS[period]}${parts.length ? "：" + parts.join("、") : "："}`,
+    parts.length
+      ? `　　${CONCLUSION_PERIOD_LABELS[period]}：${parts.join("、")}`
+      : hasRowValue
+        ? `　　${CONCLUSION_PERIOD_LABELS[period]}：`
+        : `　　${CONCLUSION_PERIOD_LABELS[period]}：（未勾選任何數值項目；` +
+          `「各方向／支線分列」與「平日與假日對比」是呈現方式，不是數值，` +
+          `請另外勾「車輛數」或「當量交通量」。）`,
   ];
 
   if (wants("topVehicle")) {
@@ -447,6 +585,20 @@ function describeGrowth(
   periods: PeriodKey[],
   /* 變動幅度的百分比也要跟著使用者選的小數位數走。 */
   digits: number,
+  /*
+   * 要用車輛數還是 PCU 來比。
+   *
+   * ⚠️ 2026-09-23 修正：這一段（以及最大／最小、平假日對比）原本**永遠**
+   *   讀 `cell.total`＝車輛數，`condition.metrics` 只決定「要不要印這一段」，
+   *   不決定印什麼。於是使用者勾了「當量交通量（PCU）」、沒勾「車輛數」，
+   *   拿到的仍然是一整段輛數——勾了等於沒勾。
+   *
+   * ⚠️ 判準刻意是「**只勾了 PCU、沒勾車輛數**才換」：
+   *   兩個都勾（預設）或只勾車輛數時，輸出與改版前**逐字相同**。
+   *   使用者 2026-09-23：「不要因為補功能而讓現有功能異常」——
+   *   所以這裡不是「多印一段 PCU」，是「使用者明確只要 PCU 時才改用 PCU」。
+   */
+  usePcu: boolean,
 ) {
   const lines: string[] = [];
   const groups = new Map<string, ConclusionRow[]>();
@@ -474,7 +626,10 @@ function describeGrowth(
       if (points.length < 2) continue;
       const first = points[0];
       const last = points.at(-1)!;
-      const units = new Set(points.map((point) => point.cell.unitCount));
+      const valueOf = (cell: ConclusionCell) => (usePcu ? cell.pcu : cell.total);
+      const unitOf = (cell: ConclusionCell) =>
+        usePcu ? cell.unitPcu : cell.unitCount;
+      const units = new Set(points.map((point) => unitOf(point.cell)));
       if (units.size > 1) {
         lines.push(
           `　${rowLabel(ordered[0])}・${CONCLUSION_PERIOD_LABELS[period]}：` +
@@ -483,16 +638,88 @@ function describeGrowth(
         );
         continue;
       }
-      const change = first.cell.total
-        ? (last.cell.total / first.cell.total - 1) * 100
-        : null;
+      /*
+       * ══════════════════════════════════════════════════════════════
+       *  ⚠️ 單位相同**不代表可以比**——涵蓋時數也要一樣
+       * ══════════════════════════════════════════════════════════════
+       *
+       * 2026-09-23 的反向對帳抓到：上面那一條只比 `unitCount`，而
+       * 4 小時與 12 小時的部分時段調查**單位字串完全相同**（都是
+       * 「輛/調查時段」），於是檢查通過，草稿印出「增加 200.0%」——
+       * 那 200% 純粹是調查時數的差，而這句話會被抄進報告。
+       *
+       * 畫面與 Excel 都**擋住了**這一種：Excel「平假日比較」在涵蓋不同時
+       * 把差值與百分比寫成空白格，畫面顯示「涵蓋不同」並附說明。
+       * 只有兩支草稿沒擋。
+       *
+       * 判準用「全調查時段」那一格的時段標籤（`cell.hour`）——
+       * 它就是涵蓋敘述（「24 小時」「實測 4 小時（非 24 小時）」）。
+       * ⚠️ 只對 `all` 這個時段做：尖峰那三個本來就是某一個小時，
+       *   時段標籤不同是正常的（尖峰出現在不同時刻），不是不可比。
+       */
+      if (period === "all") {
+        /*
+         * ⚠️ 2026-09-24（GPT 獨立複查抓到）：判準改成**涵蓋指紋**，
+         *   不是給人看的 `hour` 標籤。07:00–11:00 與 17:00–21:00 的標籤
+         *   都是「實測 4 小時（非 24 小時）」，比標籤等於沒擋。
+         * ⚠️ 訊息裡仍然印 `hour`（那是人看得懂的敘述）；
+         *   **判斷用指紋、顯示用標籤**，兩者不可以互換。
+         */
+        const keys = new Set(
+          /*
+           * ⚠️ 2026-09-25：不可以 `|| point.cell.hour`。
+           *   指紋算不出來（空字串）時退回比顯示標籤，等於把
+           *   「判斷不出來」當成「涵蓋相同」——正是上面那段註解禁止的事。
+           *   改成把算不出來的一律當成各自獨立的一種涵蓋（用一個不可能
+           *   與真指紋相同的記號），這樣 keys.size 會 > 1、走進「涵蓋不同
+           *   所以不做比較」那一支，而訊息仍然印人看得懂的 hour。
+           */
+          points.map((point, index) =>
+            point.cell.coverageKey === undefined
+              ? point.cell.hour /* 沒有指紋：維持改版前的行為 */
+              : point.cell.coverageKey || `#無法判斷-${index}`,
+          ),
+        );
+        if (keys.size > 1) {
+          const shown = [...new Set(points.map((point) => point.cell.hour))];
+          lines.push(
+            `　${rowLabel(ordered[0])}・${CONCLUSION_PERIOD_LABELS[period]}：` +
+              `各季的調查涵蓋不同（${shown.join("、")}），不計算變動幅度` +
+              "——那個百分比會是調查時數的差，不是交通量的變化。" +
+              "（與 Excel 的歷季各表、畫面上的「涵蓋不同」是同一套判準。）",
+          );
+          continue;
+        }
+      }
+      /*
+       * ⚠️ 2026-09-25 修正：真值判斷擋不住 NaN。
+       *   NaN 是 falsy，所以舊寫法會走進「起始季為 0」那一支，
+       *   而同一句前面的 show() 會印「—」→
+       *   「由 115Q1 的 — 輛/日 變為 …，起始季為 0」
+       *   「是 0」與「讀不到」被講成同一件事，而這句會被抄進報告。
+       *   app/report-draft.ts 的 changeText() 早就用 Number.isFinite 分開了，
+       *   這一支沒跟上。
+       */
+      const firstValue = valueOf(first.cell);
+      const lastValue = valueOf(last.cell);
+      const readable =
+        Number.isFinite(firstValue) && Number.isFinite(lastValue);
+      const change = !readable
+        ? undefined /* 讀不到：與「基期是 0」不同，下面分開寫 */
+        : firstValue === 0
+          ? null
+          : (lastValue / firstValue - 1) * 100;
+      const show = (cell: ConclusionCell) =>
+        usePcu ? num(cell.pcu, digits) : whole(cell.total);
       lines.push(
         `　${rowLabel(ordered[0])}・${CONCLUSION_PERIOD_LABELS[period]}：` +
-          `由 ${quarterText(first.quarter)} 的 ${whole(first.cell.total)} ${first.cell.unitCount} ` +
-          `變為 ${quarterText(last.quarter)} 的 ${whole(last.cell.total)} ${last.cell.unitCount}，` +
-          (change === null
-            ? "起始季為 0，變動幅度無法以百分比表示"
-            : `${change >= 0 ? "增加" : "減少"} ${pct(Math.abs(change), digits)}`) +
+          `由 ${quarterText(first.quarter)} 的 ${show(first.cell)} ${unitOf(first.cell)} ` +
+          `變為 ${quarterText(last.quarter)} 的 ${show(last.cell)} ${unitOf(last.cell)}，` +
+          (change === undefined
+            ? "其中一期讀不到數值，變動幅度無法計算"
+            : change === null
+              ? "起始季為 0，變動幅度無法以百分比表示"
+              : `${change >= 0 ? "增加" : "減少"} ${pct(Math.abs(change), digits)}`) +
           "。",
       );
     }
@@ -504,6 +731,8 @@ function describeExtremes(
   rows: ConclusionRow[],
   periods: PeriodKey[],
   digits: number,
+  /** 見 describeGrowth 的同名參數：只有「勾了 PCU 且沒勾車輛數」時才是 true。 */
+  usePcu: boolean,
 ) {
   const lines: string[] = [];
   for (const period of periods) {
@@ -515,7 +744,12 @@ function describeExtremes(
         cell: row.periods[period]!,
       }));
     if (points.length < 2) continue;
-    const units = new Set(points.map((point) => point.cell.unitCount));
+    const valueOf = (cell: ConclusionCell) => (usePcu ? cell.pcu : cell.total);
+    const unitOf = (cell: ConclusionCell) =>
+      usePcu ? cell.unitPcu : cell.unitCount;
+    const show = (cell: ConclusionCell) =>
+      usePcu ? num(cell.pcu, digits) : whole(cell.total);
+    const units = new Set(points.map((point) => unitOf(point.cell)));
     if (units.size > 1) {
       lines.push(
         `　${CONCLUSION_PERIOD_LABELS[period]}：範圍內同時有 ${[...units].join("、")} ` +
@@ -523,15 +757,18 @@ function describeExtremes(
       );
       continue;
     }
-    const sorted = points.slice().sort((a, b) => b.cell.total - a.cell.total);
+    const sorted = points
+      .slice()
+      .sort((a, b) => valueOf(b.cell) - valueOf(a.cell));
     const mean =
-      points.reduce((sum, point) => sum + point.cell.total, 0) / points.length;
+      points.reduce((sum, point) => sum + valueOf(point.cell), 0) /
+      points.length;
     lines.push(
       `　${CONCLUSION_PERIOD_LABELS[period]}：最高為 ${sorted[0].label} ` +
-        `${whole(sorted[0].cell.total)} ${sorted[0].cell.unitCount}，` +
-        `最低為 ${sorted.at(-1)!.label} ${whole(sorted.at(-1)!.cell.total)} ` +
-        `${sorted.at(-1)!.cell.unitCount}，${points.length} 筆平均 ` +
-        `${num(mean, digits)} ${sorted[0].cell.unitCount}。` +
+        `${show(sorted[0].cell)} ${unitOf(sorted[0].cell)}，` +
+        `最低為 ${sorted.at(-1)!.label} ${show(sorted.at(-1)!.cell)} ` +
+        `${unitOf(sorted.at(-1)!.cell)}，${points.length} 筆平均 ` +
+        `${num(mean, digits)} ${unitOf(sorted[0].cell)}。` +
         (period === "all"
           ? ""
           : "（各調查點的尖峰小時不一定相同，此處僅比較大小，不做加總。）"),
@@ -546,6 +783,8 @@ function describeDayCompare(
   periods: PeriodKey[],
   /* 平假日差異的百分比也要跟著使用者選的小數位數走。 */
   digits: number,
+  /** 見 describeGrowth 的同名參數：只有「勾了 PCU 且沒勾車輛數」時才是 true。 */
+  usePcu: boolean,
 ) {
   const lines: string[] = [];
   const groups = new Map<string, ConclusionRow[]>();
@@ -565,21 +804,114 @@ function describeDayCompare(
       const a = weekday.periods[period];
       const b = holiday.periods[period];
       if (!a?.hasData || !b?.hasData) continue;
-      if (a.unitCount !== b.unitCount) {
+      const unitOf = (cell: ConclusionCell) =>
+        usePcu ? cell.unitPcu : cell.unitCount;
+      const valueOf = (cell: ConclusionCell) => (usePcu ? cell.pcu : cell.total);
+      const show = (cell: ConclusionCell) =>
+        usePcu ? num(cell.pcu, digits) : whole(cell.total);
+      if (unitOf(a) !== unitOf(b)) {
         lines.push(
           `　${weekday.roadName}・${rowLabel(weekday)}・${CONCLUSION_PERIOD_LABELS[period]}：` +
-            `平日與假日的單位不一致（${a.unitCount} 對 ${b.unitCount}），不做比較。`,
+            `平日與假日的單位不一致（${unitOf(a)} 對 ${unitOf(b)}），不做比較。`,
         );
         continue;
       }
-      const change = a.total ? (b.total / a.total - 1) * 100 : null;
+      /*
+       * ⚠️ 單位相同**不代表可以比**——涵蓋時數也要一樣。
+       *   理由與 describeGrowth 裡那一段完全相同：平日做 12 小時、
+       *   假日做 4 小時時，兩邊都是「輛/調查時段」，舊版照樣算出
+       *   「假日較平日少 75.0%」，而那 75% 是調查時數的差。
+       *   Excel 的「平假日比較」在這種情形是把差值與百分比留白的
+       *   （`coverageComparable` 為 false），畫面顯示「涵蓋不同」。
+       */
+      /*
+       * ⚠️ 2026-09-24（GPT 獨立複查抓到）：改比**涵蓋指紋**。
+       *   平日 07:00–11:00、假日 17:00–21:00 的 `hour` 都是
+       *   「實測 4 小時（非 24 小時）」，比 `hour` 的話這一條完全擋不到，
+       *   草稿會算出一個「假日較平日少 X%」，而那兩段時間不是同一段。
+       */
+      /*
+       * ⚠️ 2026-09-25 修正：`|| cell.hour` 把守衛繞掉了。
+       *
+       * coverageKeyOf() 對無法解析的時段標籤回**空字串**（實測：
+       * `coverageKeyOf(["07:00"])` 與 `coverageKeyOf(["全日"])` 都是 ""），
+       * 而 period-analysis.ts 自己宣告「空字串要當成無法判斷可比性，
+       * **不可以當成涵蓋相同**」。
+       * 舊寫法的 `|| cell.hour` 剛好在那個時候退回去比 `hour`——
+       * 也就是退回**比給人看的字串**，正是上面那段註解禁止的事。
+       * 而 fullDayLabel 在 coveredMinutes=0 時對兩筆都產生同一句
+       * 「實測 0 小時（非 24 小時）」→ 判定為可比 → 印出「假日較平日少 X%」。
+       *
+       * 可達性已確認：validateBackupRecords 對 hour 只要求「非空白字串」，
+       * 所以只寫起點的標籤（"07:00"）從還原路徑進得來。
+       *
+       * 正解：指紋算不出來就是**無法判斷可比性**，回 null 讓呼叫端寫出理由。
+       */
+      /*
+       * ⚠️ 三種狀態要分開，不可以一刀切：
+       *
+       *   ① coverageKey 是**非空字串** → 指紋算出來了，拿它比（最可靠）
+       *   ② coverageKey 是**空字串**   → coverageKeyOf() 解析不出時段標籤，
+       *      也就是**無從判斷**可比性 → 一律不比（回 null）
+       *   ③ coverageKey 是 undefined  → 這一格**沒有人算過指紋**
+       *      （v20.83 以前的資料、或不經 cellFromBuckets 的路徑）
+       *      → 退回比 `hour`，維持改版前的行為
+       *
+       * 第一版我把 ② 和 ③ 合成一個（一律回 null），結果把「本來比得動的
+       * 舊資料」也擋掉了——那是過度修正。
+       */
+      const coverageOf = (cell: ConclusionCell) =>
+        cell.coverageKey === undefined
+          ? cell.hour /* ③ 沒有指紋：維持舊行為 */
+          : cell.coverageKey || null; /* ② 空字串：無從判斷 */
+      /*
+       * 指紋算不出來（任一邊是 null）＝無法判斷可比性，一律寫出理由，
+       * 不可以當成「涵蓋相同」而繼續算百分比。
+       */
+      const keyA = coverageOf(a);
+      const keyB = coverageOf(b);
+      if (period === "all" && (!keyA || !keyB || keyA !== keyB)) {
+        /*
+         * ⚠️ 兩種原因要分開講：
+         *   ・指紋算得出來但不一樣 → 涵蓋確實不同
+         *   ・任一邊算不出指紋     → **無從判斷**是否可比（不可以說「不同」）
+         */
+        const reason =
+          !keyA || !keyB
+            ? "平日與假日的調查涵蓋無法判斷（時段標籤看不出起訖時間）"
+            : "平日與假日的調查涵蓋不同";
+        lines.push(
+          `　${weekday.roadName}（${quarterText(weekday.quarter)}）・${rowLabel(weekday)}・` +
+            `${CONCLUSION_PERIOD_LABELS[period]}：${reason}` +
+            `（${a.hour} 對 ${b.hour}），不計算差異百分比` +
+            "——那個百分比會是調查時數的差，不是交通量的差。" +
+            `平日 ${show(a)} ${unitOf(a)}、假日 ${show(b)} ${unitOf(b)}，兩者不可直接相比。`,
+        );
+        continue;
+      }
+      /*
+       * ⚠️ 2026-09-25 修正：與上面的成長描述同一個雷（NaN 是 falsy）。
+       *   舊寫法會印出「平日 — 輛/日……平日為 0」——同一句話裡
+       *   「讀不到」和「是 0」被講成同一件事。
+       */
+      const weekdayValue = valueOf(a);
+      const holidayValue = valueOf(b);
+      const bothReadable =
+        Number.isFinite(weekdayValue) && Number.isFinite(holidayValue);
+      const change = !bothReadable
+        ? undefined
+        : weekdayValue === 0
+          ? null
+          : (holidayValue / weekdayValue - 1) * 100;
       lines.push(
         `　${weekday.roadName}（${quarterText(weekday.quarter)}）・${rowLabel(weekday)}・` +
-          `${CONCLUSION_PERIOD_LABELS[period]}：平日 ${whole(a.total)} ${a.unitCount}、` +
-          `假日 ${whole(b.total)} ${b.unitCount}，` +
-          (change === null
-            ? "平日為 0，無法以百分比表示差異"
-            : `假日較平日${change >= 0 ? "多" : "少"} ${pct(Math.abs(change), digits)}`) +
+          `${CONCLUSION_PERIOD_LABELS[period]}：平日 ${show(a)} ${unitOf(a)}、` +
+          `假日 ${show(b)} ${unitOf(b)}，` +
+          (change === undefined
+            ? "平日或假日有一邊讀不到數值，無法比較差異"
+            : change === null
+              ? "平日為 0，無法以百分比表示差異"
+              : `假日較平日${change >= 0 ? "多" : "少"} ${pct(Math.abs(change), digits)}`) +
           "。",
       );
     }
@@ -597,6 +929,28 @@ export function buildConclusion(
       ? meta.showQuarter
       : (quarter: string) => String(quarter ?? "");
   const chosen = selectRows(rows, condition);
+  /*
+   * ══════════════════════════════════════════════════════════════════════
+   *  ⚠️ 「平日與假日對比」刻意**不吃日別條件**——它本來就要兩邊都拿到
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * 2026-09-23 的反向對帳抓到：日別選「平日」之後，`selectRows` 先把假日
+   * 濾掉，`describeDayCompare` 就再也找不到成對的平日／假日：
+   *   ・byRoad／byQuarter 分組 → **一個字都沒有**
+   *   ・overall 分組 → 印出「範圍內沒有同一路段同時具備平日與假日的資料」
+   *     ——**這句話是錯的**，資料是存在的，是被條件濾掉的。
+   *
+   * 而畫面與 Excel 的平假日比較**刻意不套日別**（那兩處的註解自己寫著
+   * 「日別仍然刻意不套——它本來就要同時拿平日與假日來比」），
+   * 報表文字草稿也印著「平假日比較一律同時統計兩種日別，不受上述『日別』
+   * 範圍限制」。三處一致，只有結論草稿這一支反過來。
+   *
+   * ⚠️ 只有「平日與假日對比」那一段用這一份，其餘每一段仍然用 `chosen`——
+   *   日別條件對它們本來就該生效，動到那邊才是真的改壞既有功能。
+   */
+  const dayCompareRows = condition.dayTypes.length
+    ? selectRows(rows, { ...condition, dayTypes: [] })
+    : chosen;
   const periods = condition.periods.length
     ? condition.periods
     : (["all"] as PeriodKey[]);
@@ -607,6 +961,17 @@ export function buildConclusion(
    */
   const digits = safeConclusionDigits(condition.digits);
   const wants = (key: ConclusionMetricKey) => condition.metrics.includes(key);
+  /*
+   * 「季度之間的變動幅度」「範圍內的最大與最小」「平假日對比」這三段
+   * 要用車輛數還是 PCU。
+   *
+   * ⚠️ 只有**勾了 PCU、而且沒勾車輛數**時才換成 PCU。
+   *   兩個都勾（預設）或只勾車輛數時，輸出與改版前逐字相同——
+   *   這是刻意的：使用者 2026-09-23 明講「不要因為補功能而讓現有功能異常」。
+   *   在那之前，這三段**永遠**印車輛數，`metrics` 只決定要不要印這一段，
+   *   於是「只勾 PCU」的使用者拿到一整段輛數，勾了等於沒勾。
+   */
+  const usePcuForSummary = wants("pcu") && !wants("count");
   const out: string[] = [];
 
   out.push(`【結論草稿】${scopeLabel(condition.scope, chosen)}`);
@@ -699,6 +1064,45 @@ export function buildConclusion(
     ? chosen
     : chosen.filter((row) => row.scopeCode === "ALL");
   const body = visible.length ? visible : chosen;
+  /*
+   * ⚠️ 「平日與假日對比」在**分組模式**下用的那一份列。
+   *
+   *   分組（依路段／依季度）那兩處原本直接把 `group` 丟給
+   *   `describeDayCompare`，而 `group` 是從 `body` 切出來的——`body` 已經
+   *   吃過日別條件了。所以日別選「平日」時，那兩處連一個字都印不出來
+   *   （`byDay.size < 2` 直接 continue），使用者看到的是**整段憑空消失**，
+   *   連「為什麼沒有」都沒寫。
+   *
+   *   這一份走與 `body` **完全相同**的「各方向／支線分列」規則，
+   *   差別只在它是從不吃日別條件的 `dayCompareRows` 切出來的。
+   *   沒設日別條件時 `dayCompareRows === chosen`，這裡直接回傳 `body`
+   *   本身——輸出與改版前逐字相同，不會動到既有行為。
+   */
+  const dayCompareBody = (() => {
+    if (dayCompareRows === chosen) return body;
+    const shown = wants("directionSplit")
+      ? dayCompareRows
+      : dayCompareRows.filter((row) => row.scopeCode === "ALL");
+    return shown.length ? shown : dayCompareRows;
+  })();
+  /*
+   * 分組模式下，`describeDayCompare` 沒有東西可寫時要**寫出理由**，
+   * 不可以整段消失——使用者 2026-09-23：「不要讓使用者出了題卻抓不出答案」。
+   * 有設日別條件時額外講明「這一段刻意不受日別限制」，否則使用者會以為
+   * 是自己的條件把它濾掉了。
+   */
+  const dayCompareNote = condition.dayTypes.length
+    ? "　（本段刻意不受上方「日別」條件限制——平假日對比本來就要同時拿到兩種日別。）"
+    : "";
+  const dayCompareLines = (group: ConclusionRow[], scopeText: string) => {
+    const lines = describeDayCompare(group, periods, digits, usePcuForSummary);
+    if (lines.length)
+      return dayCompareNote ? [...lines, dayCompareNote] : lines;
+    return [
+      `　${scopeText}沒有同一季、同一路段、同一方向同時具備平日與假日的資料，未做對比。`,
+      ...(dayCompareNote ? [dayCompareNote] : []),
+    ];
+  };
 
   if (condition.grouping === "byRoad") {
     const groups = new Map<string, ConclusionRow[]>();
@@ -713,8 +1117,28 @@ export function buildConclusion(
         out.push(`　〔${quarterText(row.quarter)}・${row.dayType}・${rowLabel(row)}〕`);
         for (const period of periods) out.push(...describeCell(row, period, condition));
       }
-      if (wants("growth")) out.push(...describeGrowth(group, periods, digits));
-      if (wants("dayCompare")) out.push(...describeDayCompare(group, periods, digits));
+      if (wants("growth")) {
+        /*
+         * ⚠️ 沒得比的時候要**寫出理由**，不可以整段消失。
+         *   「依路段分段」原本沒有這個 fallback，而 overall 分組有——
+         *   同一個功能在兩種分組下一個講、一個不講，使用者會以為
+         *   是自己少勾了什麼。
+         */
+        const lines = describeGrowth(group, periods, digits, usePcuForSummary);
+        out.push(
+          ...(lines.length
+            ? lines
+            : ["　本路段在範圍內沒有任何一列具備兩季以上的資料，未做季度比較。"]),
+        );
+      }
+      if (wants("dayCompare"))
+        out.push(
+          ...dayCompareLines(
+            /* ⚠️ 不吃日別條件，理由見 dayCompareBody 的說明。 */
+            dayCompareBody.filter((row) => row.roadId === group[0].roadId),
+            "本路段在範圍內",
+          ),
+        );
     }
   } else if (condition.grouping === "byQuarter") {
     for (const quarter of quarters) {
@@ -725,8 +1149,37 @@ export function buildConclusion(
         out.push(`　〔${row.roadName}・${row.dayType}・${rowLabel(row)}〕`);
         for (const period of periods) out.push(...describeCell(row, period, condition));
       }
-      if (wants("extremes")) out.push(...describeExtremes(group, periods, digits));
-      if (wants("dayCompare")) out.push(...describeDayCompare(group, periods, digits));
+      if (wants("extremes")) {
+        /*
+         * ⚠️ 2026-09-25 修正：沒得比的時候要寫出理由，不可以整段消失。
+         *   非 byQuarter 的那一條早就有 fallback
+         *  （「可比較的『合計』列不足兩筆，未做大小比較。」），
+         *   byQuarter 這一條沒有——於是勾了「範圍內的最大／最小路段」
+         *   而可比列不足兩筆時，草稿裡**一個字都沒有**，
+         *   使用者會以為是自己少勾了什麼。
+         *   這與本檔自己寫的「同一個功能在兩種分組下一個講、一個不講，
+         *   使用者會以為是自己少勾了什麼」一致。
+         */
+        const extremeLines = describeExtremes(
+          group,
+          periods,
+          digits,
+          usePcuForSummary,
+        );
+        out.push(
+          ...(extremeLines.length
+            ? extremeLines
+            : ["　可比較的「合計」列不足兩筆，未做大小比較。"]),
+        );
+      }
+      if (wants("dayCompare"))
+        out.push(
+          ...dayCompareLines(
+            /* ⚠️ 不吃日別條件，理由見 dayCompareBody 的說明。 */
+            dayCompareBody.filter((row) => row.quarter === quarter),
+            "本季在範圍內",
+          ),
+        );
     }
   } else {
     heading("整體結果");
@@ -745,7 +1198,7 @@ export function buildConclusion(
 
   if (wants("extremes") && condition.grouping !== "byQuarter") {
     heading("範圍內的最大與最小");
-    const lines = describeExtremes(chosen, periods, digits);
+    const lines = describeExtremes(chosen, periods, digits, usePcuForSummary);
     out.push(
       ...(lines.length
         ? lines
@@ -754,7 +1207,7 @@ export function buildConclusion(
   }
   if (wants("growth") && condition.grouping !== "byRoad") {
     heading("季度之間的變動");
-    const lines = describeGrowth(body, periods, digits);
+    const lines = describeGrowth(body, periods, digits, usePcuForSummary);
     out.push(
       ...(lines.length
         ? lines
@@ -763,11 +1216,12 @@ export function buildConclusion(
   }
   if (wants("dayCompare") && condition.grouping === "overall") {
     heading("平日與假日對比");
-    const lines = describeDayCompare(body, periods, digits);
     out.push(
-      ...(lines.length
-        ? lines
-        : ["　範圍內沒有同一路段同時具備平日與假日的資料，未做對比。"]),
+      ...dayCompareLines(
+        /* ⚠️ 不吃日別條件，理由見 dayCompareRows 的說明。 */
+        dayCompareRows,
+        "範圍內",
+      ),
     );
   }
 

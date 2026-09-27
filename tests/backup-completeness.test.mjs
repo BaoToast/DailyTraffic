@@ -40,17 +40,80 @@ const flat = source.replace(/\s+/g, " ");
  * 抽出來本身正是為了這支測試在守的那件事——兩邊各寫一份的話，
  * 以後新增一個要備份的欄位一定會有一邊忘記加。
  */
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 2026-09-25 修正：抓的範圍太大，讓這一支變成一顆假的綠
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 舊寫法以「下一個 `\n  function `」當結尾。**實測抓到 150 行，
+ * 而且含 clearLocalData()**。於是 `records`、`workflow` 等關鍵字
+ * 即使從 buildBackupPayload() 的**回傳物件**裡被刪掉，只要它們出現在
+ * 那 150 行的任何地方，這一支照樣綠——而它的自述是
+ * 「日後新增設定卻忘了收進備份，這裡就會失敗」。
+ *
+ * 正解：只抓 `return {` 到對應的 `};`，也就是**真正被打包出去的那個物件**。
+ * 用大括號配對而不是找下一個 function，範圍才不會被相鄰的程式污染。
+ */
 function exportBlock() {
   const start = source.indexOf("function buildBackupPayload(");
   assert.notEqual(start, -1, "找不到 buildBackupPayload()");
-  const end = source.indexOf("\n  function ", start + 30);
-  return source.slice(start, end);
+  const returnAt = source.indexOf("return {", start);
+  assert.notEqual(
+    returnAt,
+    -1,
+    "buildBackupPayload() 裡找不到 `return {`——它的形狀變了，請重新確認這一支抓的範圍",
+  );
+  let depth = 0;
+  for (let i = source.indexOf("{", returnAt); i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (!depth) {
+        const block = source.slice(returnAt, i + 1);
+        /*
+         * ⚠️ 前置：抓出來的範圍必須合理。太大表示配對出錯（又變成假的綠），
+         *   太小表示 return 物件被改寫成別的形狀。
+         */
+        const lines = block.split("\n").length;
+        assert.ok(
+          lines > 5 && lines < 90,
+          `抓到 ${lines} 行——範圍不合理，這一支可能又變成假的綠`,
+        );
+        assert.ok(
+          !block.includes("clearLocalData"),
+          "抓到的範圍含 clearLocalData()，表示又抓超出 return 物件了",
+        );
+        /*
+         * ══════════════════════════════════════════════════════════
+         *  ⚠️ 一定要剝掉註解，而且要比對「`鍵:` 屬性」不是裸關鍵字
+         * ══════════════════════════════════════════════════════════
+         *
+         * 反證時發現：把 `pcuScopes: …` 那一行從 return 物件裡刪掉之後，
+         * 這一支**仍然是綠的**——因為同一段的註解裡寫著
+         * 「（pcuScopes 本來就只有它的）」，裸字比對照樣命中。
+         * 也就是「收斂抓取範圍」還不夠，關鍵字比對本身也是假的綠。
+         *
+         * 所以回傳的是**剝掉註解之後**的內容，呼叫端再比對 `鍵:`。
+         */
+        return block
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/(^|\s)\/\/[^\n]*/g, "$1");
+      }
+    }
+  }
+  assert.fail("buildBackupPayload() 的 return 物件括號不成對");
 }
 
 /** 每一項都是使用者自己設定的，換電腦時必須跟著走。 */
 const MUST_TRAVEL = [
   "pcuFactors",
   "turnPcuFactors",
+  /*
+   * ⚠️ 2026-09-25 補上 pcuScopes。它是後來新增、使用者明確要求
+   *   「要能被存檔匯出和匯入」的設定（依季別／路段的係數覆寫），
+   *   卻一直不在這張清單裡——正是這一支要防的那種漏。
+   */
+  "pcuScopes",
   "vehicleClassSettings",
   "roadAliases",
   "intersectionSettings",
@@ -61,11 +124,20 @@ const MUST_TRAVEL = [
 
 test("匯出的備份收齊了使用者的設定", () => {
   const block = exportBlock();
-  for (const key of MUST_TRAVEL)
-    assert.ok(
-      new RegExp(`\\b${key}\\b`).test(block),
-      `buildBackupPayload() 沒有收 ${key}——換一台電腦還原之後這一項會消失`,
-    );
+  /*
+   * ⚠️ 2026-09-25：比對的是「`鍵:` 這個屬性真的出現在 return 物件裡」，
+   *   不是裸關鍵字。反證時實測過：只比裸字的話，把 `pcuScopes: …`
+   *   那一行刪掉、而註解裡還提到它，這一支仍然是綠的。
+   *   （exportBlock() 已經先剝掉註解，這裡再要求出現「鍵:」的形狀，兩道一起。）
+   */
+  const missing = MUST_TRAVEL.filter(
+    (key) => !new RegExp(`(^|[\\s{,])${key}\\s*:`, "m").test(block),
+  );
+  assert.deepEqual(
+    missing,
+    [],
+    `buildBackupPayload() 沒有收這幾項——換一台電腦還原之後它們會消失：${missing.join("、")}`,
+  );
 });
 
 test("還原備份時會把條件範本寫回去", () => {
@@ -131,10 +203,107 @@ test("備份全部計畫時，每個計畫的資料是各自抓回來的，不�
     /readProjectPcuScopes\(project\.id\)/,
     "沒有帶各計畫的季別／路段係數覆寫",
   );
+  /*
+   * ⚠️ 2026-09-23 補：**PCU 係數本體**也要逐計畫讀。
+   *
+   *   這一條原本漏了，而漏掉的正好就是唯一出事的那一項：
+   *   `buildBackupPayload()` 裡的 `pcuFactors`／`turnPcuFactors` 以前直接讀
+   *   外層 state，而那兩個 state 是**逐計畫載入**的。於是「備份全部計畫」
+   *   時每一份 bundle 拿到的都是**目前畫面上那個計畫**的係數；
+   *   還原之後所有計畫的 PCU 變成同一組，而檔案大小正常、還原不報錯。
+   *
+   *   上面那幾條之所以抓不到，是因為它們檢查的是「有沒有逐計畫去抓」，
+   *   而係數那一項根本沒有出現在這個區塊裡——**沒寫的東西不會被 match 到**。
+   *   清單式守門一定要連「應該出現而沒出現」一起列。
+   */
+  assert.match(
+    block,
+    /readProjectPcuFactors\(project\.id\)/,
+    "沒有逐計畫讀 PCU 係數——每個計畫的備份會寫成目前畫面上那個計畫的係數",
+  );
+  assert.match(
+    block,
+    /readProjectTurnPcuFactors\(project\.id\)/,
+    "沒有逐計畫讀轉向 PCU 係數——同上",
+  );
   assert.match(
     block,
     /buildBackupPayload\(/,
     "沒有共用 buildBackupPayload()——兩份組裝邏輯遲早會不一致",
+  );
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  buildBackupPayload() 不可以從閉包讀「逐計畫」的 state
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 上面那一支看**呼叫端**有沒有去讀；這一支看**收款端**有沒有真的用傳進來的值。
+ * 兩邊都要守，因為只守其中一邊都會留下同一個洞：
+ *   ・只守呼叫端 → 讀回來了卻沒傳進去，一樣是舊值
+ *   ・只守收款端 → 型別上收得到，但呼叫端沒給
+ *
+ * ⚠️ 判定刻意是「回傳物件裡那兩個鍵必須寫成 `input.xxx`」。
+ *   寫成裸的 `pcuFactors,`（物件簡寫）就是從閉包讀，那正是原本的錯。
+ */
+test("buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的", () => {
+  const block = exportBlock();
+  for (const key of ["pcuFactors", "turnPcuFactors"]) {
+    assert.match(
+      block,
+      new RegExp(`${key}:\\s*input\\.${key}`),
+      `buildBackupPayload() 的 ${key} 不是取自 input——` +
+        "從閉包讀的話，備份全部計畫時每一份都會是目前那個計畫的係數",
+    );
+    assert.doesNotMatch(
+      block,
+      new RegExp(`^\\s+${key},\\s*$`, "m"),
+      `buildBackupPayload() 仍有裸的 \`${key},\`（物件簡寫＝從閉包讀）`,
+    );
+  }
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  「還原本計畫」與「還原全部計畫」對 workflow 的處理必須一致
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * `restoreAllProjects()` 走的是 `saveWorkflow(newId, bundle.workflow)`——
+ * 整份存回去，所以 workflow 裡的每一樣都會回來。
+ * `importBackup()` 走的是逐欄位合併，2026-09-23 之前只挑
+ * statuses／checkedQuarters／history 三樣，於是**同一份備份檔**：
+ *   ・走「還原全部計畫」→ 已人工確認、指定調查日期、比較報表範本都在
+ *   ・走「還原本計畫」　→ 三樣全部不見，而畫面只寫「已還原 N 個季度」
+ *
+ * ⚠️ 門檻（thresholds）刻意**不**還原：它是「這台電腦目前的設定」，
+ *   不屬於任何一個季度，不該被一份舊備份改掉。這是已定案的行為，
+ *   下面那條反面斷言就是在守它不要被順手加回去。
+ */
+test("還原本計畫時，使用者親手按出來的東西也要跟著回來", () => {
+  const start = source.indexOf("if (payload.workflow) {");
+  assert.notEqual(start, -1, "找不到 importBackup() 裡的 workflow 還原區塊");
+  /*
+   * ⚠️ 只看**回傳的那個物件**，不是整個區塊。
+   *   看整個區塊的話，把 key 算出來卻忘了放進回傳值（第一版就是這樣寫的），
+   *   上面那幾個 const 宣告會讓斷言照樣綠——那就是一個假的綠。
+   */
+  const scope = source.slice(start, source.indexOf("\n      }", start));
+  const returnAt = scope.lastIndexOf("return {");
+  assert.notEqual(returnAt, -1, "workflow 還原區塊裡找不到 return {");
+  const block = scope.slice(returnAt);
+  for (const [key, why] of [
+    ["ackedAnomalies", "按過的「已人工確認」會全部歸零，異常清單整批重新冒出來"],
+    ["surveyDateOverrides", "所有「指定調查日期」的覆寫會消失，明細退回原始判讀"],
+    ["comparisonReports", "存好的比較報表範本一個都不會回來"],
+  ])
+    assert.ok(
+      new RegExp(`\\b${key}\\b`).test(block),
+      `還原本計畫時沒有處理 ${key}——${why}（「還原全部計畫」那條路徑卻會回來）`,
+    );
+  assert.ok(
+    !/\bthresholds\b/.test(block),
+    "還原本計畫時動到了 thresholds——那是這台電腦目前的設定，" +
+      "不屬於任何一個季度，不該被一份舊備份改掉（已定案，不要加回來）",
   );
 });
 

@@ -394,14 +394,65 @@ test("被排除的產出目錄名稱與 .gitignore 一致", async () => {
    * 錯法：漏掉一個 gitignore 有的（跑完 e2e 就紅字，像先前的 .samples-coverage），
    * 或多排除一個 gitignore 沒有的（真的被提交的檔案就掃不到了，而且沒有跡象）。
    */
+  /*
+   * ⚠️ 2026-09-25 第五輪獨立複查抓到：這裡原本用
+   *     /"(\.samples(?:-coverage)?)"/g
+   *   去撈名單——那個樣式**寫死只可能撈到兩個名字**，而上一支測試實際排除了
+   *   七個目錄。也就是說「多排除一個 gitignore 沒有的」這半邊，
+   *   對其中五個目錄**完全沒有在檢查**，而那正是這一支自己寫出來的失效模式。
+   *   改成撈 `.samples` 開頭的**全部**目錄名。
+   */
   const source = await readFile(new URL("dependency-manifest.test.mjs", import.meta.url), "utf8");
-  const listed = [...source.matchAll(/"(\.samples(?:-coverage)?)"/g)].map((m) => m[1]);
+  /*
+   * ⚠️ 2026-09-25 第六輪獨立複查：名單是從**整個檔案的文字**撈的，
+   *   所以在註解裡寫一個 `".samples-foo"` 也會被當成「已排除」。
+   *   改成只從**真正的排除陣列**那一段撈（`walk()` 裡那個 `.includes(entry.name)`
+   *   的陣列），註解就不算。前置檢查確認那一段抓得到。
+   */
+  const excludeBlock = (() => {
+    const at = source.indexOf('".samples"');
+    const start = source.lastIndexOf("[", at);
+    const end = source.indexOf("].includes(entry.name)", at);
+    return start >= 0 && end > start ? source.slice(start, end) : "";
+  })();
+  assert.ok(
+    excludeBlock.length > 80,
+    "抓不到 walk() 的排除陣列那一段——寫法改了嗎？這一支靠它當基準",
+  );
+  const listed = [
+    ...new Set([...excludeBlock.matchAll(/"(\.samples[A-Za-z0-9-]*)"/g)].map((m) => m[1])),
+  ];
+  /* 前置檢查：真的撈到一批，否則這一支等於沒在守。 */
+  assert.ok(
+    listed.length >= 7,
+    `只從測試原始碼撈到 ${listed.length} 個 .samples* 目錄名（${listed.join("、")}）——`
+      + "排除清單的寫法改了嗎？這一支靠它比對 .gitignore",
+  );
   const ignore = await readFile(new URL(".gitignore", root), "utf8");
-  for (const name of [...new Set(listed)])
+  for (const name of listed)
     assert.ok(
       new RegExp(`^/?${name.replace(".", "\\.")}/?$`, "m").test(ignore),
       `${name} 被測試排除，但 .gitignore 裡沒有它——真的被提交的話掃不到`,
     );
-  for (const name of [".samples", ".samples-coverage"])
-    assert.ok(listed.includes(name), `.gitignore 有 ${name}，測試卻沒有排除它`);
+  /*
+   * 反過來：`.gitignore` 裡每一個 `.samples*` 目錄，測試也必須排除它，
+   * 否則跑完 e2e 就會紅字（.samples-coverage 就是這樣踩過的）。
+   * ⚠️ 這裡也改成**從 .gitignore 現場算**，不寫死兩個名字。
+   */
+  const ignored = [
+    ...new Set(
+      [...ignore.matchAll(/^\/?(\.samples[A-Za-z0-9-]*)\/?$/gm)].map((m) => m[1]),
+    ),
+  ];
+  assert.ok(
+    ignored.length >= 7,
+    `.gitignore 裡只找到 ${ignored.length} 個 .samples* 目錄——寫法改了嗎？`,
+  );
+  const notExcluded = ignored.filter((name) => !listed.includes(name));
+  assert.deepEqual(
+    notExcluded,
+    [],
+    ".gitignore 有這幾個 .samples* 目錄，測試卻沒有排除它們——"
+      + "跑完 e2e 之後這一支會紅：\n  " + notExcluded.join("\n  "),
+  );
 });

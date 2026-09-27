@@ -251,3 +251,33 @@ test("真的整天量到 0 的轉向不可以被當成「不存在」", () => {
   const armA = audits.find((audit) => audit.directionCode === "A");
   assert.deepEqual(armA.absent, [], "寫了數字（含 0）就代表這個轉向存在");
 });
+
+/*
+ * K38：buildArmSettings() 不可以就地改到呼叫端傳進來的陣列。
+ *
+ * 舊版寫 `directionCodes.sort()`，會把呼叫端的陣列原地重排。今天五個呼叫端
+ * 剛好都傳新陣列（其中一個還特地寫 `[...codes]` 防它），所以沒有症狀；
+ * 但那是「靠呼叫端小心」而不是「函式自己安全」。下一個把 state 陣列直接
+ * 傳進來的呼叫端，會發現自己的資料順序被安靜地換掉，而且完全看不出是誰改的。
+ *
+ * 反證：把 intersection-flow.ts 的 `[...directionCodes].sort()` 改回
+ * `directionCodes.sort()`，這一項會紅（實測）。
+ */
+test("buildArmSettings 不會就地重排呼叫端的支線代碼陣列", () => {
+  const input = ["C", "A", "B"];
+  const snapshot = input.join(",");
+  buildArmSettings("P", "R1", input, []);
+  assert.equal(
+    input.join(","),
+    snapshot,
+    `呼叫端的陣列被就地重排了：傳進去 ${snapshot}，回來變成 ${input.join(",")}`,
+  );
+});
+
+test("buildArmSettings 自己的輸出仍照代碼排序（修正沒有改掉行為）", () => {
+  const settings = buildArmSettings("P", "R1", ["C", "A", "B"], []);
+  assert.deepEqual(
+    settings.map((s) => s.directionCode),
+    ["A", "B", "C"],
+  );
+});

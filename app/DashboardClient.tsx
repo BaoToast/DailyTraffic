@@ -1,6 +1,13 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import initialData from "./traffic-data.json";
+/*
+ * ⚠️ 受控數字輸入框**一律**走這一支，不要在畫面上再寫
+ *   `<input type="number" value={數字} onChange={…Number(e.target.value)}>`。
+ *   那個寫法會讓欄位被按空時黏一個 0（見 app/number-field.tsx），
+ *   tests/number-field-usage.test.mjs 會擋住新的違規。
+ */
+import { NumberField } from "./number-field";
 import {
   isFallbackRoadName,
   isRealArmName,
@@ -111,8 +118,12 @@ function boldParts(line: string) {
  */
 /*
  * ⚠️ 分區名稱依使用者 2026-09-10 指定，與路口轉向的歸類邏輯一致：
- *   一 資料匯入／二 參數設定／三 資料檢視／四 圖表與比較／五 資料產出與維護
+ *   一 建立與匯入／二 參數設定／三 資料檢視／四 圖表與比較／五 資料產出與維護
  * 「關鍵數字」與「明細與產出」是舊名，改掉是為了三支程式講同一套話。
+ * ⚠️ 第一區後來又從「資料匯入」改名為「建立與匯入」（見 PAGE_ZONES 的註解）。
+ *   **區名一律以 PAGE_ZONES 為唯一來源**，不要在畫面或註解裡各寫一份——
+ *   2026-09-24 F6 抓到「本季總覽」那一塊的抬頭還寫著舊名「一 資料匯入」，
+ *   而側欄同一區寫「一　建立與匯入」：同一個分區在同一個畫面上兩個名字。
  *
  * items 是側欄裡**歸類底下真正列出來的東西**。使用者的原話：
  *   「目前只有歸類，但看不出歸類下面有什麼資料
@@ -224,7 +235,6 @@ const PAGE_ZONES = [
   {
     id: "zone-import",
     index: "一",
-    short: "匯入",
     /*
      * ⚠️ 區名一併改成「建立與匯入」：建立計畫是這一區的第一件事，
      *   叫「資料匯入」會讓人以為要先有資料才能進來。三支用同一個區名。
@@ -267,7 +277,6 @@ const PAGE_ZONES = [
   {
     id: "zone-settings",
     index: "二",
-    short: "設定",
     title: "參數設定",
     subtitle: "季度／日別／調查點篩選・PCU 當量・車種歸類",
     /*
@@ -303,7 +312,6 @@ const PAGE_ZONES = [
   {
     id: "zone-kpi",
     index: "三",
-    short: "檢視",
     title: "資料檢視",
     subtitle: "全日實際交通量・PCU・尖峰時段",
     /*
@@ -329,7 +337,6 @@ const PAGE_ZONES = [
   {
     id: "zone-charts",
     index: "四",
-    short: "圖表",
     title: "圖表與比較",
     subtitle: "車種組成・24小時型態・歷季分析・同季平假日",
     /*
@@ -365,7 +372,6 @@ const PAGE_ZONES = [
   {
     id: "zone-output",
     index: "五",
-    short: "產出",
     title: "資料產出與維護",
     subtitle: "可追溯明細・時段車種分析・成果交付・批次輸出・異常檢查・備份",
     /*
@@ -473,6 +479,22 @@ function pageById(id: string) {
   return PAGES.find((page) => page.id === id) ?? PAGES[0];
 }
 
+/**
+ * 分區在畫面上的抬頭（「一　建立與匯入」）。
+ *
+ * ⚠️ 畫面上任何地方要寫分區名，一律走這一支，**不可以自己打一份字串**。
+ *   2026-09-24 F6 抓到：「本季總覽」那一塊的抬頭寫死成「一 資料匯入」
+ *   （2026-09-10 的舊區名），而側欄同一區已經改成「建立與匯入」——
+ *   同一個分區在同一個畫面上兩個名字，使用者會以為是兩個地方。
+ *   區名的唯一來源是 PAGE_ZONES，這一支只負責把代號與名稱接起來。
+ */
+function zoneHeading(zoneId: string): string {
+  const zone = PAGE_ZONES.find((item) => item.id === zoneId);
+  /* 找不到就回代號本身，不要回空字串——空的抬頭看起來像畫面壞了。 */
+  if (!zone) return zoneId;
+  return `${zone.index}　${zone.title}`;
+}
+
 /** 側欄項目按下之後要做的事，由 DashboardClient 提供。 */
 export type SideNavAction =
   "import" | "quality" | "history" | "quarters" | "exportCenter" | "backup";
@@ -509,7 +531,7 @@ function PageHeading({ pageId }: { pageId: string }) {
 }
 
 /*
- * 分頁導覽。
+ * 分區導覽。
  *
  * ⚠️ v20.64 之前這裡是**捲動定位**：五個分區全部在同一頁，按鈕只是把畫面
  * 捲到對應的錨點。使用者明確要求改掉：
@@ -567,7 +589,11 @@ function scrollToBlock(anchor: string) {
         ? node.getBoundingClientRect().height
         : 0;
     };
-    const offset = stickyHeight(".filters") + stickyHeight(".topbar") + 12;
+    /*
+     * ⚠️ 2026-09-25 第六輪：`.topbar` 那條滿版橫幅 2026-09-17 已整條移除，
+     *   `stickyHeight(".topbar")` 恆為 0。留著只會讓人以為畫面上還有那一塊。
+     */
+    const offset = stickyHeight(".filters") + 12;
     const top = target.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
   });
@@ -700,6 +726,35 @@ function DetachedPopover(props: {
  */
 const NAV_COLLAPSE_KEY = "traffic-nav-collapsed-v1";
 
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  「顯示調查日期」：跟人走的顯示偏好（A1／A3，2026-09-21 定案）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * v20.81 以前這個開關**完全沒有被保存**——它只是一個 `useState(true)`，
+ * 不進自動存檔、不進備份、也不進瀏覽器儲存，所以使用者關掉之後
+ * **重新整理就跳回開啟**，而且畫面上沒有任何提示。
+ *
+ * ⚠️ 三支統一的口徑（以交通服務水準為準）：
+ *   這是「**這台電腦這個人**想不想看到那一欄」的顯示偏好，
+ *   **跟人走，不跟單一計畫備份走**。所以存在 localStorage，
+ *   不寫進任何一份可以拿去給別人的單一計畫備份檔。
+ * ⚠️ 預設**開**：這一行本來就是常駐顯示的（使用者 2026-09-11 指定），
+ *   讀不到設定時一律回 true，不可以因為讀不到就當成關。
+ */
+const SHOW_SURVEY_DATE_KEY = "traffic-show-survey-date-v1";
+
+function readShowSurveyDate(): boolean {
+  try {
+    const raw = localStorage.getItem(SHOW_SURVEY_DATE_KEY);
+    /* 沒存過 ＝ 預設開。只有明確存成 false 才是關。 */
+    return raw === null ? true : JSON.parse(raw) !== false;
+  } catch {
+    /* 無痕視窗或封鎖網站資料時讀取本身就會丟例外——退回預設，不要讓整頁壞掉。 */
+    return true;
+  }
+}
+
 function readCollapsed(): string[] {
   try {
     const raw = JSON.parse(localStorage.getItem(NAV_COLLAPSE_KEY) ?? "[]");
@@ -713,12 +768,14 @@ function SectionNav({
   view,
   onChange,
   onAction,
+  projectActionsBlocked,
   focusedBlock,
   onFocusBlock,
 }: {
   view: string;
   onChange: (id: string) => void;
   onAction: (action: SideNavAction) => void;
+  projectActionsBlocked: boolean;
   /** 目前被「點名」的卡片錨點；側欄那一顆也要跟著亮起來。 */
   focusedBlock: string;
   onFocusBlock: (anchor: string) => void;
@@ -731,7 +788,7 @@ function SectionNav({
    */
   const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
   return (
-    <nav className="side-nav" aria-label="分頁導覽">
+    <nav className="side-nav" aria-label="分區導覽">
       {PAGE_ZONES.map((zone) => (
         <div className="side-nav-group" key={zone.id}>
           {/*
@@ -798,10 +855,13 @@ function SectionNav({
           >
             <b>{zone.index}</b>
             {/*
-             * ⚠️ 這裡要寫**全名**，不可以再用 zone.short。
+             * ⚠️ 這裡要寫**全名**。
              *   舊版顯示的是「三　數字」——分區代號加兩個字的縮寫，
              *   使用者 2026-09-10 的原話：「當初『三數字』，不是這個命名吧？
              *   使用者看不出這個分頁是在講什麼」。側欄有寬度，沒有理由縮寫。
+             *   ⚠️ 那些兩個字的縮寫（`short: "數字"` 等）原本還留在 PAGE_ZONES
+             *   裡當死欄位，**全檔沒有任何地方讀它**，卻讓舊命名一直有地方可抄
+             *   （手冊與更新說明的分頁清單就是從那裡抄來的）。已於 2026-09-24 刪除。
              */}
             <span>{zone.title}</span>
           </button>
@@ -815,7 +875,7 @@ function SectionNav({
               className="side-nav-collapse"
               data-collapse-zone={zone.id}
               aria-expanded={!collapsed.includes(zone.id)}
-              aria-label={`收合或展開「${zone.title}」底下的分頁`}
+              aria-label={`收合或展開「${zone.title}」底下的大分頁`}
               onClick={(event) => {
                 /* ⚠️ 擋下來，不然會冒泡成換頁。 */
                 event.stopPropagation();
@@ -948,6 +1008,7 @@ function SectionNav({
                          *   寫在 DOM 上，守門才量得到；使用者看不到這個屬性。
                          */
                         data-anchor={"anchor" in item ? item.anchor : undefined}
+                        disabled={projectActionsBlocked && "action" in item && item.action === "import"}
                         /*
                          * 三種項目要**看得出來不一樣**：
                          *   ・錨點　→ 沒有記號，捲到本頁的某一塊
@@ -1337,6 +1398,7 @@ import {
   rawVehicleLabels,
   sumVehicleCounts,
   sumVehiclePcu,
+  hasNonZeroVehiclePcu,
   type PcuScopes,
   syncCoreVehicleSettings,
   vehicleCatalog,
@@ -1369,6 +1431,7 @@ import {
   endMinutesOf,
   buildPeriodExportSheets,
   buildPeriodRows,
+  coverageKeyOf,
   defaultPeriodExportSelection,
   normalizePeriodExportSelection,
   periodCellValue,
@@ -1377,6 +1440,8 @@ import {
   shareOf,
   buildPeriodAnalysis,
   noonStraddleKey,
+  straddlesNoon,
+  NOON_MINUTES,
   type MetricKey,
   type NoonAnswers,
   type NoonStraddle,
@@ -1391,6 +1456,7 @@ import {
   CONCLUSION_PERIOD_LABELS,
   DEFAULT_CONDITION as DEFAULT_CONCLUSION_CONDITION,
   buildConclusion,
+  migratePeriodKeys,
   selectRows as selectConclusionRows,
   quarterKey as conclusionQuarterKey,
   quarterYear as conclusionQuarterYear,
@@ -1404,6 +1470,7 @@ import {
   coverageLabelOf,
   coverageNote,
   formatRange,
+  parseTimeRange,
   peakFromBuckets,
   peaksByDay,
   sameSurveyCoverage,
@@ -1474,7 +1541,10 @@ import {
 import {
   ANOMALY_RESOLUTIONS,
   anomalyFingerprint,
+  detectStateAnomalies,
   detectDirectionPairAlerts,
+  detectIntervalAlerts,
+  detectMixedIntervalAlerts,
   detectSurveyDateAlerts,
   effectiveSurveyDate,
   anomalyTypeCounts,
@@ -1517,14 +1587,21 @@ const DAY_MODES: DayMode[] = ["平日", "假日", "平日＋假日"];
 /**
  * 匯出檔的車輛數／PCU 單位。
  *
- * 兩個維度都要看：
- *   ・調查涵蓋不滿 24 小時 → 那個總量是實測時段的合計，不是全日量
- * 「平日＋假日」會拆成各自的單日列，不會把兩天加成一個日交通量。
+ * ⚠️ 只看**一個**維度：調查涵蓋滿不滿 24 小時。
+ *   不滿 → 那個總量是實測時段的合計，不是全日量。
+ *
+ * ⚠️ 2026-09-25：拿掉原本收了卻沒用到的 `_day` 參數，並更正註解。
+ *   舊註解寫「兩個維度都要看」卻只列出一個，呼叫端那一段也還在描述
+ *   「單位要同時看調查涵蓋與日別」的**舊規則**。
+ *   現在日別不需要進來判斷，因為「平日＋假日」已改成
+ *   **每個調查點兩列（一列一天）**，一列只代表一天，單位不會被兩天加總汙染。
+ *   參數留著會讓下一個人以為日別有被考慮，而實際上沒有。
+ *   ⚠️ 行為完全沒變——不要為了「讓參數有用」而改回去看日別。
  */
-function exportActualUnit(_day: DayMode, partial: boolean) {
+function exportActualUnit(partial: boolean) {
   return partial ? "輛/調查時段" : "輛/日";
 }
-function exportPcuUnit(_day: DayMode, partial: boolean) {
+function exportPcuUnit(partial: boolean) {
   return partial ? "PCU/調查時段" : "PCU/日";
 }
 function dayQualifiedLabel(name: string, rowDay: string, mode: DayMode) {
@@ -1642,11 +1719,21 @@ type RoadSummary = {
   bPcu: number;
   total: number;
   pcu24: number;
-  peakPcu: number;
+  /**
+   * 尖峰小時的當量交通量。
+   *
+   * ⚠️ 2026-09-25 第六輪獨立複查：這裡原本是 `number`，而「湊不出整整一小時」
+   *   時 `peakFromBuckets()` 回的是 `value: 0`——那個 0 **不是「量到 0」**。
+   *   於是可追溯明細印 0、Excel／CSV 寫 0、歷季趨勢多一個 0 的點，
+   *   讀 Excel 的人會把它當成「那一小時一台車都沒有」。
+   *   改成 `null ＝ 算不出來`，讓每一個顯示與匯出的地方都必須表態。
+   *   `peakHour` 那一欄同時會寫「資料不足」或「—」，說明是哪一種。
+   */
+  peakPcu: number | null;
   peakHour: string;
-  aPeakPcu: number;
+  aPeakPcu: number | null;
   aPeakHour: string;
-  bPeakPcu: number;
+  bPeakPcu: number | null;
   bPeakHour: string;
   surveyType: "road" | "intersection";
   /*
@@ -1668,7 +1755,8 @@ type DirectionSummary = {
   name: string;
   actual: number;
   pcu: number;
-  peakPcu: number;
+  /** `null` ＝ 湊不出整整一小時（說明見 peakPcu 的宣告）。 */
+  peakPcu: number | null;
   peakHour: string;
 };
 type TurnPcuFactors = CoreTurnPcuFactors;
@@ -2012,7 +2100,24 @@ function readConclusionTemplates(projectId: string): ConclusionTemplate[] {
       localStorage.getItem(CONCLUSION_TEMPLATE_KEY) || "{}",
     );
     const list = raw?.[projectId];
-    return Array.isArray(list) ? list : [];
+    if (!Array.isArray(list)) return [];
+    /*
+     * ⚠️ 舊範本的時段鍵值要遷移（v20.83：peak24 → allPeak）。
+     *   在**讀取端**換，不改存檔裡的舊值；漏掉這一步的話，既有範本套用
+     *   之後「全調查時段尖峰」那一項會安靜地消失，使用者只會覺得
+     *   草稿少了一段，不會知道為什麼。
+     */
+    return list.map((template) =>
+      template && typeof template === "object" && template.condition
+        ? {
+            ...template,
+            condition: {
+              ...template.condition,
+              periods: migratePeriodKeys(template.condition.periods),
+            },
+          }
+        : template,
+    );
   } catch {
     return [];
   }
@@ -2156,6 +2261,19 @@ const formatter = new Intl.NumberFormat("zh-TW");
 const decimalFormatter = new Intl.NumberFormat("zh-TW", {
   maximumFractionDigits: 1,
 });
+
+/**
+ * 尖峰量的顯示：`null` ＝ 算不出來（湊不出整整一小時或沒有資料）。
+ *
+ * ⚠️ 2026-09-25 第六輪獨立複查：這幾欄原本一律 `decimalFormatter.format(value)`，
+ *   而「算不出來」時傳進去的是 0，畫面與匯出都印「0」——讀的人會當成
+ *   「那一小時一台車都沒有」。旁邊的「尖峰時段」欄寫的是「資料不足」或「—」，
+ *   數字欄卻寫 0，兩欄互相矛盾。現在數字欄一律跟著寫「—」，
+ *   由旁邊那一欄說明是「資料不足」還是「沒有資料」。
+ */
+function peakText(value: number | null): string {
+  return value === null ? "—" : decimalFormatter.format(value);
+}
 function bearingLabel(value: number) {
   const labels = ["東", "東南", "南", "西南", "西", "西北", "北", "東北"];
   return labels[Math.round(normalizeAngle(value) / 45) % 8];
@@ -2226,6 +2344,21 @@ function sumPcu(
 ) {
   return sumVehiclePcu(r, factors, turnFactors, vehicleSettings, scopes);
 }
+/**
+ * 這一筆有沒有任何一個車種的 PCU 貢獻不是 0（K43 的判定證據）。
+ *
+ * ⚠️ 與 `sumPcu()` 並列、參數完全一樣，是為了讓兩個呼叫點傳的是**同一組係數**。
+ *   兩邊各自算一份就會回到「兩個入口各說各話」那個老毛病。
+ */
+function anyVehiclePcu(
+  r: TrafficRecord,
+  factors: PcuFactors = PCU_FACTORS,
+  turnFactors: TurnPcuFactors = TURN_PCU_FACTORS,
+  vehicleSettings: VehicleClassSetting[] = [],
+  scopes?: PcuScopes | null,
+) {
+  return hasNonZeroVehiclePcu(r, factors, turnFactors, vehicleSettings, scopes);
+}
 function pct(value: number, total: number) {
   return total ? `${((value / total) * 100).toFixed(1)}%` : "0.0%";
 }
@@ -2249,7 +2382,14 @@ function peaksByDayOf(
   turnFactors: TurnPcuFactors = TURN_PCU_FACTORS,
   vehicleSettings: VehicleClassSetting[] = [],
   scopes?: PcuScopes | null,
-): { day: string; label: string; value: number; start: number }[] {
+): {
+  day: string;
+  label: string;
+  value: number;
+  start: number;
+  /** 有資料但湊不出整整一小時（說明見 app/partial-day.ts 的 peaksByDay）。 */
+  notEnough?: true;
+}[] {
   const hourly = new Map<string, number>();
   records.forEach((r) => {
     const key = `${r.dayType}|${r.hour}`;
@@ -2596,10 +2736,18 @@ export function buildTrendRows(
           const isPeak =
             trendMetric === "peakHour" || trendMetric === "peakHourPcu";
           const peak = peakBuckets.get(r.quarter);
-          /* 完全沒有那一種日別的資料時要回 null（斷線），不是 0。 */
+          /*
+           * 完全沒有那一種日別的資料時要回 null（斷線），不是 0。
+           *
+           * ⚠️ 2026-09-25 第六輪獨立複查：「有資料但湊不出整整一小時」時
+           *   `peakFromBuckets()` 回的是 `value: 0`，而 0 是有限數，
+           *   於是折線上會**多一個 0 的點**——那是憑空的資料，
+           *   與這一段自己寫的「不可以回 0」完全相反。改成看 status。
+           */
           const peakValue = (bucket?: Map<string, number>) => {
             if (!bucket || !bucket.size) return null;
             const best = peakFromBuckets(bucket);
+            if (best.status !== "ok") return null;
             return Number.isFinite(best.value) ? best.value : null;
           };
           const weekday = isShare
@@ -4034,6 +4182,8 @@ export default function DashboardClient({ user }: { user: User }) {
    */
   if (!user) markOfflineMode();
   const [projects, setProjects] = useState<Project[]>([]);
+  /** 空清單只有在讀取完成後才代表真的沒有計畫。 */
+  const [projectLoadStatus, setProjectLoadStatus] = useState<"loading" | "ready" | "error">("loading");
   /*
    * 停用範圍要涵蓋到這一行：規則指的是「render 期間改了 window 上的旗標，
    * 之後又讀它」，而它回報的位置是**讀取端**（這裡的 useState(!user)），
@@ -4091,7 +4241,28 @@ export default function DashboardClient({ user }: { user: User }) {
    * ⚠️ 這顆與上面那顆 periodDisplay 是**兩件事**：那一顆換的是期別那一欄
    *   的文字（季別／調查月份），這一顆管「這一筆是哪一天做的」那一行。
    */
-  const [showSurveyDate, setShowSurveyDate] = useState(true);
+  /*
+   * ⚠️ 用 useState(true) 起手、再由 useEffect 從 localStorage 補上，
+   *   **不是**直接 useState(readShowSurveyDate())：後者會在伺服器端渲染
+   *   時就去碰 localStorage，Next 的 hydration 會對不起來。
+   *   這與本檔其他偏好的做法一致。
+   */
+  const [showSurveyDate, setShowSurveyDateState] = useState(true);
+  useEffect(() => {
+    setShowSurveyDateState(readShowSurveyDate());
+  }, []);
+  /*
+   * ⚠️ 一律走這一支改，不要在畫面上直接呼叫 setShowSurveyDateState——
+   *   直接改的話狀態會變、但**不會被保存**，也就是 A1 那個 bug 本身。
+   */
+  const setShowSurveyDate = useCallback((next: boolean) => {
+    setShowSurveyDateState(next);
+    try {
+      localStorage.setItem(SHOW_SURVEY_DATE_KEY, JSON.stringify(next));
+    } catch {
+      /* 寫不進去就只在這一次的工作階段生效；不擋使用者操作。 */
+    }
+  }, []);
   const [dayType, setDayType] = useState<DayMode>("平日");
   /* 車流方向。與調查點同理：空陣列＝不設限（全部），不是全部排除。 */
   const [directions, setDirections] = useState<string[]>([]);
@@ -4609,22 +4780,30 @@ export default function DashboardClient({ user }: { user: User }) {
   }, [activeProject]);
   useEffect(() => setOffline(offlineMode()), []);
   useEffect(() => {
+    let cancelled = false;
     appFetch("/api/projects")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.projects) {
-          const available = d.projects as Project[];
-          setProjects(available);
-          if (available.length) {
-            setActiveProject((current) =>
-              available.some((p) => p.id === current)
-                ? current
-                : available[0].id,
-            );
-          }
-        }
+      .then((r) => {
+        if (!r.ok) throw new Error("計畫資料讀取失敗");
+        return r.json();
       })
-      .catch(() => setToast("計畫資料讀取失敗"));
+      .then((d) => {
+        if (!Array.isArray(d?.projects)) throw new Error("計畫資料格式不正確");
+        if (cancelled) return;
+        const available = d.projects as Project[];
+        setProjects(available);
+        if (available.length) {
+          setActiveProject((current) =>
+            available.some((p) => p.id === current) ? current : available[0].id,
+          );
+        }
+        setProjectLoadStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProjectLoadStatus("error");
+        setToast("計畫資料讀取失敗");
+      });
+    return () => { cancelled = true; };
   }, []);
   useEffect(() => {
     if (!activeProject) return;
@@ -5242,7 +5421,7 @@ export default function DashboardClient({ user }: { user: User }) {
               )
             }
           >
-            {(["all", "peak24", "am", "pm", "AMPM"] as PeriodChoice[]).map(
+            {(["all", "allPeak", "am", "pm", "AMPM"] as PeriodChoice[]).map(
               (key) => (
                 <option key={key} value={key}>
                   {PERIOD_CHOICE_LABELS[key]}
@@ -5330,14 +5509,115 @@ export default function DashboardClient({ user }: { user: User }) {
    */
   const noonAnswers = useMemo<NoonAnswers>(() => {
     const out: NoonAnswers = {};
+    /*
+     * 平日與假日對同一個調查點給了不同答案的鍵。這些鍵的「不分日別」版本
+     * 不可以留著任何一天的答案（見下面的說明），掃完之後統一刪掉。
+     */
+    const conflictingShared = new Set<string>();
     for (const record of activeRecords) {
       const side = record.noonSide;
       if (side !== "am" && side !== "pm" && side !== "ignore") continue;
       out[noonStraddleKey(record.roadId, String(record.dayType ?? ""))] = side;
-      out[noonStraddleKey(record.roadId, "")] = side;
+      /*
+       * ══════════════════════════════════════════════════════════════
+       *  ⚠️ 2026-09-25 修正：日別為空的那個鍵原本是**無條件覆寫**
+       * ══════════════════════════════════════════════════════════════
+       *
+       * 舊寫法直接 `out[noonStraddleKey(roadId, "")] = side;`，在一個
+       * 掃過全部紀錄的迴圈裡——同一個 roadId 的平日答 "am"、假日答 "pm" 時，
+       * 日別為空的那個鍵由**最後一筆走到的紀錄**決定。
+       * 而日別選單一日別時分析用的正是那個鍵，於是「看平日」可能套到
+       * 假日的決定 → 那個跨中午的一小時被指派到相反的半天，
+       * 上午／下午尖峰兩個欄位一起變。
+       *
+       * 上面那段註解只交代「兩種鍵都要寫」，**沒有處理兩天答案衝突**。
+       *
+       * 正解：兩天答案不一致時，日別為空的那個鍵**不寫**（寧可讓系統
+       * 回到「還沒決定」而再問一次，也不要靜靜套上另一天的決定）。
+       * 一致時照舊寫。
+       */
+      const sharedKey = noonStraddleKey(record.roadId, "");
+      if (!(sharedKey in out)) out[sharedKey] = side;
+      else if (out[sharedKey] !== side) conflictingShared.add(sharedKey);
     }
+    /*
+     * ⚠️ 衝突的一律刪掉，不可以留最後一筆。刪掉之後
+     *   `noonSide` 會回到「還沒決定」，系統會在該問的時候再問一次——
+     *   那比靜靜套上另一天的決定好，因為後者會讓上午／下午尖峰一起錯
+     *   而畫面上沒有任何跡象。
+     */
+    for (const key of conflictingShared) delete out[key];
     return out;
   }, [activeRecords]);
+  /*
+   * ── K43：使用者已按「已人工確認」的「PCU 係數全為 0」項目 ──
+   *
+   * 使用者 2026-09-24 定下的通則：這類假設情況**先判定是不是異常**，
+   * 只有他確認不是異常，才套用設想好的處理方式（退而以車輛數挑尖峰）。
+   * 未確認之前尖峰欄位寫「待設定 PCU 係數」，不給一個可以直接抄進報告的時段。
+   *
+   * ⚠️ 鍵值與 noonAnswers 同一套，而且**同樣要寫兩個鍵**：
+   *   分日別時列帶著日別（`R1|平日`），不分日別時列的日別是空字串（`R1|`）。
+   *   只寫一個的話，另一種顯示方式下確認就靜靜失效了。
+   * ⚠️ 也同樣要處理衝突：平日確認了、假日沒確認時，**共用鍵不可以寫**——
+   *   否則「不分日別」的檢視會把平日的確認套到還沒確認的假日上。
+   *   這一段與上面 noonAnswers 的衝突處理是同一個道理（2026-09-25 修過一次）。
+   */
+  const pcuUnsetConfirmed = useMemo<Record<string, boolean>>(() => {
+    const out: Record<string, boolean> = {};
+    const perPoint = new Map<string, Set<string>>();
+    /*
+     * ⚠️ 用 detectStateAnomalies() 自己算一份，**不是**讀 allAnomalyAlerts——
+     *   後者宣告得比這裡晚（它依賴 roadOptions），而尖峰的遮罩必須在算尖峰
+     *   之前就知道答案。兩邊呼叫的是**同一支**函式，所以不會有兩套判斷。
+     * ⚠️ 指紋一樣走 anomalyFingerprint()，所以「數值一變就要重新確認」
+     *   這個既有規則照樣成立。
+     */
+    const acked = workflow.ackedAnomalies || {};
+    for (const item of detectStateAnomalies(
+      activeRecords,
+      (record) =>
+        sumPcu(record, pcuFactors, turnPcuFactors, vehicleClassSettings, pcuScopes),
+      (record) =>
+        anyVehiclePcu(
+          record,
+          pcuFactors,
+          turnPcuFactors,
+          vehicleClassSettings,
+          pcuScopes,
+        ),
+    )) {
+      if (item.type !== "PCU係數全為0") continue;
+      if (!acked[anomalyFingerprint(item)]) continue;
+      out[noonStraddleKey(item.roadId, item.dayType)] = true;
+      const list = perPoint.get(item.roadId) ?? new Set<string>();
+      list.add(item.dayType);
+      perPoint.set(item.roadId, list);
+    }
+    /*
+     * 共用鍵只在「這個調查點目前出現的每一個日別都確認過」時才寫。
+     * dayTypesByRoad 是目前資料裡真的有的日別，不是固定的平日／假日兩種——
+     * 寫死兩種的話，只有平日資料的計畫永遠湊不滿，確認就永遠不生效。
+     */
+    for (const [roadId, acked] of perPoint) {
+      const present = new Set(
+        activeRecords
+          .filter((record) => record.roadId === roadId)
+          .map((record) => String(record.dayType ?? "")),
+      );
+      let all = present.size > 0;
+      for (const day of present) if (!acked.has(day)) all = false;
+      if (all) out[noonStraddleKey(roadId, "")] = true;
+    }
+    return out;
+  }, [
+    workflow.ackedAnomalies,
+    activeRecords,
+    pcuFactors,
+    turnPcuFactors,
+    vehicleClassSettings,
+    pcuScopes,
+  ]);
   /*
    * 目前的篩選（季別＋日別＋路段／路口＋關鍵字）到底命中幾個調查點。
    *
@@ -6131,23 +6411,139 @@ export default function DashboardClient({ user }: { user: User }) {
    *
    * 語意（與「時段車種分析」那一塊同一套，見 period-analysis.ts 開頭）：
    *   all    ＝ 這份調查涵蓋的時段全部加總 → 不限制資料
-   *   peak24 ＝ 在整段涵蓋裡最忙的一小時   → 不限制資料（由尖峰演算法自己挑）
+   *   allPeak ＝ 在整段涵蓋裡最忙的一小時   → 不限制資料（由尖峰演算法自己挑）
    *   am     ＝ 只在**起始時間早於中午 12:00** 的時段裡挑尖峰
    *   pm     ＝ 只在**起始時間不早於 12:00** 的時段裡挑尖峰
    *
    * ⚠️ 已知界線，不要當成已驗證：橫跨中午的視窗（例如 11:15～12:15）
    *   兩邊都挑不到。那是刻意的——它該算上午還是下午沒有客觀答案，
    *   「時段車種分析」是**另外問使用者**（見 NoonStraddle）。
-   *   這裡沿用同一條分界，所以結果會和那一塊一致；
-   *   若之後要讓 KPI 卡也吃跨中午的答案，要連同 noonAnswers 一起接。
+   *   使用者答過之後，這裡也會照那個答案分邊（見 sideOfRecord），
+   *   所以整點沒對齊的資料兩邊不會再各報一個「上午尖峰」。
+   *   仍有一個界線：15 分鐘細格的跨中午**視窗**紀錄層面表達不出來，
+   *   那一種情形這裡照 12:00 分界算，並在畫面上說明（不留給未來）。
    */
+  /*
+   * ── 一筆紀錄算上午還是下午 ──────────────────────────────────
+   *
+   * ⚠️ 不可以只看起始時間。原本這裡（尖峰卡、篩空判斷、periodScoped 三處）
+   *   一律用 isMorningHour()／isAfternoonHour()，也就是只看起始時間，
+   *   於是「11:30～12:30」這種整點沒對齊的格子一定算上午。
+   *
+   *   但「時段車種分析」對橫跨中午的那一小時是**問過使用者**的
+   *  （見 period-analysis.ts 的 NoonStraddle：選項 3 歸為上午、4 歸為下午）。
+   *   使用者答「歸為下午尖峰」之後，同一個畫面上時段車種分析把它算在下午、
+   *   這張尖峰卡卻還算在上午——兩個不一樣的「上午尖峰」並存，
+   *   而畫面上沒有任何一處說明為什麼。2026-09-24 大檢查抓到；
+   *   在此之前程式碼註解寫的是「若之後要讓 KPI 卡也吃跨中午的答案」，
+   *   也就是把它留給未來，而使用者已經明確禁止這種留法。
+   *
+   * ⚠️ 沒有答案、或答「忽略這個時段」時，維持原本的 12:00 分界
+   *  （＝改版前的行為），所以整點對齊的資料一個數字都不會變。
+   *
+   * ⚠️ 細格資料（15 分鐘）另有界線：跨中午的**視窗**由好幾個自己都不跨中午的
+   *   格子組成，紀錄層面表達不出「這個視窗歸上午」。那一種情形這張卡仍照
+   *   12:00 分界挑候選小時——這是刻意的，因為這張卡是「整個篩選範圍取同一個
+   *   小時」，而跨中午的答案是逐調查點×日別各自回答的，多個調查點時
+   *   沒有唯一的答案可套。畫面上會就這一點明說（見尖峰卡的說明）。
+   */
+  /*
+   * 使用者指派過的跨中午視窗：`調查點\u0000日別` → { am?: 視窗標籤, pm?: 視窗標籤 }。
+   *
+   * ⚠️ 為什麼需要這一層：15 分鐘細格的跨中午視窗（例如 11:15～12:15）是由
+   *   11:15、11:30、11:45、12:00 四格組成，**每一格自己都不跨中午**，
+   *   所以光看一格的起訖時間永遠得不出「這個視窗被指派給上午」。
+   *   程式自己的實測寫得很清楚：真實調查檔全部整點對齊，所以跨中午的情形
+   *   幾乎都是從細格滾出來的——只修「整點沒對齊的格子」等於修了不會發生的那一種。
+   *
+   * ⚠️ 沒有任何答案時直接回空 Map，完全不跑 buildPeriodRows：
+   *   這樣一來，沒有人回答過跨中午問題的資料（＝目前所有既有資料與測試）
+   *   走的路徑與改版前**逐行相同**，不會有效能或數字上的變化。
+   *
+   * ⚠️ 視窗只用來「把該算另一邊的格子改判到另一邊」，**不拿來限縮候選小時**。
+   *   限縮的話這張卡就從「整個篩選範圍取同一個小時」變成「只看尖峰視窗」，
+   *   那是 F-15 已經判定過不可以對這張卡做的語意變更。
+   */
+  const assignedNoonWindows = useMemo(() => {
+    const out = new Map<string, { am?: [number, number]; pm?: [number, number] }>();
+    if (!Object.keys(noonAnswers).length) return out;
+    const factors = {
+      core: pcuFactors,
+      coreTurns: turnPcuFactors,
+      scopes: pcuScopes,
+      settings: vehicleClassSettings,
+    };
+    const groups = new Map<string, TrafficRecord[]>();
+    for (const record of scoped) {
+      const key = `${record.roadId}\u0000${String(record.dayType ?? "")}`;
+      groups.set(key, [...(groups.get(key) ?? []), record]);
+    }
+    for (const [key, records] of groups) {
+      const rows = buildPeriodRows(records, {
+        factors,
+        separateDays: false,
+        peakScope: "point",
+        noonAnswers,
+        pcuUnsetConfirmed,
+      });
+      const all = rows.find((row) => row.scopeCode === "ALL");
+      if (!all) continue;
+      const entry: { am?: [number, number]; pm?: [number, number] } = {};
+      for (const side of ["am", "pm"] as const) {
+        const cell = all.periods[side];
+        if (!cell?.hasData) continue;
+        const start = startMinutesOf(cell.hour);
+        const end = endMinutesOf(cell.hour);
+        /* 只有真的跨中午的視窗才需要改判；沒跨中午的照原本分界就對了。 */
+        if (start >= 0 && end > start && start < NOON_MINUTES && end > NOON_MINUTES)
+          entry[side] = [start, end];
+      }
+      if (entry.am || entry.pm) out.set(key, entry);
+    }
+    return out;
+  }, [
+    scoped,
+    noonAnswers,
+    pcuUnsetConfirmed,
+    pcuFactors,
+    turnPcuFactors,
+    pcuScopes,
+    vehicleClassSettings,
+  ]);
+  const sideOfRecord = useCallback(
+    (record: TrafficRecord): "am" | "pm" | null => {
+      const hour = record.hour ?? "";
+      const key = `${record.roadId}\u0000${String(record.dayType ?? "")}`;
+      const assigned = assignedNoonWindows.get(key);
+      if (assigned) {
+        const start = startMinutesOf(hour);
+        const end = endMinutesOf(hour);
+        if (start >= 0 && end > start)
+          for (const side of ["am", "pm"] as const) {
+            const window = assigned[side];
+            if (window && start >= window[0] && end <= window[1]) return side;
+          }
+      }
+      if (straddlesNoon(hour)) {
+        const answer =
+          noonAnswers[
+            noonStraddleKey(record.roadId, String(record.dayType ?? ""))
+          ];
+        if (answer === "am" || answer === "pm") return answer;
+      }
+      if (isMorningHour(hour)) return "am";
+      if (isAfternoonHour(hour)) return "pm";
+      return null;
+    },
+    [noonAnswers, assignedNoonWindows],
+  );
   const periodScoped = useMemo(() => {
     if (mainPeriod === "am")
-      return scoped.filter((r) => isMorningHour(r.hour ?? ""));
+      return scoped.filter((r) => sideOfRecord(r) === "am");
     if (mainPeriod === "pm")
-      return scoped.filter((r) => isAfternoonHour(r.hour ?? ""));
+      return scoped.filter((r) => sideOfRecord(r) === "pm");
     return scoped;
-  }, [scoped, mainPeriod]);
+  }, [scoped, mainPeriod, sideOfRecord]);
   /*
    * 規則②（使用者 2026-09-13 確認）：這張圖**吃**這個條件、但篩完沒有資料時，
    * 要指名是哪一個條件把它篩空的，並給一顆只解除那一個條件的按鈕。
@@ -6163,8 +6559,8 @@ export default function DashboardClient({ user }: { user: User }) {
   const periodFilteredEmpty =
     scoped.length > 0 &&
     (periodChoice === "AMPM"
-      ? !scoped.some((r) => isMorningHour(r.hour ?? "")) &&
-        !scoped.some((r) => isAfternoonHour(r.hour ?? ""))
+      ? !scoped.some((r) => sideOfRecord(r) === "am") &&
+        !scoped.some((r) => sideOfRecord(r) === "pm")
       : periodScoped.length === 0);
   /*
    * ══════════════════════════════════════════════════════════════════
@@ -6235,14 +6631,31 @@ export default function DashboardClient({ user }: { user: User }) {
          *   表頭卻還寫「全日（輛／調查日）」——畫面說不適用，數字卻是半天的量。
          *   所以這兩張表跳過時段這一層；其餘區塊照舊。
          */
+        /*
+         * ⚠️ 分上午／下午一律走 sideOfRecord（K40）——全支程式只有那一套判斷。
+         *   這裡原本直接用 isMorningHour／isAfternoonHour，也就是只看起始時間，
+         *   於是使用者對「橫跨中午的那一小時」的答案在這一層完全不算。
+         * ⚠️ 已知界線：sideOfRecord 讀的跨中午視窗是由**主工具列**那一組條件
+         *   （scoped）算出來的。某一塊脫離主工具列、自己把範圍縮得更小時，
+         *   那一塊自己算出來的視窗有可能不同。這是刻意的取捨：寧可全支程式
+         *   用同一條分界，也不要每一塊各算一套視窗——後者會讓同一筆紀錄在
+         *   不同區塊落到不同邊，而那種不一致在畫面上完全看不出來。
+         */
         if (!PERIOD_INAPPLICABLE_CHARTS.has(chartId)) {
-          if (own.period === "am" && !isMorningHour(r.hour ?? "")) return false;
-          if (own.period === "pm" && !isAfternoonHour(r.hour ?? "")) return false;
+          if (own.period === "am" && sideOfRecord(r) !== "am") return false;
+          if (own.period === "pm" && sideOfRecord(r) !== "pm") return false;
         }
         return true;
       });
     },
-    [recordsByFlowMode, mainFilters, chartOverrides, search, PERIOD_INAPPLICABLE_CHARTS],
+    [
+      recordsByFlowMode,
+      mainFilters,
+      chartOverrides,
+      search,
+      PERIOD_INAPPLICABLE_CHARTS,
+      sideOfRecord,
+    ],
   );
   const filtered = useMemo(
     () => scoped.filter((r) => matchesDirection(r.directionCode)),
@@ -6259,23 +6672,78 @@ export default function DashboardClient({ user }: { user: User }) {
    * 合併後就會看起來像完整的 24 小時，於是部分時段的提醒整塊消失、
    * 欄位標題也退回「全日」，但那一列其實只調查了幾個小時。
    */
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  ⚠️ 2026-09-25 修正：分組鍵少了季別與日別，把兩天的時段**聯集**了
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 舊寫法只按 `record.roadId` 分組，而日別選「平日＋假日」時
+   * `filtered` 同時含兩天。實測：
+   *
+   *   只有平日（實際只做 12 小時 00:00–12:00）  涵蓋  720 分鐘｜partial=true
+   *   只有假日（實際只做 12 小時 12:00–24:00）  涵蓋  720 分鐘｜partial=true
+   *   兩天聯集（舊寫法算的）                   涵蓋 1440 分鐘｜partial=false ← 變成「完整 24 小時」
+   *
+   *   另一組：平日 07–19、假日 17–21
+   *   聯集後 14 小時、區塊 07:00-21:00——**那 14 小時兩天都不是**。
+   *
+   * partial 變 false 之後的連鎖：欄位單位回到「輛／調查日」、
+   * Excel 欄名回到「輛/日」、而 draftCoverageNote 的
+   * `if (!partial.length) return "";` 讓**整句涵蓋警語消失**——
+   * 使用者完全看不到提示。
+   *
+   * 正解就在同一個檔案裡：trendPartial 用的是 `季別|日別|調查點`。
+   * 這裡改成同一個粒度。
+   */
   const surveyScope: SurveyCoverage = useMemo(() => {
-    const byRoad = new Map<string, string[]>();
+    const byScope = new Map<string, string[]>();
     for (const record of filtered) {
-      const list = byRoad.get(record.roadId) ?? [];
+      const key = `${record.quarter}|${record.dayType}|${record.roadId}`;
+      const list = byScope.get(key) ?? [];
       list.push(record.hour ?? "");
-      byRoad.set(record.roadId, list);
+      byScope.set(key, list);
     }
-    const coverages = [...byRoad.values()].map((hours) =>
+    const coverages = [...byScope.values()].map((hours) =>
       surveyCoverage(hours),
     );
-    // 只要有任何一個調查點是部分時段，就以那一個為準顯示提醒；
+    // 只要有任何一組（季別×日別×調查點）是部分時段，就以那一組為準顯示提醒；
     // 全部都是完整 24 小時時，才回報「完整」。
     return (
       coverages.find((coverage) => coverage.partial) ??
       coverages[0] ??
       surveyCoverage([])
     );
+  }, [filtered]);
+  /*
+   * ── K42：目前條件下，各（季別×日別×調查點）的調查涵蓋是不是一致 ──
+   *
+   * 使用者 2026-09-24 判定「同一份調查檔平日 24 小時、假日只有 6 小時」
+   * 屬於異常事件（資料異常檢查已新增「平假日涵蓋不一致」這一項）。
+   *
+   * ⚠️ 這個旗標決定**匯出表頭的單位**：涵蓋一致時照舊寫明確單位
+   *   （「輛/日」或「輛/調查時段」）；不一致時單一單位一定會誤標其中一列
+   *   （「輛/日」對只測 6 小時的那一列是錯的，「輛/調查時段」對完整 24 小時
+   *   那一列也是錯的），所以改用中性單位（輛／PCU）並逐列附上「調查涵蓋」。
+   *   這就是歷季各表已經定案的做法（見 historicalDailyRows 的說明），兩處一致。
+   *
+   * ⚠️ 比對用 coverageKeyOf() 的**指紋**，不是畫面標籤：平日 07:00–11:00 與
+   *   假日 17:00–21:00 的標籤都是「實測 4 小時」，字串相同卻不是同一段時間。
+   * ⚠️ 空字串（解析不出來）不算「不同」——那是「調查涵蓋無法判斷」那一項的事，
+   *   拿「無法判斷」當成「不一致」的證據會誤報。
+   */
+  const coverageMismatch = useMemo(() => {
+    const byScope = new Map<string, string[]>();
+    for (const record of filtered) {
+      const key = `${record.quarter}|${record.dayType}|${record.roadId}`;
+      const list = byScope.get(key) ?? [];
+      list.push(record.hour ?? "");
+      byScope.set(key, list);
+    }
+    const keys = new Set(
+      [...byScope.values()].map((hours) => coverageKeyOf(hours)),
+    );
+    keys.delete("");
+    return keys.size > 1;
   }, [filtered]);
   const surveyScopeNote = useMemo(
     () => coverageNote(surveyScope),
@@ -6292,10 +6760,19 @@ export default function DashboardClient({ user }: { user: User }) {
    *   幾個是完整 24 小時；全部完整 → 空字串（不寫）。
    */
   const draftCoverageNote = useMemo(() => {
-    const byRoad = new Map<string, string[]>();
-    for (const record of filtered)
-      byRoad.set(record.roadId, [...(byRoad.get(record.roadId) ?? []), record.hour ?? ""]);
-    const coverages = [...byRoad.values()].map((hours) => surveyCoverage(hours));
+    /*
+     * ⚠️ 2026-09-25：分組鍵與 surveyScope 一起改成 `季別|日別|調查點`。
+     *   2026-09-18 的 F-22 修正處理了「同一範圍內混有 24 小時路段與
+     *   部分時段路口」，但它自己的分組也只按 roadId，所以
+     *   「平日 00–12 ＋ 假日 12–24」這種會被聯集成完整 24 小時，
+     *   於是 `if (!partial.length) return ""` 讓整句警語消失。
+     */
+    const byScope = new Map<string, string[]>();
+    for (const record of filtered) {
+      const key = `${record.quarter}|${record.dayType}|${record.roadId}`;
+      byScope.set(key, [...(byScope.get(key) ?? []), record.hour ?? ""]);
+    }
+    const coverages = [...byScope.values()].map((hours) => surveyCoverage(hours));
     const partial = coverages.filter((coverage) => coverage.partial);
     if (!partial.length) return "";
     if (partial.length === coverages.length) return surveyScopeNote;
@@ -6380,11 +6857,11 @@ export default function DashboardClient({ user }: { user: User }) {
         bPcu: 0,
         total: 0,
         pcu24: 0,
-        peakPcu: 0,
+        peakPcu: null as number | null,
         peakHour: "—",
-        aPeakPcu: 0,
+        aPeakPcu: null as number | null,
         aPeakHour: "—",
-        bPeakPcu: 0,
+        bPeakPcu: null as number | null,
         bPeakHour: "—",
         surveyType: r.surveyType ?? (r.turnData ? "intersection" : "road"),
         surveyDates: [] as string[],
@@ -6464,7 +6941,15 @@ export default function DashboardClient({ user }: { user: User }) {
         // 平日＋假日一起看時，兩種日別各自找自己的尖峰再取大者。
         const peakOfBuckets = (hp: Map<string, number>) => {
           const peak = peakFromBuckets(hp);
-          return { peakPcu: peak.value, peakHour: peak.label };
+          /*
+           * ⚠️ `status !== "ok"` 時 `value` 是 0，而那個 0 不是「量到 0」。
+           *   一律換成 null，由下游決定怎麼顯示（畫面與匯出都寫 peakHour
+           *   那一欄的「資料不足」或「—」）。
+           */
+          return {
+            peakPcu: peak.status === "ok" ? peak.value : null,
+            peakHour: peak.label,
+          };
         };
         const roadPeak = peakOfBuckets(x.hp);
         x.peakPcu = roadPeak.peakPcu;
@@ -6484,9 +6969,9 @@ export default function DashboardClient({ user }: { user: User }) {
           });
         const a = directions.find((d) => d.code === "A"),
           b = directions.find((d) => d.code === "B");
-        x.aPeakPcu = a?.peakPcu ?? 0;
+        x.aPeakPcu = a?.peakPcu ?? null;
         x.aPeakHour = a?.peakHour ?? "—";
-        x.bPeakPcu = b?.peakPcu ?? 0;
+        x.bPeakPcu = b?.peakPcu ?? null;
         x.bPeakHour = b?.peakHour ?? "—";
         /* 日期照時間排，畫面上才不會出現「5/4、4/28」這種倒著寫的順序。 */
         x.surveyDates.sort();
@@ -6542,6 +7027,63 @@ export default function DashboardClient({ user }: { user: User }) {
       ].sort(),
     [intersectionOnlyRows],
   );
+  /*
+   * ══════════════════════════════════════════════════════════════════════
+   *  「尖峰（PCU/小時）」那幾個欄名不可以寫死（2026-09-23 反向對帳，C 類）
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * 本季交通量表、可追溯明細表、以及它們的 Excel／CSV 匯出，六處欄名都寫死
+   * 「PCU/小時」。但這些欄位的值是 peakFromBuckets 算出來的**滾動尖峰**，
+   * 視窗不保證是 60 分鐘：
+   *   ・15 分鐘細格＋中間有空檔 → 可能只湊到 45 分鐘，標成 /hr **低估 25%**
+   *   ・原始檔以 2 小時為一格     → 視窗是 120 分鐘，標成 /hr **高估一倍**
+   * 而同一個數字在結論草稿與報告草稿那邊走的是 cellUnitFor（draftPointTotals
+   * 的 peakUnit 就是），會正確寫成「PCU/該時段（45 分鐘）」。
+   * 結果：使用者在表格查到「PCU/小時」，草稿寫「PCU/該時段（45 分鐘）」，
+   * 同一個數字兩種單位——而錯的是表格那一邊。
+   *
+   * ⚠️ 單位只能有一個來源，所以這裡走與畫面、匯出、草稿同一支
+   *   `columnUnitFor`／`cellUnitFor`。60 分鐘時它回 `PCU/hr`，換成這幾張表
+   *   一直在用的寫法「PCU/小時」——**實務上絕大多數資料就是這一種，
+   *   那些情形下欄名與改版前逐字相同。**
+   *
+   * ⚠️ 長短不一時不可以挑一個代表值假裝整欄都適用。`columnUnitFor` 這時會
+   *   叫人去看「分析時段」欄，但這幾張表沒有那一欄、只有「…尖峰時段」欄，
+   *   所以改寫成指向真的存在的那一欄。
+   *
+   * ⚠️ 2026-09-25 第六輪獨立複查更正這一段的舉例：它原本寫著
+   *   「45 分鐘的視窗標成 /hr 會低估 25%」「2 小時的視窗標成 /hr 會高估一倍」
+   *   ——自 v20.83／J1 起**尖峰視窗只可能剛好 60 分鐘或算不出來**，
+   *   那兩種視窗長度不會再出現。這一支現在實際的作用是：
+   *   把 `PCU/hr` 換成這幾張表一直在用的「PCU/小時」，
+   *   並在（現在已不會發生的）長短不一時指向對的欄位。
+   */
+  const peakColumnUnit = useMemo(() => {
+    const hours = roadRows
+      .flatMap((row) => [
+        row.peakHour,
+        row.aPeakHour,
+        row.bPeakHour,
+        ...row.directions.map((item) => item.peakHour),
+      ])
+      /*
+       * ⚠️ 2026-09-25 第六輪：「資料不足」與「待設定 PCU 係數」也要排除。
+       *   它們不是時段字串，餵進 columnUnitFor() 會被當成「解析不出來的時段」
+       *   而讓整欄的欄名退成「長度不一」那一種說法——而實際上剩下的那幾列
+       *   都是整整一小時。
+       */
+      .filter(
+        (hour) =>
+          hour && hour !== "—" && hour !== "資料不足" && hour !== "待設定 PCU 係數",
+      );
+    if (!hours.length) return "PCU/小時";
+    return columnUnitFor("pcu", "am", hours)
+      .replace("PCU/hr", "PCU/小時")
+      .replace(
+        "PCU/各列時段，見「分析時段」欄",
+        "PCU/各列尖峰時段長度不一，見右方「尖峰時段」欄",
+      );
+  }, [roadRows]);
   const totals = useMemo(
     () =>
       roadRows.reduce(
@@ -6580,6 +7122,12 @@ export default function DashboardClient({ user }: { user: User }) {
           /* F-23：逐點的全調查時段尖峰（與可追溯明細「雙向尖峰」同一份數字）。 */
           peakHour: row.peakHour,
           peakPcu: row.peakPcu,
+          /*
+           * ⚠️ 單位要逐點算，不可以讓草稿那邊寫死 /hr。
+           *   尖峰視窗不保證是 60 分鐘（細格＋空檔會短、2 小時一格會長），
+           *   cellUnitFor 就是為了這件事寫的。
+           */
+          peakUnit: cellUnitFor("pcu", "am", row.peakHour ?? ""),
         })),
     [roadRows],
   );
@@ -6819,14 +7367,35 @@ export default function DashboardClient({ user }: { user: User }) {
           name,
           roadCount: new Set(ownRows.map((r) => r.roadId)).size,
           /** 這個方向自己最忙的時段（可能和整體尖峰不同一小時）。 */
-          ownPeak: peakOf(
-            ownRows,
-            pcuFactors,
-            turnPcuFactors,
-            vehicleClassSettings,
-            dayType === "平日＋假日",
-            pcuScopes,
-          ),
+          /*
+           * ══════════════════════════════════════════════════════════
+           *  ⚠️ 2026-09-25 修正：ownPeak 必須**逐日別**算
+           * ══════════════════════════════════════════════════════════
+           *
+           * 舊寫法是每個方向只算**一次**
+           *   `peakOf(ownRows, …, dayType === "平日＋假日", …)`
+           * 而 peakFromBuckets 只回傳**最大的那一個日別**（標籤前面帶日別）。
+           * 但外層是逐日別跑的（`group.peaks.byDay`）。
+           *
+           * 於是平日尖峰 3,454（07:00–08:00）、假日尖峰 2,100（17:00–18:00）時，
+           * 「假日 17:00～18:00」那一組的每個方向都印**平日的值**，
+           * 而說明還會寫成「自己最忙是 平日 07:00～08:00」——
+           * **標題寫假日、數字與時段是平日**。
+           * 這與 atPeak 已經是逐日別取用函式的設計不一致（它收 day 參數）。
+           *
+           * 改成同樣的形狀：收 day，內部只用那一天的資料算，
+           * 所以標籤裡也不會再帶日別前綴（本來就已經分好日別了）。
+           */
+          ownPeakFor: (day: string): [string, number] =>
+            peakOf(
+              day ? ownRows.filter((r) => r.dayType === day) : ownRows,
+              pcuFactors,
+              turnPcuFactors,
+              vehicleClassSettings,
+              /* 已經逐日別篩過，這裡不再分日。 */
+              false,
+              pcuScopes,
+            ),
           /** 逐日別：在「該日別整體尖峰的那一個視窗」裡，這個方向有多少。 */
           atPeak: (day: string, startMinutes: number) => {
             const entries = Array.from(
@@ -6879,13 +7448,13 @@ export default function DashboardClient({ user }: { user: User }) {
     return keys.map((key) => {
       const rows =
         key === "am"
-          ? scoped.filter((r) => isMorningHour(r.hour ?? ""))
+          ? scoped.filter((r) => sideOfRecord(r) === "am")
           : key === "pm"
-            ? scoped.filter((r) => isAfternoonHour(r.hour ?? ""))
+            ? scoped.filter((r) => sideOfRecord(r) === "pm")
             : scoped;
       return { key, label: PERIOD_LABELS[key], rows, peaks: peaksOf(rows) };
     });
-  }, [periodChoice, mainPeriod, scoped, peaksOf]);
+  }, [periodChoice, mainPeriod, scoped, peaksOf, sideOfRecord]);
   /*
    * 既有呼叫端（單位、報告草稿、匯出）取**第一組**：
    * 沒有並列時第一組就是唯一那一組，數字與升級前完全相同。
@@ -7485,6 +8054,7 @@ export default function DashboardClient({ user }: { user: User }) {
           separateDays: false,
           peakScope: "point",
           noonAnswers,
+          pcuUnsetConfirmed,
         });
         const cell = rows.find((row) => row.scopeCode === "ALL")?.periods[period];
         if (!cell || !cell.hasData) continue;
@@ -7509,6 +8079,7 @@ export default function DashboardClient({ user }: { user: User }) {
     pcuScopes,
     vehicleClassSettings,
     noonAnswers,
+    pcuUnsetConfirmed,
   ]);
   /** 單一時段（非並列）時，這一塊用的那一批紀錄；並列時是上午那一組（畫面另外逐組畫）。 */
   const compositionRecords = useMemo(
@@ -8256,7 +8827,26 @@ export default function DashboardClient({ user }: { user: User }) {
           group.period !== "all"
             ? "輛／小時"
             : roadId
-              ? surveyCoverage(records.map((r) => r.hour ?? "")).partial
+              ? /*
+                 * ⚠️ 2026-09-25：這裡也要逐（季別×日別）分組再判斷。
+                 *   舊寫法把這個調查點底下**全部**紀錄的時段丟成一堆，
+                 *   日別選「平日＋假日」時兩天會被聯集：
+                 *   平日 00–12 ＋ 假日 12–24 → 1440 分鐘 → partial=false
+                 *   → 標成「輛／調查日」，而每一天其實只調查 12 小時。
+                 *   與 surveyScope／draftCoverageNote 同一個修法。
+                 */
+                [
+                  ...records
+                    .reduce(function (map, record) {
+                      const key = `${record.quarter}|${record.dayType}`;
+                      map.set(key, [
+                        ...(map.get(key) ?? []),
+                        record.hour ?? "",
+                      ]);
+                      return map;
+                    }, new Map<string, string[]>())
+                    .values(),
+                ].some((hours) => surveyCoverage(hours).partial)
                 ? "輛／調查時段"
                 : "輛／調查日"
               : surveyScope.partial
@@ -8357,7 +8947,7 @@ export default function DashboardClient({ user }: { user: User }) {
         roadId: r.roadId,
         roadName: r.roadName,
         hours: [] as string[],
-        // 路口有 A～G 支線，「方向A／方向B」這兩欄只適用雙向路段；
+        // 路口的支線代碼是 A、B、C…（數量由調查表決定），「方向A／方向B」這兩欄只適用雙向路段；
         // 路口列必須留白，否則 a+b 只含前兩條支線，與全日總量對不起來。
         isIntersection: false,
         a: 0,
@@ -8657,6 +9247,7 @@ export default function DashboardClient({ user }: { user: User }) {
             displayDirectionNameFor(record as unknown as TrafficRecord, mode),
           peakScope,
           noonAnswers,
+          pcuUnsetConfirmed,
         });
         const flowLabel = intersectionFlowLabelOf(mode);
         const firstMode = mode === modes[0];
@@ -8745,6 +9336,7 @@ export default function DashboardClient({ user }: { user: User }) {
       activeProject,
       /* ⚠️ 使用者對「橫跨中午的尖峰」的決定改變時，這一整批列必須重算。 */
       noonAnswers,
+      pcuUnsetConfirmed,
     ],
   );
   /*
@@ -8902,6 +9494,7 @@ export default function DashboardClient({ user }: { user: User }) {
                 ? conclusionCondition.peakScope
                 : mainFilters.peakScope,
             noonAnswers,
+            pcuUnsetConfirmed,
           });
           for (const row of rows) {
             const periods: ConclusionRow["periods"] = {};
@@ -8924,6 +9517,12 @@ export default function DashboardClient({ user }: { user: User }) {
               }
               periods[key] = {
                 hour: source.hour,
+                /*
+                 * ⚠️ 涵蓋指紋一定要帶過去：草稿判斷「兩筆能不能比」用的是它，
+                 *   不是 hour。缺了它草稿會退回比 hour，而 07–11 與 17–21
+                 *   的 hour 一模一樣（都是「實測 4 小時（非 24 小時）」）。
+                 */
+                coverageKey: source.coverageKey,
                 hasData: source.hasData,
                 total: source.total,
                 pcu: source.pcu,
@@ -8986,10 +9585,11 @@ export default function DashboardClient({ user }: { user: User }) {
     pcuScopes,
     /* ⚠️ 同理：橫跨中午的決定改變時，結論草稿讀的這批列也要重算。 */
     noonAnswers,
+    pcuUnsetConfirmed,
   ]);
 
   const periodScopeOptions = useMemo(() => {
-    // 路段的方向代碼是 A／B，路口支線的代碼也是 A～G，同一個計畫裡兩種格式並存時
+    // 路段的方向代碼是 A／B，路口支線的代碼也是 A、B、C…，同一個計畫裡兩種格式並存時
     // 代碼會重疊，所以每個代碼把它實際對應到的所有名稱都列出來（例如「方向A／駛入路口A」），
     // 使用者才知道勾這一個代碼會同時涵蓋哪些列。
     const names = new Map<string, Set<string>>();
@@ -9320,7 +9920,7 @@ export default function DashboardClient({ user }: { user: User }) {
       title: "這張圖在說什麼",
       lines: [
         splitRoad
-          ? `目前有 ${notes.length} 段，一個調查點（乘上日別）一段。**不同調查點的每小時交通量不會相加**（原因見手冊第 8 章）。`
+          ? `目前有 ${notes.length} 段，一個調查點（乘上日別）一段。**不同調查點的每小時交通量不會相加**（原因見手冊第 9 章）。`
           : `圖上有 ${notes.length} 條線，一個日別一條。**兩條線不會相加**——平日與假日是兩種不同的交通狀態，加起來的數字不對應任何一天。`,
         ...notes.flatMap((entry) => [
           `【${entry.day}】`,
@@ -9376,8 +9976,41 @@ export default function DashboardClient({ user }: { user: User }) {
    * 每一個點都是某一天的量，單位就跟只看一天時一樣。
    */
 
-  const trendActualUnit = partialScope ? "輛／調查時段" : "輛／調查日";
-  const trendPcuUnit = partialScope ? "PCU／調查時段" : "PCU／日";
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  ⚠️ 歷季趨勢的單位**不可以**用 partialScope（2026-09-23 修正）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * `partialScope` 來自 `surveyScope`，而 surveyScope 吃的是 `filtered`→`scoped`，
+   * `scoped` 的第一個條件就是 `r.quarter === quarter`——**只看目前選的那一季**。
+   * 但趨勢圖畫的是 `trendRows`，資料來自**全部季度**。於是：
+   *   ・目前停在 24 小時的季 → 只調查 4 小時的那幾季被標成「輛／調查日」
+   *   ・目前停在 4 小時的季 → 做滿 24 小時的那幾季被標成「輛／調查時段」
+   * 這個單位一路擴散到畫面軸名、下載的 PNG 標題與軸、趨勢講稿每一行的數字、
+   * 以及報表草稿的 trend.unit。
+   *
+   * `tests/cross-quarter-and-restore-guards.test.mjs` 已經寫過這段說明，
+   * 但它只掃三張 Excel 工作表的程式碼區塊，畫面／PNG／講稿／草稿都沒守到。
+   *
+   * 規則（與 cellUnitFor 同一個方向：寧可少講，不要多講）：
+   *   **只要趨勢範圍內有任何一季、任何一個調查點不是完整 24 小時，
+   *   就一律標「調查時段」。** 完整 24 小時本來就是一種調查時段，
+   *   標成調查時段只是講得保守；反過來把 4 小時標成「調查日」則是講錯。
+   */
+  const trendPartial = useMemo(() => {
+    const byKey = new Map<string, string[]>();
+    for (const record of analysisRecords) {
+      if (!trendMatchesRoad(record.roadId)) continue;
+      if (trendMode === "平日" && record.dayType !== "平日") continue;
+      if (trendMode === "假日" && record.dayType !== "假日") continue;
+      const key = `${record.quarter}|${record.dayType}|${record.roadId}`;
+      byKey.set(key, [...(byKey.get(key) ?? []), record.hour ?? ""]);
+    }
+    if (!byKey.size) return partialScope;
+    return [...byKey.values()].some((hours) => surveyCoverage(hours).partial);
+  }, [analysisRecords, trendMatchesRoad, trendMode, partialScope]);
+  const trendActualUnit = trendPartial ? "輛／調查時段" : "輛／調查日";
+  const trendPcuUnit = trendPartial ? "PCU／調查時段" : "PCU／日";
   /* ── 趨勢圖的單位、軸名稱 ─────────────────────────────── */
   /** 單位跟著指標走：輛數類用調查涵蓋的單位、PCU 類用 PCU 單位、佔比是 %。 */
   const trendUnit =
@@ -9909,8 +10542,21 @@ export default function DashboardClient({ user }: { user: User }) {
     const text = trendScriptSections
       .map((section) => `【${section.title}】\n${section.lines.join("\n")}`)
       .join("\n\n");
-    /* 沒有剪貼簿權限時不要靜靜失敗，改成下載成 .txt。 */
-    navigator.clipboard?.writeText(text).catch(() => {
+    /*
+     * 沒有剪貼簿權限時不要靜靜失敗，改成下載成 .txt。
+     *
+     * ══════════════════════════════════════════════════════════════
+     *  ⚠️ 2026-09-25 修正：可選鏈會短路**整條成員鏈**，連 .catch 都不跑
+     * ══════════════════════════════════════════════════════════════
+     *
+     * 舊寫法 `navigator.clipboard?.writeText(text).catch(…)` 在
+     * clipboard 為 undefined 時整條回傳 undefined，**.catch 一次都不會執行**
+     *（已實測）。也就是上面那句註解宣告的 fallback（下載成 .txt）
+     * **在這條路上從來沒有發生過**：按下去沒有複製、沒有下載、也沒有提示。
+     * 非安全內容（http 的區網網址）與舊瀏覽器都會這樣。
+     * 正解是先明確判斷，再各自處理。
+     */
+    const downloadAsText = () => {
       const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -9918,7 +10564,13 @@ export default function DashboardClient({ user }: { user: User }) {
       link.download = "歷季趨勢圖說明.txt";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
-    });
+    };
+    if (!navigator.clipboard?.writeText) {
+      setToast("這個瀏覽器不允許程式複製，已改成下載成 .txt。");
+      downloadAsText();
+      return;
+    }
+    navigator.clipboard.writeText(text).catch(downloadAsText);
   }, [trendScriptSections]);
 
   const intersectionFlowLabel = intersectionFlowLabelOf(intersectionFlowMode);
@@ -9981,6 +10633,14 @@ export default function DashboardClient({ user }: { user: User }) {
         workflow.thresholds,
         (record) =>
           sumPcu(
+            record,
+            pcuFactors,
+            turnPcuFactors,
+            vehicleClassSettings,
+            pcuScopes,
+          ),
+        (record) =>
+          anyVehiclePcu(
             record,
             pcuFactors,
             turnPcuFactors,
@@ -10141,9 +10801,56 @@ export default function DashboardClient({ user }: { user: User }) {
    *   不另外做一張表。另做一張表的結果是確認、篩選、匯出、報告草稿
    *   四處各自要再接一次，遲早有一處會漏。
    */
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  調查格距超過 1 小時（使用者 2026-09-24 指定）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者原話：「如果出現 2 小時 1 格，那表示是異常，要讓使用者去確認
+   * 是否誤植，交通量調查都是以 1 小時調查為主，最多以每 15 分鐘調查一筆
+   * 資料……但不可能出現 2 小時以上類型的調查資料，那反而要列為異常，
+   * 系統應該匯入時會提示，以及列入資料異常清單裡吧」
+   *
+   * ⚠️ 判定走解析後的 `record.hour`，**不掃原始檔文字**。
+   *   姊妹專案交通服務水準的真實檔裡有「上午尖峰 (07:00～09:00)」這種
+   *   **調查時段標示**，掃文字會 6 份全部誤報——那一支因此刻意不做這一項。
+   */
+  const intervalAlerts = useMemo(
+    () =>
+      detectIntervalAlerts(activeRecords, {
+        road: (roadId) =>
+          roadOptions.find(([value]) => value === roadId)?.[1] || roadId,
+      }),
+    [activeRecords, roadOptions],
+  );
+  /*
+   * 格距混用（使用者 2026-09-24 的 I3）。
+   * 偵測本來只在匯入前檢核報告出現一次，關掉視窗就再也看不到；
+   * 現在與其他異常走同一條路。判準走 regularIntervalsOf()，與匯入警告同一份。
+   */
+  const mixedIntervalAlerts = useMemo(
+    () =>
+      detectMixedIntervalAlerts(activeRecords, {
+        road: (roadId) =>
+          roadOptions.find(([value]) => value === roadId)?.[1] || roadId,
+      }),
+    [activeRecords, roadOptions],
+  );
   const allAnomalyAlerts = useMemo(
-    () => [...anomalyAlerts, ...directionPairAlerts, ...surveyDateAlerts],
-    [anomalyAlerts, directionPairAlerts, surveyDateAlerts],
+    () => [
+      ...anomalyAlerts,
+      ...directionPairAlerts,
+      ...surveyDateAlerts,
+      ...intervalAlerts,
+      ...mixedIntervalAlerts,
+    ],
+    [
+      anomalyAlerts,
+      directionPairAlerts,
+      surveyDateAlerts,
+      intervalAlerts,
+      mixedIntervalAlerts,
+    ],
   );
   const ackedAnomalyCount = allAnomalyAlerts.filter(anomalyAcked).length;
   const filteredAnomalies = useMemo(
@@ -10713,7 +11420,7 @@ export default function DashboardClient({ user }: { user: User }) {
            * 可不可以把各調查點加起來，取決於這個時段是不是「同一段時間」。
            *
            * ・全調查時段（all）＝整段涵蓋的累計，各調查點相加是有意義的。
-           * ・尖峰小時（am／pm／peak24）＝「某一個特定小時」的流率。
+           * ・尖峰小時（am／pm／allPeak）＝「某一個特定小時」的流率。
            *   各調查點的尖峰小時不一定相同（A 點 07:00–08:00、B 點
            *   07:30–08:30），相加出來的數字不對應任何一個真實存在的小時。
            *   舊寫法在 hours 不只一個時，只把「時段」那一欄改寫成
@@ -11015,11 +11722,13 @@ export default function DashboardClient({ user }: { user: User }) {
    *    只補「建立成功後清空」的話，**按取消再開一次照樣留著舊字**。
    */
   function openProjectForm() {
+    if (projectLoadStatus !== "ready") return;
     setNewProject({ name: "", code: "", clientName: "" });
     setShowProjectForm(true);
   }
   async function createProject(e: React.FormEvent) {
     e.preventDefault();
+    if (projectLoadStatus !== "ready") return;
     setBusy(true);
     try {
       const res = await appFetch("/api/projects", {
@@ -11858,6 +12567,51 @@ export default function DashboardClient({ user }: { user: User }) {
                 `。系統目前採用第一個（${readableDate(item.candidates[0].iso)}）。` +
                 `這不會阻擋匯入；匯入後到「資料維護 → 執行資料異常檢查」可以指定哪一個才是調查日期。`,
             ),
+          /*
+           * ⚠️ 調查格距超過 1 小時：**提醒，不阻擋**（使用者 2026-09-24）。
+           *
+           *   「不可能出現 2 小時以上類型的調查資料，那反而要列為異常，
+           *     系統應該匯入時會提示，以及列入資料異常清單裡吧」
+           *
+           * ⚠️ 逐格看，不取眾數：48 格裡有 1 格誤植成 2 小時的話眾數仍然是
+           *   60，那一格會被蓋掉——而那正是最需要被抓出來的情形。
+           * ⚠️ 這裡看的是**已經解析成紀錄**的 `hour`，不掃原始檔文字：
+           *   姊妹專案交通服務水準的真實檔裡有「上午尖峰 (07:00～09:00)」
+           *   這種調查時段標示，掃文字會整批誤報。
+           */
+          ...(function () {
+            const byFile = new Map<string, Map<number, number>>();
+            for (const record of parsed) {
+              const range = parseTimeRange(String(record.hour ?? ""));
+              if (!range) continue;
+              const minutes = range.end - range.start;
+              if (minutes <= 60 || minutes > 24 * 60) continue;
+              const where =
+                (record.sourceFileName || "原始檔") +
+                (record.sourceSheetName ? `【${record.sourceSheetName}】` : "");
+              const bucket = byFile.get(where) ?? new Map<number, number>();
+              bucket.set(minutes, (bucket.get(minutes) ?? 0) + 1);
+              byFile.set(where, bucket);
+            }
+            return [...byFile.entries()].map(([where, lengths]) => {
+              const parts = [...lengths.entries()]
+                .sort((a, b) => b[0] - a[0])
+                .map(([minutes, n]) =>
+                  Number.isInteger(minutes / 60)
+                    ? `${minutes / 60} 小時 × ${n} 格`
+                    : `${minutes} 分鐘 × ${n} 格`,
+                );
+              return (
+                `「${where}」有時間格長度超過 1 小時（${parts.join("、")}）。` +
+                "交通量調查以 1 小時一格為主、細一點是 15／20／30 分鐘，" +
+                "不會有 2 小時以上一格的調查，這多半是時間欄位誤植——" +
+                "例如把「07:00～08:00」打成「07:00～09:00」。" +
+                "這不會阻擋匯入，也不會改任何數值，但它會影響單位（一格 2 小時" +
+                "的量標成「輛/小時」會高估一倍，本系統一律照實際格距標示）。" +
+                "匯入後到「資料維護 → 執行資料異常檢查」也會列出這一項。"
+              );
+            });
+          })(),
           ...sourceCellWarnings,
           ...armAuditWarnings,
         ],
@@ -12254,11 +13008,22 @@ export default function DashboardClient({ user }: { user: User }) {
    * 目前畫面上的那個計畫，資料本來就都在 state 裡；
    * 其他計畫的資料要先抓回來再傳進來（見 collectProjectBackup）。
    */
+  /*
+   * ⚠️ 2026-09-23：`pcuFactors` 與 `turnPcuFactors` **一定要由 input 傳進來**，
+   *   不可以從外層 state 讀（原本就是那樣寫的，這是修正）。
+   *
+   *   那兩個 state 是**逐計畫載入**的（見 activeProject 變動時的 useEffect），
+   *   從閉包讀的話，「備份全部計畫」時每一份 bundle 拿到的都是
+   *   **目前畫面上那個計畫**的係數；還原之後所有計畫的 PCU 會變成同一組，
+   *   而檔案大小正常、還原也不會報錯——正是上面那段註解點名最難發現的錯。
+   */
   function buildBackupPayload(input: {
     project: { name: string; code?: string; clientName?: string };
     projectId: string;
     records: TrafficRecord[];
     pcuScopes: PcuScopes;
+    pcuFactors: PcuFactors;
+    turnPcuFactors: TurnPcuFactors;
     roadAliases: RoadAlias[];
     workflow: WorkflowState;
   }) {
@@ -12271,8 +13036,8 @@ export default function DashboardClient({ user }: { user: User }) {
         code: input.project.code ?? "",
         clientName: input.project.clientName ?? "",
       },
-      pcuFactors,
-      turnPcuFactors,
+      pcuFactors: input.pcuFactors,
+      turnPcuFactors: input.turnPcuFactors,
       /*
        * ── 依季別／路段的係數覆寫 ──────────────────────────
        *
@@ -12421,6 +13186,9 @@ export default function DashboardClient({ user }: { user: User }) {
         projectId: activeProject,
         records: activeRecords,
         pcuScopes,
+        /* 目前畫面上的這個計畫：state 裡的就是它自己的係數。 */
+        pcuFactors,
+        turnPcuFactors,
         roadAliases,
         workflow,
       }),
@@ -12486,6 +13254,12 @@ export default function DashboardClient({ user }: { user: User }) {
             projectId: project.id,
             records: allRows.filter((row) => row.projectId === project.id),
             pcuScopes: readProjectPcuScopes(project.id),
+            /*
+             * ⚠️ 一定要逐計畫讀，不可以用畫面上的 pcuFactors／turnPcuFactors。
+             *   用 state 的話每一份 bundle 都會是**目前這個計畫**的係數。
+             */
+            pcuFactors: readProjectPcuFactors(project.id),
+            turnPcuFactors: readProjectTurnPcuFactors(project.id),
             roadAliases: Array.isArray(roadsData?.aliases)
               ? roadsData.aliases
               : [],
@@ -12500,6 +13274,26 @@ export default function DashboardClient({ user }: { user: User }) {
           exportedAt: new Date().toISOString(),
           projectCount: bundles.length,
           projects: bundles,
+          /*
+           * ══════════════════════════════════════════════════════════
+           *  「顯示調查日期」只放在這裡（K45，2026-09-24）
+           * ══════════════════════════════════════════════════════════
+           *
+           * 規則（三支同一套，寫在 never-revert-contract.mjs 第 22 條）：
+           *   **跟人走**——瀏覽器儲存 ＋ 個人全部計畫包；
+           *   **不跟單一計畫的專案包走**（那是給別人的，不該塞自己的偏好）。
+           *
+           * ⚠️ 所以它只出現在「備份全部計畫」，`buildBackupPayload()` 裡
+           *   沒有、也不可以有——單一計畫備份會被別人併入，塞自己的偏好進去
+           *   會靜默翻掉對方的開關。
+           *
+           * ⚠️ 原本這裡漏了：全部計畫的還原走的是把偏好留在原狀，而
+           *   `showSurveyDate` 的初值是 true——於是使用者關掉開關、下載自己的
+           *   全部計畫包、換電腦匯入之後**開關被翻回開**，畫面沒有任何提示。
+           *   交通服務水準與路口轉向早就這樣做了（各自的註解都記著同一個坑），
+           *   只有這一支沒跟上，是 2026-09-24 的 F6 獨立複查抓到的。
+           */
+          showSurveyDate,
         },
         `全部計畫_交通量完整備份_${today()}.json`,
       );
@@ -12575,7 +13369,15 @@ export default function DashboardClient({ user }: { user: User }) {
    *   只載入目前那一個計畫。不重新整理的話，畫面顯示的與存起來的會不一致，
    *   而使用者看到的是「還原完成」——那種不一致最難查。
    */
+  /**
+   * 還原「全部計畫」備份。
+   *
+   * ⚠️ 2026-09-25：回傳值從單純的筆數改成 `{ count, warnings }`。
+   *   被拒絕的 PCU 係數一定要讓使用者知道——舊版是靜靜略過，
+   *   使用者會以為係數還原成功了，而畫面上其實是系統預設值。
+   */
   async function restoreAllProjects(bundles: unknown[]) {
+    const allRestoreWarnings: string[] = [];
     const existingNames = new Set(projects.map((p) => p.name.trim()));
     let restoredCount = 0;
     /*
@@ -12606,6 +13408,11 @@ export default function DashboardClient({ user }: { user: User }) {
         intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];
         workflow?: WorkflowState;
         conclusionTemplates?: ConclusionTemplate[];
+    /*
+     * K45：只有「全部計畫」的備份會帶這個欄位（個人偏好跟人走）。
+     * 單一計畫備份**不可以**有——那份是給別人的。
+     */
+    showSurveyDate?: boolean;
       };
       const baseName = (bundle.project?.name || "").trim() || "還原的計畫";
       /*
@@ -12667,9 +13474,37 @@ export default function DashboardClient({ user }: { user: User }) {
           }),
         });
       }
-      if (bundle.pcuFactors) writeProjectPcuFactors(newId, bundle.pcuFactors);
-      if (bundle.turnPcuFactors)
-        writeProjectTurnPcuFactors(newId, bundle.turnPcuFactors);
+      /*
+       * ══════════════════════════════════════════════════════════════
+       *  ⚠️ 2026-09-25 修正：這一條路原本對 PCU 係數**一個檢查都沒有**
+       * ══════════════════════════════════════════════════════════════
+       *
+       * 舊寫法是 `if (bundle.pcuFactors) writeProjectPcuFactors(...)`——
+       * 直接把備份裡的內容寫進 localStorage。下次載入時 isValidPcu()
+       * 會拒絕它、靜靜退回系統預設 0.5/1/1.5/2.5，使用者備份裡自訂的係數
+       * **全部消失且無提示**；而同一段的 pcuScopes 明明就有 filter(isValidScope)。
+       *
+       * validateBackupRecords 上面的註解自己寫著：
+       *   「單一計畫與全部計畫兩條還原路徑一定要共用這一份……
+       *     兩邊各寫一份檢查，遲早會有一條路的檢查比較鬆」
+       * ——而這一條連一份都沒有。現在兩條路都走同一個 isValidPcu／isValidTurnPcu。
+       */
+      if (bundle.pcuFactors) {
+        if (isValidPcu(bundle.pcuFactors))
+          writeProjectPcuFactors(newId, bundle.pcuFactors);
+        else
+          allRestoreWarnings.push(
+            `「${bundle.project?.name || newId}」的路段PCU係數不是合法的數字，已略過（沿用系統預設值）`,
+          );
+      }
+      if (bundle.turnPcuFactors) {
+        if (isValidTurnPcu(bundle.turnPcuFactors))
+          writeProjectTurnPcuFactors(newId, bundle.turnPcuFactors);
+        else
+          allRestoreWarnings.push(
+            `「${bundle.project?.name || newId}」的轉向PCU係數不完整或不是合法的數字，已略過（沿用系統預設值）`,
+          );
+      }
       writeProjectPcuScopes(
         newId,
         Array.isArray(bundle.pcuScopes)
@@ -12710,9 +13545,10 @@ export default function DashboardClient({ user }: { user: User }) {
       setIntersectionSettings(nextIntersection);
       safeWrite("traffic-intersection-settings-v1", nextIntersection);
     }
-    return restoredCount;
+    return { count: restoredCount, warnings: allRestoreWarnings };
   }
   async function importBackup(e: React.ChangeEvent<HTMLInputElement>) {
+    if (projectLoadStatus !== "ready") return;
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
@@ -12731,6 +13567,8 @@ export default function DashboardClient({ user }: { user: User }) {
         intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];
         workflow?: WorkflowState;
         conclusionTemplates?: ConclusionTemplate[];
+        /* K45：只有「全部計畫」的備份會帶它；舊備份沒有，那時維持現狀。 */
+        showSurveyDate?: boolean;
       };
       /*
        * ── 兩種備份檔 ────────────────────────────────────────────
@@ -12750,8 +13588,35 @@ export default function DashboardClient({ user }: { user: User }) {
           )
         )
           return;
-        const count = await restoreAllProjects(allBundles);
-        setToast(`已還原 ${count} 個計畫，正在重新載入畫面…`);
+        const { count, warnings } = await restoreAllProjects(allBundles);
+        /*
+         * ── K45：把「顯示調查日期」一起還原回來 ──
+         *
+         * ⚠️ 只認布林值。舊版的全部計畫備份沒有這個欄位，那時**維持現狀**
+         *   （不可以當成 false，也不可以當成 true）——舊備份沒有表達過任何
+         *   偏好，硬給一個等於替使用者決定。
+         * ⚠️ 走 setShowSurveyDate（不是 setShowSurveyDateState），它會一併
+         *   寫進 localStorage；直接改內部狀態的話，重新整理就沒了，
+         *   而下一行正好要重新整理。
+         */
+        if (typeof payload.showSurveyDate === "boolean")
+          setShowSurveyDate(payload.showSurveyDate);
+        /*
+         * ⚠️ 被略過的設定一定要講出來。不講的話，使用者會以為整份備份
+         *   都還原成功了，而某個計畫的 PCU 係數其實是系統預設值——
+         *   同一份備份在他和業主的電腦上會算出不同的 PCU。
+         */
+        setToast(
+          `已還原 ${count} 個計畫` +
+            (warnings.length ? `，但有 ${warnings.length} 項被略過` : "") +
+            "，正在重新載入畫面…",
+        );
+        if (warnings.length)
+          window.alert(
+            "下列設定沒有還原（其餘都已還原完成）：\n\n・" +
+              warnings.join("\n・") +
+              "\n\n請在對應計畫的「PCU當量係數」確認後重新輸入。",
+          );
         /*
          * ⚠️ 一定要重新整理。上面寫的是資料庫與 localStorage，
          *   而畫面上的 state 只載入目前那一個計畫；不重新整理的話，
@@ -12946,13 +13811,36 @@ export default function DashboardClient({ user }: { user: User }) {
       ]);
       // 備份裡的四大類係數要一併寫回 localStorage，否則重新整理就會退回舊值，
       // 只有轉向係數與車種設定被還原，整份資料反而互相矛盾。
-      // 同時比照載入時的檢查，避免壞掉的備份把係數全變成 undefined（PCU 會整欄變 0）。
-      if (
-        payload.pcuFactors &&
-        CORE_VEHICLE_KEYS.every((key) =>
-          Number.isFinite(Number((payload.pcuFactors as CorePcuFactors)[key])),
-        )
-      ) {
+      /*
+       * ══════════════════════════════════════════════════════════════
+       *  ⚠️ 2026-09-25 修正：這裡的檢查比載入時**鬆**，而註解宣稱一樣
+       * ══════════════════════════════════════════════════════════════
+       *
+       * 舊寫法是 `CORE_VEHICLE_KEYS.every((k) => Number.isFinite(Number(x[k])))`，
+       * 而載入時用的 `isValidPcu()` 是 `typeof x[k] === "number"`。
+       * 實測差異（機車係數）：
+       *
+       *   0.5     還原放行 / 載入放行  → PCU 150
+       *   "0.5"   還原放行 / 載入拒絕  → PCU 100   ← 機車整欄變 0
+       *   null    還原放行 / 載入拒絕  → PCU 100
+       *   true    還原放行 / 載入拒絕  → PCU 100
+       *   ""      還原放行 / 載入拒絕  → PCU 100
+       *
+       * 原因：下游 app/vehicle-analysis.ts 是
+       * `Number.isFinite(factor) ? Number(factor) : 0`，而 isFinite **不做強制轉型**，
+       * 對字串／null／布林一律當 0。
+       *
+       * 最惡劣的地方：這份壞係數被寫進 localStorage，重新整理時 isValidPcu
+       * 又拒絕它、退回預設 0.5 → 數字跳回 150。**同一份資料，有沒有重新整理
+       * 會給兩個不同的 PCU，全程沒有任何警告。**
+       * 而舊註解寫著「同時比照載入時的檢查，避免壞掉的備份把係數全變成
+       * undefined（PCU 會整欄變 0）」——它想防的正是發生了的事。
+       *
+       * 正解：**直接呼叫 isValidPcu()**，不要在這裡另寫一份判斷。
+       * 被拒絕時一定要走 restoreWarnings 告訴使用者，不可以靜靜退回預設值
+       *（那會讓他以為係數還是自己設的那一組）。
+       */
+      if (isValidPcu(payload.pcuFactors)) {
         const restored = { ...(payload.pcuFactors as CorePcuFactors) };
         setPcuFactors(restored);
         setPcuDraft(restored);
@@ -12967,21 +13855,26 @@ export default function DashboardClient({ user }: { user: User }) {
          */
         if (!writeProjectPcuFactors(targetProjectId, restored))
           restoreWarnings.push("路段PCU係數未存入瀏覽器，重新整理後會退回原值");
+      } else if (payload.pcuFactors) {
+        /*
+         * ⚠️ 不可以靜靜跳過。舊版連這一句都沒有，使用者會以為係數還原成功了，
+         *   而畫面上其實是系統預設值——同一份備份在他和業主的電腦上算出不同的 PCU。
+         */
+        restoreWarnings.push(
+          "備份中的路段PCU係數不是合法的數字（可能是手改過的備份把數字存成了文字），" +
+            "已保留目前設定；請於「PCU當量係數」確認後重新輸入",
+        );
       }
       // 轉向係數比照載入時的檢查：4 車種 × 3 轉向共 12 個有效數字才採用。
       // 否則壞掉的備份會把 localStorage 汙染成載入時會被拒絕的內容，
       // 造成畫面上的值與儲存的值永久不一致。
       const restoredTurn = payload.turnPcuFactors as TurnPcuFactors | undefined;
-      const turnValues = restoredTurn
-        ? Object.values(restoredTurn).flatMap((value) =>
-            Object.values(value as Record<string, number>),
-          )
-        : [];
-      if (
-        restoredTurn &&
-        turnValues.length === 12 &&
-        turnValues.every((value) => Number.isFinite(Number(value)))
-      ) {
+      /*
+       * ⚠️ 2026-09-25：同理改走 isValidTurnPcu()（載入時用的那一份）。
+       *   `Number.isFinite(Number(value))` 會放行字串與布林，
+       *   而下游一律當 0——轉向 PCU 會整欄變 0。
+       */
+      if (isValidTurnPcu(restoredTurn)) {
         setTurnPcuFactors(restoredTurn);
         setTurnPcuDraft(restoredTurn);
         /* 同上，必須是 targetProjectId。 */
@@ -13070,11 +13963,59 @@ export default function DashboardClient({ user }: { user: User }) {
               restoredSet.has(q),
             ),
           ];
+          /*
+           * ══════════════════════════════════════════════════════════
+           *  使用者親手按出來的兩樣東西，也要跟著還原（2026-09-23 修正）
+           * ══════════════════════════════════════════════════════════
+           *
+           * 舊寫法只挑 statuses／checkedQuarters／history 三樣，於是
+           * **同一份備份檔**走「還原本計畫」與走「還原全部計畫」
+           * （那一條是 `saveWorkflow(newId, bundle.workflow)`，整份存回去）
+           * 結果不一樣：換一台電腦用前者還原，
+           *   ・所有按過的「已人工確認」歸零 → 異常清單整批重新冒出來
+           *   ・所有「指定調查日期」的覆寫消失 → 明細退回原始判讀的日期
+           * 而畫面只寫「已還原 N 個季度」。
+           *
+           * ⚠️ 用**併入**不是覆蓋：使用者可能已經在這台電腦按過別的確認，
+           *   還原一份舊備份不該把它們清掉。備份裡有的以備份為準。
+           * ⚠️ `ackedAnomalies` 的鍵是**指紋**（帶著數值），不是季別，
+           *   所以沒辦法只挑還原範圍內的那幾筆。這是安全的：
+           *   指紋對不上任何一筆現存異常的孤兒，會在下一次
+           *   「執行資料異常檢查」時被清掉（見 pruneOrphanAcks）。
+           * ⚠️ `surveyDateOverrides` 的鍵是 `季別|檔名|工作表名`，
+           *   所以**只**併入這次還原範圍內的季別——還原一份只含 115Q1
+           *   的舊備份，不可以動到 115Q2 的日期指定。
+           */
+          const ackedAnomalies = {
+            ...(base.ackedAnomalies ?? {}),
+            ...(incoming.ackedAnomalies ?? {}),
+          };
+          const surveyDateOverrides = { ...(base.surveyDateOverrides ?? {}) };
+          for (const [key, value] of Object.entries(
+            incoming.surveyDateOverrides ?? {},
+          ))
+            if (restoredSet.has(key.split("|")[0]))
+              surveyDateOverrides[key] = value;
+          /*
+           * 比較報表範本：**併入**，同名視為同一組、以備份為準
+           * （與下面 conclusionTemplates 同一套規則）。
+           * ⚠️ 原本這裡什麼都不做，於是換一台電腦還原之後，使用者存好的
+           *   比較報表範本一個都不在——而「還原全部計畫」那條路徑是整份
+           *   存回去的，所以同一份檔案走另一條就有。兩條路徑必須一致。
+           */
+          const reportByName = new Map(
+            base.comparisonReports.map((item) => [item.name, item]),
+          );
+          for (const item of incoming.comparisonReports ?? [])
+            reportByName.set(item.name, item);
           return {
             ...base,
             statuses,
             checkedQuarters: [...new Set(checkedQuarters)],
-            // 門檻與範本是「使用者目前的設定」，不屬於某一個季度，
+            ackedAnomalies,
+            surveyDateOverrides,
+            comparisonReports: [...reportByName.values()],
+            // 門檻是「使用者目前這台電腦的設定」，不屬於某一個季度，
             // 不該被一份舊備份改掉。
             /* 還原時 history 也要套用和其他寫入處一致的上限（UNDO_KEEP）：
        每一筆都含匯入前後兩份完整的計畫資料，無上限累加會讓
@@ -13759,14 +14700,17 @@ export default function DashboardClient({ user }: { user: User }) {
      * 標成「輛/日」會讓人直接拿去跟完整 24 小時的季度比較。
      */
     /*
-     * 單位要同時看「調查涵蓋」與「日別」。
+     * 單位看「調查涵蓋」滿不滿 24 小時。
      *
-     * 只看 surveyScope.partial 的話，日別選「平日＋假日」時匯出的是兩天的
-     * 加總，卻會被標成「輛/日」——實測 999998T601 一份檔案匯出 12,838 輛
-     * 標成全日實際交通量，而那是平日 9,392 加假日 3,446 的合計，
-     * 比真正的平日量高了 37%。畫面上的 KPI 早就標「輛／平假日合計」了，
-     * 匯出檔卻沒有跟上，同一份檔案裡的另一張工作表也標成「平日＋假日全部時段」，
-     * 三處互相矛盾。這裡與畫面共用同一套判斷。
+     * ⚠️ 2026-09-25 更正這一段：它原本描述的是**舊規則**
+     *  （「單位要同時看調查涵蓋與日別」）。
+     *   歷史上的問題是：只看 surveyScope.partial 的話，日別選「平日＋假日」時
+     *   匯出的是兩天的加總卻被標成「輛/日」——實測一份檔案匯出 12,838 輛
+     *   標成全日實際交通量，而那是平日 9,392 加假日 3,446 的合計，高了 37%。
+     *   **那個問題現在是靠「平日＋假日拆成兩列、一列一天」解掉的**，
+     *   不是靠單位去看日別。所以 exportActualUnit 只收 partial 一個參數。
+     *   與畫面共用同一套涵蓋判斷（surveyScope，已於 2026-09-25 修正為
+     *   逐「季別×日別×調查點」分組，見它的說明）。
      */
     /*
      * ⚠️ 這裡**不可以**再定義一個只換年份的 showQuarter。
@@ -13776,8 +14720,44 @@ export default function DashboardClient({ user }: { user: User }) {
      *   （使用者 2026-09-13 在另一支程式上發現同一個毛病，指定三支都要查。）
      *   直接用外層那一個：它兩層都套，而且與畫面同一份。
      */
-    const sheetActualUnit = exportActualUnit(dayType, surveyScope.partial);
-    const sheetPcuUnit = exportPcuUnit(dayType, surveyScope.partial);
+    /*
+     * ── K42：涵蓋不一致時改用中性單位 ──
+     *
+     * 同一季裡各列涵蓋不同時（平日完整 24 小時、假日只測 6 小時），
+     * **任何單一單位都會誤標其中一列**：「輛/日」對假日那一列是錯的，
+     * 「輛/調查時段」對平日那一列也是錯的。所以這時候表頭改用中性單位，
+     * 並多一欄「調查涵蓋」逐列寫出它自己的涵蓋——與歷季各表同一個做法。
+     *
+     * ⚠️ 涵蓋一致時（使用者手上的 5 份真實檔平假日都是完整 24 小時）
+     *   完全走原本的路徑，表頭照舊是「輛/日」、也不會多那一欄，
+     *   匯出的檔案一個字都不會變。
+     * ⚠️ 這個情況本身已經列進資料異常檢查（「平假日涵蓋不一致」），
+     *   使用者確認過才算正常——單位標示只是「不要講錯話」，不是替他判定正常。
+     */
+    const sheetActualUnit = coverageMismatch
+      ? "輛"
+      : exportActualUnit(surveyScope.partial);
+    const sheetPcuUnit = coverageMismatch
+      ? "PCU"
+      : exportPcuUnit(surveyScope.partial);
+    /*
+     * 涵蓋不一致時要逐列寫出「這一列自己的調查涵蓋」。
+     * ⚠️ 鍵用「日別｜調查點」，與 surveyScope 的分組同一個層級——
+     *   把不同調查點的時段混在一起算，只要有一個 24 小時的就會蓋掉其他的。
+     * ⚠️ 涵蓋一致時這份表不會被用到（也不會多那一欄）。
+     */
+    const coverageByRow = new Map<string, string[]>();
+    for (const record of filtered) {
+      const key = `${record.dayType}|${record.roadId}`;
+      const list = coverageByRow.get(key) ?? [];
+      list.push(record.hour ?? "");
+      coverageByRow.set(key, list);
+    }
+    const rowCoverageLabel = (dayTypeOfRow: string, roadId: string) => {
+      const hours = coverageByRow.get(`${dayTypeOfRow}|${roadId}`);
+      if (!hours?.length) return "無法判斷";
+      return coverageLabelOf(surveyCoverage(hours));
+    };
     const roadDetails = roadOnlyRows.map((r) => ({
       季度: showQuarter(quarter),
       /*
@@ -13795,8 +14775,12 @@ export default function DashboardClient({ user }: { user: User }) {
       [`方向B（${sheetPcuUnit}・僅路段）`]: r.bPcu,
       [`全日（${sheetActualUnit}）`]: r.total,
       [`24小時（${sheetPcuUnit}）`]: r.pcu24,
-      "雙向尖峰（PCU/小時）": r.peakPcu,
+      [`雙向尖峰（${peakColumnUnit}）`]: r.peakPcu,
       雙向尖峰時段: r.peakHour,
+      /* K42：涵蓋不一致時才多這一欄，與新版 .xlsx 同一個做法。 */
+      ...(coverageMismatch
+        ? { "調查涵蓋（本列自己的）": rowCoverageLabel(r.dayType || dayType, r.roadId) }
+        : {}),
     }));
     const intersectionDetails = intersectionOnlyRows.flatMap((r) =>
       r.directions.map((d) => ({
@@ -13809,7 +14793,7 @@ export default function DashboardClient({ user }: { user: User }) {
         [`${intersectionFlowLabel}支線`]: d.name,
         [`${intersectionFlowLabel}交通量（${sheetActualUnit}）`]: d.actual,
         [`${intersectionFlowLabel}交通量（${sheetPcuUnit}）`]: d.pcu,
-        [`${intersectionFlowLabel}尖峰（PCU/小時）`]: d.peakPcu,
+        [`${intersectionFlowLabel}尖峰（${peakColumnUnit}）`]: d.peakPcu,
         [`${intersectionFlowLabel}尖峰時段`]: d.peakHour,
         [`全日（${sheetActualUnit}）`]: r.total,
         [`24小時（${sheetPcuUnit}）`]: r.pcu24,
@@ -14053,8 +15037,32 @@ export default function DashboardClient({ user }: { user: User }) {
        * ⚠️ 同上：不可以在這裡遮蔽外層的 showQuarter。
        *   外層那一個會同時套上年份與期別兩層，和畫面是同一份。
        */
-      const sheetActualUnit = exportActualUnit(dayType, surveyScope.partial);
-      const sheetPcuUnit = exportPcuUnit(dayType, surveyScope.partial);
+      /*
+       * ── K42：涵蓋不一致時改用中性單位，並逐列附上自己的調查涵蓋 ──
+       *
+       * 同一季裡各列涵蓋不同時（平日完整 24 小時、假日只測 6 小時），
+       * **任何單一單位都會誤標其中一列**。涵蓋一致時完全走原本的路徑，
+       * 匯出的檔案一個字都不會變（使用者手上的 5 份真實檔平假日都是 24 小時）。
+       * 這個情況本身已經列進資料異常檢查（「平假日涵蓋不一致」）。
+       */
+      const sheetActualUnit = coverageMismatch
+        ? "輛"
+        : exportActualUnit(surveyScope.partial);
+      const sheetPcuUnit = coverageMismatch
+        ? "PCU"
+        : exportPcuUnit(surveyScope.partial);
+      const coverageByRow = new Map<string, string[]>();
+      for (const record of filtered) {
+        const key = `${record.dayType}|${record.roadId}`;
+        const list = coverageByRow.get(key) ?? [];
+        list.push(record.hour ?? "");
+        coverageByRow.set(key, list);
+      }
+      const rowCoverageLabel = (dayTypeOfRow: string, roadId: string) => {
+        const hours = coverageByRow.get(`${dayTypeOfRow}|${roadId}`);
+        if (!hours?.length) return "無法判斷";
+        return coverageLabelOf(surveyCoverage(hours));
+      };
       /*
        * 「平日＋假日」已經改成每個調查點出兩列（各自是單日的量），
        * 所以不再有「平假日合計」這種欄位；欄名只需要看調查涵蓋是否滿 24 小時。
@@ -14109,12 +15117,19 @@ export default function DashboardClient({ user }: { user: User }) {
         `方向B（${sheetPcuUnit}）`,
         totalLabel,
         pcu24Label,
-        "雙向合計尖峰（PCU/小時）",
+        `雙向合計尖峰（${peakColumnUnit}）`,
         "雙向尖峰時段",
-        "方向A尖峰（PCU/小時）",
+        `方向A尖峰（${peakColumnUnit}）`,
         "方向A尖峰時段",
-        "方向B尖峰（PCU/小時）",
+        `方向B尖峰（${peakColumnUnit}）`,
         "方向B尖峰時段",
+        /*
+         * K42：涵蓋不一致時才多這一欄。放在最後而不是插在「路段名稱」後面，
+         * 是為了不動到下面 numFmt 與 autoFilter 寫死的欄位序號——
+         * 插在中間會讓那些序號在「一致／不一致」兩種情況下不同，
+         * 那種條件式的欄位序號是很容易寫錯而且不會有症狀的東西。
+         */
+        ...(coverageMismatch ? ["調查涵蓋（本列自己的）"] : []),
       ];
       data.addRow([
         ...dataBaseHeaders,
@@ -14147,6 +15162,9 @@ export default function DashboardClient({ user }: { user: User }) {
           ...analysisVehicleCatalog.map((vehicle) =>
             r.total ? (r.vehicles[vehicle.key] ?? 0) / r.total : 0,
           ),
+          ...(coverageMismatch
+            ? [rowCoverageLabel(r.dayType, r.roadId)]
+            : []),
         ]),
       );
       if (!roadOnlyRows.length)
@@ -14193,7 +15211,7 @@ export default function DashboardClient({ user }: { user: User }) {
           `${intersectionFlowLabel}支線`,
           `${intersectionFlowLabel}交通量（${sheetActualUnit}）`,
           `${intersectionFlowLabel}交通量（${sheetPcuUnit}）`,
-          `${intersectionFlowLabel}尖峰（PCU/小時）`,
+          `${intersectionFlowLabel}尖峰（${peakColumnUnit}）`,
           "尖峰時段",
           totalLabel,
           pcu24Label,
@@ -14821,7 +15839,7 @@ export default function DashboardClient({ user }: { user: User }) {
           "計算說明",
           "",
           "",
-          `${pcu24Label.replace(/（.*/, "")}＝各車種該時段數量×PCU係數後加總；尖峰PCU單位為PCU/小時。`,
+          `${pcu24Label.replace(/（.*/, "")}＝各車種該時段數量×PCU係數後加總；尖峰PCU單位為${peakColumnUnit}。`,
         ],
         [
           "相容性提示",
@@ -15454,12 +16472,13 @@ export default function DashboardClient({ user }: { user: User }) {
               }}
             >
               <span>建立與管理計畫</span>
-              <strong>{projects.length}</strong>
+              <strong>{projectLoadStatus === "ready" ? projects.length : "…"}</strong>
             </button>
             <button
               className="icon-button"
               onClick={openProjectForm}
               aria-label="建立新計畫"
+              disabled={projectLoadStatus !== "ready"}
             >
               ＋
             </button>
@@ -15501,12 +16520,16 @@ export default function DashboardClient({ user }: { user: User }) {
                   <small>目前正在看這一個</small>
                 </span>
               </div>
+            ) : projectLoadStatus === "loading" ? (
+              <p className="empty-project-list" role="status">正在讀取這台電腦上的資料…</p>
+            ) : projectLoadStatus === "error" ? (
+              <p className="empty-project-list" role="alert">計畫資料讀取失敗；這不代表資料不見了。</p>
             ) : (
               <p className="empty-project-list">尚無計畫，請按＋建立。</p>
             )}
           </div>
           {/*
-           * ⚠️ 分頁導覽放在側欄裡，不是內容區上方。
+           * ⚠️ 分區導覽放在側欄裡，不是內容區上方。
            *   使用者 2026-09-10 的原話：「往下滑後，標籤會跟著滑走，
            *   不能隨時切換下一個分頁」。側欄本身固定，捲多遠都在。
            *
@@ -15521,10 +16544,11 @@ export default function DashboardClient({ user }: { user: User }) {
           <SectionNav
             view={view}
             onChange={setView}
+            projectActionsBlocked={projectLoadStatus !== "ready"}
             focusedBlock={focusedBlock}
             onFocusBlock={setFocusedBlock}
             onAction={(action) => {
-              if (action === "import") setShowImport(true);
+              if (action === "import" && projectLoadStatus === "ready") setShowImport(true);
               /*
                * ⚠️ "quality" 這個動作已於 2026-09-17 連同側欄那一項一起移除
                *   （使用者：「這個分頁就可以拿掉了，不用備註顯現」）。
@@ -15560,6 +16584,14 @@ export default function DashboardClient({ user }: { user: User }) {
           </div>
         </aside>
         <section className="content">
+          {projectLoadStatus === "loading" && (
+            <p className="inline-note" role="status">正在讀取這台電腦上的資料…</p>
+          )}
+          {projectLoadStatus === "error" && (
+            <p className="inline-note project-load-error" role="alert">
+              計畫資料讀取失敗；這不代表資料不見了。請先不要建立計畫、匯入或還原備份；重新載入頁面後再確認。若仍失敗，請保留目前瀏覽器資料並回報。
+            </p>
+          )}
           <div className="toolbar">
             <div className="project-title">
               <span className={`status-dot status-${currentStatus}`} />
@@ -15568,7 +16600,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   目前計畫・{quarter ? showQuarter(quarter) : "尚無季度"}・
                   {currentStatus}
                 </small>
-                <h2>{selectedProject.name}</h2>
+                <h2>{projectLoadStatus === "loading" ? "正在讀取這台電腦上的資料…" : projectLoadStatus === "error" ? "計畫資料讀取失敗" : selectedProject.name}</h2>
               </div>
             </div>
             {/*
@@ -15597,9 +16629,9 @@ export default function DashboardClient({ user }: { user: User }) {
                 id="projectSwitch"
                 value={activeProject}
                 onChange={(e) => setActiveProject(e.target.value)}
-                disabled={projects.length <= 1}
+                disabled={projectLoadStatus !== "ready" || projects.length <= 1}
               >
-                {!projects.length && <option value="">尚未建立計畫</option>}
+                {!projects.length && <option value="">{projectLoadStatus === "loading" ? "正在讀取計畫…" : projectLoadStatus === "error" ? "計畫資料讀取失敗" : "尚未建立計畫"}</option>}
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.code ? `${p.code} · ` : ""}
@@ -15612,14 +16644,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/全日交通流量程式手冊_v20.81.pdf"
+                  href="./manuals/全日交通流量程式手冊_v20.88.pdf"
                   /*
                    * ⚠️ download 一定要**帶檔名**，不可以只寫 `download`。
                    *   沒給值時瀏覽器是從網址推檔名的；單檔試用版把手冊嵌成
                    *   data: URI，那種網址裡沒有檔名，使用者拿到的就會是「下載」。
                    *   （使用者 2026-09-14 實際回報過。）
                    */
-                  download="全日交通流量程式手冊_v20.81.pdf"
+                  download="全日交通流量程式手冊_v20.88.pdf"
                 >
                   下載新手手冊
                 </a>
@@ -15684,7 +16716,7 @@ export default function DashboardClient({ user }: { user: User }) {
                  * B 電腦上完全找不到地方匯入 A 電腦的成果。
                  * 視窗裡的 Excel 匯入區塊仍然需要選定計畫（見該區說明）。
                  */
-                disabled={projects.length > 0 && !activeProject}
+                disabled={projectLoadStatus !== "ready" || (projects.length > 0 && !activeProject)}
                 onClick={() => setShowImport(true)}
               >
                 匯入資料
@@ -15950,7 +16982,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   setPeriodChoice(e.target.value as PeriodChoice)
                 }
               >
-                {(["all", "peak24", "am", "pm", "AMPM"] as PeriodChoice[]).map(
+                {(["all", "allPeak", "am", "pm", "AMPM"] as PeriodChoice[]).map(
                   (key) => (
                     <option key={key} value={key}>
                       {PERIOD_CHOICE_LABELS[key]}
@@ -16082,7 +17114,7 @@ export default function DashboardClient({ user }: { user: User }) {
           {view === "page-projects" && (
             <>
               <PageHeading pageId="page-projects" />
-              {!activeProject && (
+              {projectLoadStatus === "ready" && !activeProject && (
                 <section className="empty-state">
                   <strong>建立第一個交通調查計畫</strong>
                   <p>
@@ -16125,7 +17157,7 @@ export default function DashboardClient({ user }: { user: User }) {
                       切換計畫不會改動另一個計畫的資料。
                     </small>
                   </div>
-                  <button className="button primary" onClick={openProjectForm}>
+                  <button className="button primary" onClick={openProjectForm} disabled={projectLoadStatus !== "ready"}>
                     ＋ 建立計畫
                   </button>
                 </div>
@@ -16199,6 +17231,10 @@ export default function DashboardClient({ user }: { user: User }) {
                       );
                     })}
                   </div>
+                ) : projectLoadStatus === "loading" ? (
+                  <p className="inline-note" role="status">正在讀取這台電腦上的資料…</p>
+                ) : projectLoadStatus === "error" ? (
+                  <p className="inline-note" role="alert">計畫資料讀取失敗；這不代表資料不見了。</p>
                 ) : (
                   <p className="inline-note">
                     還沒有任何計畫。按右上角「＋ 建立計畫」開始。
@@ -16238,7 +17274,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   id="block-quality"
                 >
                   <header>
-                    <span>一 資料匯入</span>
+                    <span>{zoneHeading("zone-import")}</span>
                     <strong>本季總覽</strong>
                     <small>
                       這一塊會顯示<b>選定季度</b>的資料收到什麼程度：
@@ -16275,7 +17311,7 @@ export default function DashboardClient({ user }: { user: User }) {
                    * 讀起來像「我的計畫」的頁尾，難怪看不出是獨立的一塊。
                    */}
                   <header>
-                    <span>一 資料匯入</span>
+                    <span>{zoneHeading("zone-import")}</span>
                     <strong>本季總覽</strong>
                     <small>
                       {/*
@@ -16380,7 +17416,7 @@ export default function DashboardClient({ user }: { user: User }) {
                   <div>
                     <strong>道路與流向管理</strong>
                     <small>
-                      輸入 3～7 支線名稱與角度，自動繪圖及判定左轉、直行、右轉
+                      輸入各支線名稱與角度（常見 3～7 支，不以 7 支為上限），自動繪圖及判定左轉、直行、右轉
                     </small>
                   </div>
                   <button
@@ -16540,15 +17576,18 @@ export default function DashboardClient({ user }: { user: User }) {
                   ).map(([key, label]) => (
                     <label key={key}>
                       {label}
-                      <input
-                        type="number"
+                      {/* ⚠️ 受控數字框一律走 NumberField，理由見 app/number-field.tsx。 */}
+                      {/*
+                       * ⚠️ 係數**刻意不設下限**：0 與負數要進得去，
+                       *   只在存檔後以既有的提示文字提醒風險，不擋下存檔。
+                       *   在這裡加 min={0} 會多出一句通用的「超出允許範圍」，
+                       *   與那個刻意的設計打架（見 tests/rendered-html.test.mjs）。
+                       */}
+                      <NumberField
                         step="any"
                         value={pcuDraft[key]}
-                        onChange={(e) =>
-                          setPcuDraft({
-                            ...pcuDraft,
-                            [key]: Number(e.target.value),
-                          })
+                        onCommit={(next) =>
+                          setPcuDraft({ ...pcuDraft, [key]: next })
                         }
                       />
                     </label>
@@ -16722,7 +17761,20 @@ export default function DashboardClient({ user }: { user: User }) {
                   id="card-kpi-daily"
                   data-consumes={BLOCK_CONSUMES["card-kpi-daily"]}
                 >
-                  <span>全日實際交通量</span>
+                  {/*
+                   * ⚠️ 抬頭要跟著涵蓋走（A24，使用者 2026-09-21 核准）。
+                   *
+                   *   旁邊那張「24小時PCU」早就會變成「調查時段PCU」，
+                   *   這一張卻不會——兩張卡並排、同一份資料、同一個涵蓋狀況，
+                   *   一張說實話、一張沒有。只做了 4 小時的調查，
+                   *   標題卻寫「全日」，讀者會把 4 小時的量當成一整天的量。
+                   *
+                   * ⚠️ **滿 24 小時時「全日實際交通量」一個字都不改**
+                   *   （使用者明確指定）。只有不足 24 小時時才換句。
+                   */}
+                  <span>
+                    {surveyScope.partial ? "調查時段實際交通量" : "全日實際交通量"}
+                  </span>
                   {/*
                    * ⚠️ X-28：一行 ＝ 一季 × 一個調查點 × 一個日別，**不相加**。
                    *   行數超過上限時不給數字（見 kpiLines 上方的說明）。
@@ -16979,9 +18031,24 @@ export default function DashboardClient({ user }: { user: User }) {
                               {dayType === "平日＋假日" ? item.day : ""}
                             </em>
                           )}
-                          {decimalFormatter.format(item.value)}
+                          {/*
+                            * ⚠️ 2026-09-25 第六輪獨立複查：湊不出整整一小時的
+                            *   日別，`notEnough` 是 true 而 `value` 是 0。
+                            *   印 0 會被讀成「那一小時一台車都沒有」。
+                            */}
+                          {item.notEnough ? "資料不足" : decimalFormatter.format(item.value)}
                         </strong>
                       )),
+                    )}
+                    {/*
+                      * ⚠️ **不可以整塊消失**（X-17 的教訓）。
+                      *   45 分鐘一格、2 小時一格或中間有斷點時，
+                      *   每一個日別都湊不出整整一小時，原本 `byDay` 是空陣列，
+                      *   於是這一塊什麼都不印——卡片看起來像壞掉。
+                      *   （2026-09-25 第六輪獨立複查抓到。）
+                      */}
+                    {peakGroups.every((group) => !group.peaks.byDay.length) && (
+                      <strong>資料不足</strong>
                     )}
                   </div>
                   )}
@@ -17125,18 +18192,26 @@ export default function DashboardClient({ user }: { user: User }) {
                      */
                     const ownScope = mainFilters.peakScope === "direction";
                     const rows = group.peaks.items
-                      .map((item) => ({
-                        item,
-                        at: ownScope
-                          ? {
-                              /* ownPeak 回傳 [時段文字, 值]，沒有 start；
-                                 這裡只拿來顯示，所以 start 給 0 讓它通過過濾。 */
-                              start: item.ownPeak[1] > 0 ? 0 : -1,
-                              value: item.ownPeak[1],
-                              label: item.ownPeak[0],
-                            }
-                          : item.atPeak(peak.day, peak.start),
-                      }))
+                      .map((item) => {
+                        /*
+                         * ⚠️ 一定要傳 peak.day。少傳的話「平日＋假日」時
+                         *   兩個日別區塊會印同一組數字（兩天裡較大的那一個），
+                         *   而標題寫的是各自的日別——2026-09-25 修正的就是這個。
+                         */
+                        const own = item.ownPeakFor(peak.day);
+                        return {
+                          item,
+                          own,
+                          at: ownScope
+                            ? {
+                                /* 這裡只拿來顯示，所以 start 給 0 讓它通過過濾。 */
+                                start: own[1] > 0 ? 0 : -1,
+                                value: own[1],
+                                label: own[0],
+                              }
+                            : item.atPeak(peak.day, peak.start),
+                        };
+                      })
                       .filter((row) => row.at.start >= 0);
                     return (
                       <div
@@ -17149,7 +18224,7 @@ export default function DashboardClient({ user }: { user: User }) {
                           {peak.day ? `${peak.day} ` : ""}
                           {peak.label}
                         </b>
-                        {rows.map(({ item, at }) => (
+                        {rows.map(({ item, at, own }) => (
                           <span
                             key={item.code}
                             /* 你現在選的那一個方向要看得出來，不然還要自己對代碼。 */
@@ -17184,10 +18259,10 @@ export default function DashboardClient({ user }: { user: User }) {
                                *   明確分開，不可以並排成一個「同時段」的清單。
                                */}
                               {mainFilters.peakScope !== "direction" &&
-                              item.ownPeak[0] &&
-                              item.ownPeak[0] !== "—" &&
-                              !item.ownPeak[0].includes(peak.label)
-                                ? `・自己最忙是 ${item.ownPeak[0]}（${decimalFormatter.format(item.ownPeak[1])}）`
+                              own[0] &&
+                              own[0] !== "—" &&
+                              !own[0].includes(peak.label)
+                                ? `・自己最忙是 ${own[0]}（${decimalFormatter.format(own[1])}）`
                                 : ""}
                             </em>
                           </span>
@@ -18412,9 +19487,9 @@ export default function DashboardClient({ user }: { user: User }) {
                             {traceScope.partial ? "調查時段合計" : "24小時"}（
                             {traceUnits.pcu}）
                           </th>
-                          <th>雙向尖峰（PCU/小時）</th>
-                          <th>A尖峰（PCU/小時）</th>
-                          <th>B尖峰（PCU/小時）</th>
+                          <th>雙向尖峰（{peakColumnUnit}）</th>
+                          <th>A尖峰（{peakColumnUnit}）</th>
+                          <th>B尖峰（{peakColumnUnit}）</th>
                           {analysisVehicleCatalog.map((vehicle) => (
                             <th key={vehicle.key}>{vehicle.label}（%）</th>
                           ))}
@@ -18473,15 +19548,15 @@ export default function DashboardClient({ user }: { user: User }) {
                             <td>{formatter.format(r.total)}</td>
                             <td>{decimalFormatter.format(r.pcu24)}</td>
                             <td>
-                              {decimalFormatter.format(r.peakPcu)}
+                              {peakText(r.peakPcu)}
                               <small>{r.peakHour}</small>
                             </td>
                             <td>
-                              {decimalFormatter.format(r.aPeakPcu)}
+                              {peakText(r.aPeakPcu)}
                               <small>{r.aPeakHour}</small>
                             </td>
                             <td>
-                              {decimalFormatter.format(r.bPeakPcu)}
+                              {peakText(r.bPeakPcu)}
                               <small>{r.bPeakHour}</small>
                             </td>
                             {analysisVehicleCatalog.map((vehicle) => (
@@ -18594,7 +19669,7 @@ export default function DashboardClient({ user }: { user: User }) {
                               {code === "UNMAPPED"
                                 ? "未指定駛入"
                                 : `${traceIntersectionFlowLabel}路口${code}`}
-                              尖峰（PCU/小時）
+                              尖峰（{peakColumnUnit}）
                             </th>,
                           ])}
                           {/* ⚠️ 單位照這一塊自己的涵蓋算，不是主工具列。 */}
@@ -18606,7 +19681,7 @@ export default function DashboardClient({ user }: { user: User }) {
                             {traceIntersectionScope.partial ? "調查時段合計" : "24小時"}（
                             {traceIntersectionUnits.pcu}）
                           </th>
-                          <th>全部{traceIntersectionFlowLabel}尖峰（PCU/小時）</th>
+                          <th>全部{traceIntersectionFlowLabel}尖峰（{peakColumnUnit}）</th>
                           {analysisVehicleCatalog.map((vehicle) => (
                             <th key={vehicle.key}>{vehicle.label}（%）</th>
                           ))}
@@ -18669,7 +19744,7 @@ export default function DashboardClient({ user }: { user: User }) {
                                *   單一視角時就只有一行，而且不寫前綴（表頭已經寫了）。
                                */
                               const cell = (
-                                pick: (item: { actual: number; pcu: number; peakPcu: number; peakHour: string }) => string,
+                                pick: (item: { actual: number; pcu: number; peakPcu: number | null; peakHour: string }) => string,
                                 withHour = false,
                               ) =>
                                 perMode.map(({ label, row: modeRow }) => {
@@ -18692,14 +19767,14 @@ export default function DashboardClient({ user }: { user: User }) {
                                   {cell((d) => decimalFormatter.format(d.pcu))}
                                 </td>,
                                 <td key={`${code}-peak`}>
-                                  {cell((d) => decimalFormatter.format(d.peakPcu), true)}
+                                  {cell((d) => peakText(d.peakPcu), true)}
                                 </td>,
                               ];
                             })}
                             <td>{formatter.format(r.total)}</td>
                             <td>{decimalFormatter.format(r.pcu24)}</td>
                             <td>
-                              {decimalFormatter.format(r.peakPcu)}
+                              {peakText(r.peakPcu)}
                               <small>{r.peakHour}</small>
                             </td>
                             {analysisVehicleCatalog.map((vehicle) => (
@@ -18762,9 +19837,20 @@ export default function DashboardClient({ user }: { user: User }) {
                   </div>
                 </div>
                 <p className="help period-help">
-                  尖峰小時一律由實測資料認定（依 2022
-                  年臺灣公路容量手冊，未規定固定時鐘區間）， 判定基準為
-                  PCU；百分比以車輛數為分母。
+                  {/*
+                    * ⚠️ 這兩件事要分清楚，不可以寫成同一句：
+                    *   ・「尖峰小時由實測資料認定、沒有固定時鐘區間」
+                    *     ——這是《2022 年臺灣公路容量手冊》的做法；
+                    *   ・「用 PCU 去挑哪一小時是尖峰」
+                    *     ——這是**本系統的做法**，手冊沒有規定用哪一個量去挑。
+                    * 寫在同一句裡會讀成「手冊規定要用 PCU」，而專案規則是
+                    * 不可以把本系統的做法寫成手冊的規定。
+                    * （2026-09-25 第五輪複查抓到；手冊第 9 章早就把這件事分清楚了。）
+                    */}
+                  尖峰小時一律由實測資料認定，沒有固定的時鐘區間（《2022
+                  年臺灣公路容量手冊》也是這樣做的）。挑哪一小時<strong>本系統
+                  以 PCU 為基準</strong>（這一點手冊沒有規定，是本系統的做法）；
+                  百分比以車輛數為分母。
                   <strong>
                     「尖峰時段認定」選「整個調查點同一時段」時各方向才可相加
                   </strong>
@@ -19009,6 +20095,20 @@ export default function DashboardClient({ user }: { user: User }) {
                         );
                       })}
                     </select>
+                    {/*
+                      ⚠️ 占比是逐項各自四捨五入到小數第 1 位的，所以**同一列加起來
+                        不一定剛好 100%**（例如三項各 1/3 會印成 33.3＋33.3＋33.3＝99.9）。
+                        這一句一定要寫出來：這張表會被抄進正式報告，審查時一定有人把
+                        那一列加起來。系統**刻意不把差額塞給最後一項**——塞了之後
+                        那一項的百分比就對不上它自己的數值÷總計，讀者自己驗算會更困惑。
+                    */}
+                    {periodMetric === "share" && (
+                      <small>
+                        各項占比分別四捨五入到小數第 1
+                        位，同一列加起來可能不等於 100%（差額不會塞給任何一項，
+                        這樣每一項都對得上它自己的數值÷總計）。
+                      </small>
+                    )}
                   </label>
                   <div className="period-scope-picker">
                     <span>方向／支線</span>
@@ -19690,16 +20790,16 @@ export default function DashboardClient({ user }: { user: User }) {
                     ).map(([label, key, step]) => (
                       <label key={key}>
                         {label}
-                        <input
-                          type="number"
+                        {/* ⚠️ 受控數字框一律走 NumberField，理由見 app/number-field.tsx。 */}
+                        <NumberField
                           step={step}
                           value={workflow.thresholds[key]}
-                          onChange={(e) =>
+                          onCommit={(next) =>
                             setWorkflow((previous) => ({
                               ...previous,
                               thresholds: {
                                 ...previous.thresholds,
-                                [key]: Number(e.target.value),
+                                [key]: next,
                               },
                             }))
                           }
@@ -20175,6 +21275,7 @@ export default function DashboardClient({ user }: { user: User }) {
                       hidden
                       type="file"
                       accept=".json,application/json"
+                      disabled={projectLoadStatus !== "ready"}
                       onChange={importBackup}
                     />
                     <span>支援本網站「備份本計畫」與「備份全部計畫」產生的 JSON</span>
@@ -21602,8 +22703,7 @@ export default function DashboardClient({ user }: { user: User }) {
               </p>
             )}
             <p className="help">
-              支援雙向路段及 3～7
-              支線路口轉向全日調查格式。路口資料會保留各車種左轉、直行與右轉數值。
+              支援雙向路段及多支線路口轉向全日調查格式（支線數由調查表決定，常見 3～7 支，不以 7 支為上限）。路口資料會保留各車種左轉、直行與右轉數值。
             </p>
             <footer>
               <button
@@ -21651,16 +22751,17 @@ export default function DashboardClient({ user }: { user: User }) {
                       {(["through", "right", "left"] as TurnKey[]).map(
                         (turn) => (
                           <td key={turn}>
-                            <input
-                              type="number"
+                            {/* ⚠️ 受控數字框一律走 NumberField，理由見 app/number-field.tsx。 */}
+                            {/* 係數刻意不設下限，理由同上。 */}
+                            <NumberField
                               step="any"
                               value={turnPcuDraft[vehicle][turn]}
-                              onChange={(e) =>
+                              onCommit={(next) =>
                                 setTurnPcuDraft((previous) => ({
                                   ...previous,
                                   [vehicle]: {
                                     ...previous[vehicle],
-                                    [turn]: Number(e.target.value),
+                                    [turn]: next,
                                   },
                                 }))
                               }
@@ -21815,14 +22916,15 @@ export default function DashboardClient({ user }: { user: User }) {
                           </select>
                         </td>
                         <td>
-                          <input
-                            type="number"
+                          {/* ⚠️ 受控數字框一律走 NumberField，理由見 app/number-field.tsx。 */}
+                          {/* 係數刻意不設下限，理由同上。 */}
+                          <NumberField
                             step="any"
                             disabled={!independentCustom}
-                            value={shownRoadPcu ?? ""}
-                            onChange={(e) =>
+                            value={shownRoadPcu ?? null}
+                            onCommit={(next) =>
                               updateVehicleClassDraft(setting.sourceKey, {
-                                roadPcu: Number(e.target.value),
+                                roadPcu: next,
                               })
                             }
                           />
@@ -21830,16 +22932,17 @@ export default function DashboardClient({ user }: { user: User }) {
                         {(["through", "right", "left"] as TurnKey[]).map(
                           (turn) => (
                             <td key={turn}>
-                              <input
-                                type="number"
+                              {/* ⚠️ 受控數字框一律走 NumberField，理由見 app/number-field.tsx。 */}
+                              {/* 係數刻意不設下限，理由同上。 */}
+                              <NumberField
                                 step="any"
                                 disabled={!independentCustom}
-                                value={shownTurnPcu?.[turn] ?? ""}
-                                onChange={(e) =>
+                                value={shownTurnPcu?.[turn] ?? null}
+                                onCommit={(next) =>
                                   updateVehicleClassDraft(setting.sourceKey, {
                                     turnPcu: {
                                       ...setting.turnPcu,
-                                      [turn]: Number(e.target.value),
+                                      [turn]: next,
                                     },
                                   })
                                 }
@@ -21893,7 +22996,7 @@ export default function DashboardClient({ user }: { user: User }) {
               </select>
             </label>
             <p className="help">
-              支援 3～7 支線及不規則角度。角度以正東 0°、正南 90°、正西
+              支援多支線及不規則角度（常見 3～7 支，不以 7 支為上限）。角度以正東 0°、正南 90°、正西
               180°、正北 270° 表示；系統以起點正對面 ±45°
               判定直行，對向一側判定左轉、另一側判定右轉，並可逐筆人工修正。
             </p>
@@ -21932,18 +23035,46 @@ export default function DashboardClient({ user }: { user: User }) {
                     </label>
                     <label>
                       角度（°）
-                      <input
-                        type="number"
-                        step="1"
+                      {/*
+                        ⚠️ 不要改回 `<input type="number" value={數字}>`：
+                          欄位被按到空的那一刻 Number("") 是 0，0 會被寫回欄位、
+                          游標推到最前面，後面打的字全部接在 0 後面（090、045、1809）。
+                          使用者 2026-09-21 在姊妹專案路口轉向上回報成
+                          「集體無法輸入除了 0 以外的數字」，兩支是同一個寫法。
+                          詳見 app/number-field.tsx。
+                      */}
+                      <NumberField
+                        step={1}
+                        min={-180}
+                        max={360}
+                        testId={`arm-angle-${setting.directionCode}`}
+                        ariaLabel={`${setting.directionCode} 角度`}
                         value={setting.angle}
-                        onChange={(e) =>
-                          updateArmAngle(
-                            setting.directionCode,
-                            Number(e.target.value),
-                          )
+                        onCommit={(next) =>
+                          updateArmAngle(setting.directionCode, next)
                         }
+                        /*
+                         * 兩支角度相同時就地提醒（不放進資料異常檢查）：
+                         * 那是設定當下才看得見、也只有當下改得動的事。
+                         */
+                        warn={(value) => {
+                          const clash = managedArmSettings
+                            .filter(
+                              (other: IntersectionArmSetting) =>
+                                other.directionCode !== setting.directionCode &&
+                                normalizeAngle(other.angle) ===
+                                  normalizeAngle(value),
+                            )
+                            .map(
+                              (other: IntersectionArmSetting) =>
+                                other.directionCode,
+                            );
+                          return clash.length
+                            ? `與 ${clash.join("、")} 的角度相同，轉向圖上這幾條會完全疊在一起，請確認是不是還沒改。`
+                            : null;
+                        }}
+                        hint={`${bearingLabel(setting.angle)}方（自動）`}
                       />
-                      <small>{bearingLabel(setting.angle)}方（自動）</small>
                     </label>
                   </section>
                 ))}
@@ -22358,7 +23489,7 @@ function ConclusionStudio(props: {
     /*
      * 一個代碼可能對應多個名稱。
      *
-     * 路段的方向代碼是 A／B，路口支線的代碼也是 A～G；同一個計畫裡兩種格式
+     * 路段的方向代碼是 A／B，路口支線的代碼也是 A、B、C…；同一個計畫裡兩種格式
      * 並存時代碼會重疊。舊寫法只留「先遇到的那一個名稱」，於是勾「A」時
      * 畫面只寫「方向A」，使用者不會知道那一勾同時涵蓋了「駛出路口A」。
      * 這裡把該代碼實際對應到的名稱全部列出來（和上方時段分析的
@@ -22906,8 +24037,17 @@ function ConclusionStudio(props: {
               className="button secondary"
               disabled={!props.draft}
               onClick={() => {
+                /*
+                 * ⚠️ 2026-09-25：可選鏈短路整條成員鏈，連 .catch 都不會跑
+                 *   （已實測），於是按下去完全沒反應而使用者以為複製成功了。
+                 *   先明確判斷，做法與報告文字草稿那一顆一致。
+                 */
+                if (!navigator.clipboard?.writeText)
+                  return props.notify(
+                    "這個瀏覽器不允許程式複製，請手動全選草稿文字後複製。",
+                  );
                 navigator.clipboard
-                  ?.writeText(props.draft)
+                  .writeText(props.draft)
                   .then(() => props.notify("已複製到剪貼簿。"))
                   .catch(() =>
                     props.notify("瀏覽器不允許複製，請手動全選複製。"),

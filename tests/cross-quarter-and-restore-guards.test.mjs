@@ -226,6 +226,51 @@ test("歷季各表的欄位標題不得帶「/日」或「/調查時段」", () 
   }
 });
 
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 上面那一支只守 Excel，畫面／PNG／講稿／草稿是同一個錯的另外四個出口
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 2026-09-23 的獨立複查發現：上面那段註解把病因寫得很清楚，卻只掃三張
+ * Excel 工作表的程式碼區塊。`trendActualUnit`／`trendPcuUnit` 本身仍然是
+ * 由 `partialScope`（＝只看目前那一季的 surveyScope）算出來的，而它一路
+ * 擴散到畫面折線圖軸名、下載 PNG 的標題與軸、趨勢講稿每一行的數字，
+ * 以及報表草稿的 `trend.unit`——那四個出口一個都沒守到。
+ *
+ * 所以真正該釘的是**源頭**：那兩個單位不可以由 partialScope 決定。
+ */
+test("歷季趨勢的單位必須看整段趨勢範圍，不可以由目前那一季決定", () => {
+  const lines = source.split("\n");
+  for (const name of ["trendActualUnit", "trendPcuUnit"]) {
+    const line = lines.find((text) => text.includes(`const ${name} =`));
+    assert.ok(line, `找不到 ${name} 的定義`);
+    assert.ok(
+      !/partialScope/.test(line),
+      `${name} 仍然由 partialScope 決定——partialScope 只看目前選的那一季，` +
+        "趨勢圖畫的卻是全部季度",
+    );
+  }
+  /*
+   * 正面確認它真的有逐季算：要跑過 analysisRecords（全部季度）
+   * 並用 surveyCoverage 判斷，而不是挑一個代表值。
+   */
+  const block = blockFrom(
+    "const trendPartial = useMemo(",
+    "const trendActualUnit =",
+  );
+  assert.match(block, /analysisRecords/, "trendPartial 沒有讀全部季度的資料");
+  assert.match(
+    block,
+    /surveyCoverage\(hours\)\.partial/,
+    "trendPartial 沒有逐組算調查涵蓋",
+  );
+  assert.match(
+    block,
+    /\.some\(/,
+    "trendPartial 要用「任何一組是部分時段就算部分時段」——寧可少講不要多講",
+  );
+});
+
 test("歷季各列自己帶著調查涵蓋", () => {
   const block = blockFrom("const historicalDailyRows = useMemo(", "const historicalCompositionRows");
   assert.match(block, /x\.hours\.push\(r\.hour \?\? ""\)/, "要逐列收集時段字串");

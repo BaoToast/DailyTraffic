@@ -8,126 +8,8 @@ import {
   EXPORT_SECTIONS,
   buildReportDraft,
 } from "../app/report-draft.ts";
+import { context } from "./helpers/report-context.mjs";
 
-function context(overrides = {}) {
-  return {
-    projectName: "測試計畫",
-    quarter: "115Q1",
-    dayType: "平日",
-    roadLabel: "全部調查點",
-    directionLabel: "全部方向",
-    flowLabel: "駛出路口（起點）",
-    coverageNote: "",
-    roadCount: 2,
-    intersectionCount: 1,
-    recordCount: 96,
-    total: 115873,
-    pcu24: 85536.1,
-    vehicles: [
-      { label: "機車", count: 60368, share: 52.1 },
-      { label: "小型車", count: 47109, share: 40.7 },
-    ],
-    peak: { hour: "18:00～19:00", pcu: 7200.5, unit: "PCU/hr" },
-    topRoads: [
-      { name: "中正路口", total: 73783, pcu: 54376.1 },
-      { name: "中山路", total: 42090, pcu: 31160.5 },
-    ],
-    dayCompare: { weekday: 100000, holiday: 90000 },
-    trend: {
-      mode: "平日＋假日",
-      metricLabel: "實際交通量",
-      unit: "輛/日",
-      roadLabel: "全部路段合計",
-      rows: [
-        { quarter: "114Q4", value: 100000 },
-        { quarter: "115Q1", value: 115873 },
-      ],
-    },
-    compositionMode: "全日",
-    periodExport: {
-      enabled: true,
-      periods: ["全調查時段", "上午尖峰小時"],
-      scopes: ["A", "B"],
-      metrics: ["車輛數", "交通流量"],
-      peakScope: "整個調查點同一時段",
-      flowView: "跟隨畫面",
-      sheetPerPeriod: true,
-    },
-    periodHighlights: [
-      {
-        label: "上午尖峰小時",
-        hour: "07:15～08:15",
-        pcu: 3976.6,
-        total: 5200,
-        summable: true,
-        siteCount: 2,
-        highestPcu: 2200.1,
-        highestTotal: 3000,
-        highestHour: "07:15～08:15",
-        unit: "輛/hr",
-      },
-    ],
-    roadSummary: {
-      note: "尖峰時段認定：整個調查點同一時段；路口流量視角：駛出路口（起點）；統計範圍：全部方向／支線",
-      metrics: ["車輛數", "百分比", "交通流量"],
-      roads: [
-        {
-          name: "示範北路（示範一路~示範二路）",
-          scopes: [
-            {
-              name: "雙向合計",
-              periods: [
-                {
-                  label: "全調查時段",
-                  hour: "24 小時",
-                  hasData: true,
-                  values: [
-                    { label: "車輛數", value: 42090, unit: "輛/日", digits: 0 },
-                    { label: "交通流量", value: 31160.5, unit: "PCU/日", digits: 1 },
-                  ],
-                  composition: [
-                    { label: "機車", share: 52.1 },
-                    { label: "小型車", share: 40.7 },
-                  ],
-                },
-                {
-                  label: "上午尖峰小時",
-                  hour: "07:15～08:15",
-                  hasData: true,
-                  values: [
-                    { label: "車輛數", value: 5200, unit: "輛/hr", digits: 0 },
-                    { label: "交通流量", value: 3976.6, unit: "PCU/hr", digits: 1 },
-                  ],
-                  composition: [{ label: "機車", share: 55.3 }],
-                },
-                {
-                  label: "下午尖峰小時",
-                  hour: "—",
-                  hasData: false,
-                  values: [],
-                  composition: [],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-      omitted: 0,
-    },
-    factors: [
-      { label: "機車", value: "0.5" },
-      { label: "小型車", value: "1" },
-    ],
-    intersectionNote: "路口幾何已設定 7 支支線。",
-    sourceFileCount: 3,
-    qualityIssueCount: 0,
-    unmappedVehicles: 0,
-    reviewNote: "本季狀態：已確認。",
-    charts: ["全日交通量", "車種組成"],
-    anomalies: [],
-    ...overrides,
-  };
-}
 
 const ALL_KEYS = DRAFT_SECTION_ORDER;
 
@@ -368,6 +250,84 @@ test("尖峰視窗不足一小時時，草稿不會標成 PCU/hr", () => {
   );
   assert.match(text, /3,000.0 PCU\/該時段（45 分鐘）/);
   assert.doesNotMatch(text, /3,000.0 PCU\/hr/);
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  ⚠️ 同一段有**兩個分支**，兩個都要驗
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 上面那一支只餵 `peak`，走的是**單點**分支。
+ * 調查點有兩個以上時走的是另一條（逐點一行、不列合計），而那一條
+ * 2026-09-23 之前**把單位寫死成 `PCU/hr`**——多點正是真實案件最常見的情況。
+ *
+ * 這就是本專案反覆出現的那一種缺陷：**同一件事有兩條路，只修了一條，
+ * 而測試剛好只蓋到已修的那一條**。所以這裡把兩條都釘住。
+ */
+test("多個調查點時，逐點那一行的單位也不可以寫死成 PCU/hr", () => {
+  const text = buildReportDraft(
+    context({
+      /* 多點分支的入口：peak 為 null，改用 pointTotals 逐點寫。 */
+      peak: null,
+      pointTotals: [
+        {
+          roadName: "中山路",
+          dayType: "平日",
+          total: 10000,
+          pcu24: 12000,
+          peakHour: "07:00～07:45",
+          peakPcu: 3000,
+          peakUnit: "PCU/該時段（45 分鐘）",
+        },
+        {
+          roadName: "示範南路",
+          dayType: "平日",
+          total: 8000,
+          pcu24: 9000,
+          peakHour: "08:00～09:00",
+          peakPcu: 2500,
+          peakUnit: "PCU/hr",
+        },
+      ],
+    }),
+    ["hourly"],
+  );
+  /* 45 分鐘那一點要照實標，不可以被寫成 /hr。 */
+  assert.match(text, /3,000.0 PCU\/該時段（45 分鐘）/);
+  assert.doesNotMatch(text, /3,000.0 PCU\/hr/);
+  /* 真的滿一小時的那一點仍然標 /hr——修法不可以矯枉過正。 */
+  assert.match(text, /2,500.0 PCU\/hr/);
+  /*
+   * 「該小時」這三個字也要拿掉：視窗本來就不保證是一小時，
+   * 留著等於用文字再說一次錯的事。
+   */
+  assert.doesNotMatch(text, /該小時當量交通量/);
+});
+
+test("逐點的單位讀不到時，要少講而不是多講", () => {
+  const text = buildReportDraft(
+    context({
+      peak: null,
+      pointTotals: [
+        {
+          roadName: "中山路",
+          dayType: "平日",
+          total: 10000,
+          pcu24: 12000,
+          peakHour: "07:00～07:45",
+          peakPcu: 3000,
+          /* peakUnit 沒給（例如舊的呼叫端） */
+        },
+      ],
+    }),
+    ["hourly"],
+  );
+  assert.doesNotMatch(
+    text,
+    /PCU\/hr/,
+    "讀不到單位時退回 PCU/hr 等於猜一個會多講的答案",
+  );
+  assert.match(text, /PCU\/該尖峰時段/);
 });
 
 /*

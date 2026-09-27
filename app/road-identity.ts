@@ -1,12 +1,21 @@
 export function normalizeRoadId(value: string) {
   const stem = String(value ?? "").normalize("NFKC").trim().replace(/\.[^.]+$/, "");
-  const match = stem.match(/(\d+)\s*T\s*\d+\s*[-_－]\s*(\d{1,2})(?!\d)/i);
+  /*
+   * ⚠️ `T` 後面的 `S` 是**選填**的：使用者的檔名兩種寫法都有
+   *   （`…T15-01-…` 與 `…TS15-01-…`，後者是交通服務水準那一批的慣例）。
+   *   漏掉 `S?` 的後果不是報錯，是**整個檔名原樣變成路段名稱**，
+   *   於是下一季匯入同一條路會被當成新路段，歷季趨勢斷成兩截——
+   *   本檔比對檔名代號的規則**共六條**（代號正規化 2、剝前綴 2、辨識代號 2），
+   *   2026-09-23 之前**只有一條帶 `S?`**，其餘五條都漏。
+   *   （這正是這個專案反覆犯的「該列 N 樣的地方只列了 1 樣」。）
+   */
+  const match = stem.match(/(\d+)\s*T\s*S?\s*\d+\s*[-_－]\s*(\d{1,2})(?!\d)/i);
   return match ? `${match[1]}-${match[2].padStart(2, "0")}` : stem;
 }
 
 export function surveyRoadIdFromFileName(fileName: string) {
   const stem = fileName.normalize("NFKC").replace(/\.[^.]+$/, "");
-  const match = stem.match(/\d+\s*T\s*\d+\s*[-_－]\s*\d{1,2}/i);
+  const match = stem.match(/\d+\s*T\s*S?\s*\d+\s*[-_－]\s*\d{1,2}/i);
   return normalizeRoadId(match?.[0] ?? stem);
 }
 
@@ -44,7 +53,9 @@ const UNSEPARATED_SURVEY_CODE = /^\s*\d{4,}\s*T\s*S?\s*(?:\d{4}|\d{3})\s*[-_－.
 
 export function roadNameFromFileName(fileName: string) {
   const stem = fileName.normalize("NFKC").replace(/\.[^.]+$/, "").trim();
-  let name = stem.replace(/^.*?\d+\s*T\s*\d+\s*[-_]\s*\d{1,2}\s*[-_]?\s*/i, "").trim();
+  let name = stem
+    .replace(/^.*?\d+\s*T\s*S?\s*\d+\s*[-_]\s*\d{1,2}\s*[-_]?\s*/i, "")
+    .trim();
   /* 有分隔符的規則沒剝到東西時，才輪到無分隔符的寫法，避免重複剝一次。 */
   if (name === stem) name = stem.replace(UNSEPARATED_SURVEY_CODE, "").trim();
   let previous = "";
@@ -111,7 +122,7 @@ export function roadNameMatchKey(value: string) {
 export function isFallbackRoadName(value: string) {
   const text = String(value ?? "").normalize("NFKC").trim();
   return (
-    /^\d+(?:\s*T\s*\d+)?\s*[-_－]\s*\d{1,2}$/i.test(text) ||
+    /^\d+(?:\s*T\s*S?\s*\d+)?\s*[-_－]\s*\d{1,2}$/i.test(text) ||
     /^\d{4,}\s*T\s*S?\s*(?:\d{4}|\d{3})$/i.test(text)
   );
 }

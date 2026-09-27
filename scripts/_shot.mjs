@@ -1,9 +1,30 @@
 import { chromium } from "playwright";
 import http from "node:http";
 import { readFileSync, existsSync, statSync } from "node:fs";
-import { join, extname } from "node:path";
+import { join, extname, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { launchOptions } from "./chrome-path.mjs";
-const ROOT = "/home/claude/work/traffic/github-pages/dist";
+/*
+ * ⚠️ 路徑一律由本檔位置推出來，**不寫死任何一台機器上的絕對路徑**。
+ *   姊妹專案路口轉向的 `scripts/stress-drag.mjs` 就是因為寫死
+ *   `/home/claude/work/turning/…`，換一台機器跑就直接讀不到檔而中斷
+ *   （見該專案 CHANGELOG）。這一支原本犯的是同一個錯。
+ *   ROOT 與樣本檔都可以用參數覆寫：
+ *     node scripts/_shot.mjs <網站根目錄> <要匯入的 .xlsx>
+ */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const PROJECT = join(HERE, "..");
+const ROOT = process.argv[2] ?? join(PROJECT, "github-pages", "dist");
+const SAMPLE =
+  process.argv[3] ?? join(PROJECT, ".samples", "115T1-02_中正路口.xlsx");
+if (!existsSync(ROOT))
+  throw new Error(
+    `找不到網站根目錄 ${ROOT}——請先執行 npm run build:pages，或用第一個參數指定。`,
+  );
+if (!existsSync(SAMPLE))
+  throw new Error(
+    `找不到樣本檔 ${SAMPLE}——請先執行 npm run samples，或用第二個參數指定。`,
+  );
 const MIME={".html":"text/html",".js":"text/javascript",".css":"text/css",".svg":"image/svg+xml",".png":"image/png"};
 const server=http.createServer((req,res)=>{let p=decodeURIComponent(req.url.split("?")[0]);if(p==="/")p="/index.html";const f=join(ROOT,p);if(!existsSync(f)||statSync(f).isDirectory()){res.writeHead(404);res.end();return;}res.writeHead(200,{"content-type":MIME[extname(f)]??"application/octet-stream"});res.end(readFileSync(f));});
 await new Promise(r=>server.listen(8123,r));
@@ -21,7 +42,7 @@ await page.waitForTimeout(700);
 await page.locator('.toolbar button:has-text("匯入資料")').first().click();
 await page.waitForTimeout(400);
 await page.locator('.modal-backdrop .modal label:has-text("資料季度") input').fill("115Q1");
-await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({name:"115T1-02_中正路口.xlsx",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",buffer:readFileSync("/home/claude/work/traffic/.samples/115T1-02_中正路口.xlsx")});
+await page.locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]').setInputFiles({name:"115T1-02_中正路口.xlsx",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",buffer:readFileSync(SAMPLE)});
 await page.waitForTimeout(2500);
 const c=page.locator('.modal-backdrop button:has-text("確認")');
 if(await c.count()){await c.first().click();await page.waitForTimeout(2500);}

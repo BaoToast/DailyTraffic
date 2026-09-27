@@ -61,6 +61,24 @@ export function row(over = {}) {
         unitPcu: "PCU/hr",
         vehicles: [{ label: "機車", count: 900, pcu: 450 }],
       }),
+      /*
+       * ⚠️ allPeak（全調查時段尖峰）**一定要有**（A18，2026-09-23）。
+       *   舊測資只有 all／am／pm 三格，於是任何勾到第四個時段的測試
+       *   都會拿到「這一筆沒有資料」而不是真的算錯——三個真實缺陷
+       *   （路口轉向的 A14／A15／A17）就是躲在這個盲區裡活下來的。
+       */
+      allPeak: cell({
+        hour: "17:15～18:15",
+        total: 1500,
+        pcu: 1120,
+        unitCount: "輛/hr",
+        unitPcu: "PCU/hr",
+        vehicles: [
+          { label: "機車", count: 950, pcu: 475 },
+          { label: "小型車", count: 520, pcu: 520 },
+          { label: "大型車", count: 30, pcu: 90 },
+        ],
+      }),
     },
     ...over,
   };

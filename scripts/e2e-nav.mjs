@@ -1,5 +1,5 @@
 /*
- * 分頁導覽的共用助手。
+ * 分區導覽的共用助手。
  *
  * v20.64 把五個分區從「同一頁的錨點」改成**真的換頁**（使用者 2026-09-09 指名）。
  * 換頁之後，別頁的內容**不在 DOM 裡**，所以每一支 E2E 在碰某一頁的元素之前
@@ -71,7 +71,7 @@ export const PAGES = {
 export async function gotoTab(page, zoneId) {
   const button = page.locator(`.side-nav button[data-goto="${zoneId}"]`);
   if (!(await button.count()))
-    throw new Error(`找不到分頁按鈕 ${zoneId}——分頁導覽是不是又改回捲動式了？`);
+    throw new Error(`找不到分區按鈕 ${zoneId}——分區導覽是不是又改回捲動式了？`);
   await button.first().click();
   /*
    * ⚠️ X-63：點分區標題會落在**那一區的第一個大分頁**，

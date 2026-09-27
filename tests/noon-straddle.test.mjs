@@ -23,6 +23,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   NOON_MINUTES,
   buildPeriodAnalysis,
@@ -188,7 +189,7 @@ test("⚠️ ② 沒有回答時，數字與 v20.67 以前逐格相同（新機�
    *   限制），所以它是 2000。這也正是「上午尖峰漏報了」最容易被看穿的地方：
    *   全時段尖峰 2800、上午 800、下午 2705，三個數字並排時就很奇怪。
    */
-  assert.equal(combined.periods.peak24.pcu, 2800);
+  assert.equal(combined.periods.allPeak.pcu, 2800);
 });
 
 test("⚠️ ② 回答「算上午」之後，上午尖峰換成那個跨中午的視窗", () => {
@@ -253,7 +254,7 @@ test("② 全調查時段與全調查時段尖峰完全不受回答影響", () =
       }),
     );
     assert.deepEqual(answered.periods.all, none.periods.all);
-    assert.deepEqual(answered.periods.peak24, none.periods.peak24);
+    assert.deepEqual(answered.periods.allPeak, none.periods.allPeak);
   }
 });
 
@@ -318,4 +319,77 @@ test("⑥ buildPeriodRows 仍然只回傳列，而且與 buildPeriodAnalysis 同
   const rows = buildPeriodRows(straddleRecords, { factors });
   const analysis = buildPeriodAnalysis(straddleRecords, { factors });
   assert.deepEqual(rows, analysis.rows);
+});
+
+/* ══════════════════════════════════════════════════════════════════
+ * K40 主工具列的「上午／下午」也要吃這個答案
+ * ════════════════════════════════════════════════════════════════
+ *
+ * 2026-09-24 大檢查抓到：「時段車種分析」吃跨中午的答案（上面那幾項在守），
+ * 但**主工具列**的上午／下午（尖峰卡、篩空判斷、periodScoped 三處）只看
+ * 起始時間。使用者答「11:45～12:45 算上午」之後：
+ *   ・時段車種分析：上午尖峰 ＝ 11:45～12:45
+ *   ・尖峰卡：      上午尖峰 ＝ 07:00～08:00（因為 12:00 之後那三格被篩掉了）
+ * 同一個畫面上兩個不一樣的「上午尖峰」，而且沒有任何一處說明。
+ *
+ * 在此之前程式碼註解寫的是「若之後要讓 KPI 卡也吃跨中午的答案」——把它留給未來。
+ */
+test("K40 前置：被指派給上午的視窗，確實含有「起始時間在 12:00 之後」的格子", () => {
+  const answers = { [noonStraddleKey("R1", "")]: "am" };
+  const combined = combinedOf(
+    buildPeriodAnalysis(straddleRecords, { factors, noonAnswers: answers }),
+  );
+  const start = startMinutesOf(combined.periods.am.hour);
+  const end = endMinutesOf(combined.periods.am.hour);
+  assert.ok(start < NOON_MINUTES && end > NOON_MINUTES, "這個視窗應該跨中午");
+
+  /*
+   * 這一項是 K40 的「不是恆真」前置：如果被指派的視窗裡**沒有**任何一格
+   * 起始時間 ≥ 12:00，那麼只看起始時間的舊作法其實也會得到同一批格子，
+   * K40 就是在修一個不存在的問題。這裡證明真的有那種格子。
+   */
+  const afternoonCells = straddleRecords.filter((record) => {
+    const s = startMinutesOf(record.hour);
+    const e = endMinutesOf(record.hour);
+    return s >= start && e <= end && isAfternoonHour(record.hour);
+  });
+  assert.ok(
+    afternoonCells.length > 0,
+    "被指派給上午的視窗裡應該有起始時間 ≥ 12:00 的格子，否則 K40 無意義",
+  );
+});
+
+test("K40：主工具列那三處不可以只看起始時間，必須走 sideOfRecord", async () => {
+  const source = await readFile(
+    new URL("../app/DashboardClient.tsx", import.meta.url),
+    "utf8",
+  );
+
+  /* 前置檢查：那個共用函式真的存在，否則下面的比對會變成恆真。 */
+  assert.match(
+    source,
+    /const sideOfRecord = useCallback\(/,
+    "找不到 sideOfRecord（改名的話這一支要跟著改）",
+  );
+  /* 它必須真的讀到被指派的視窗，不是只看單格跨不跨中午。 */
+  assert.match(
+    source,
+    /assignedNoonWindows\.get\(key\)/,
+    "sideOfRecord 應該查被指派的跨中午視窗——只看單格的話細格資料修不到",
+  );
+
+  /*
+   * 舊寫法 `scoped.filter((r) => isMorningHour(r.hour ?? ""))` 一個都不可以剩。
+   * 只驗「有出現 sideOfRecord」不算數：舊寫法同時留著照樣過。
+   */
+  const offenders = [];
+  source.split("\n").forEach((line, index) => {
+    if (/(isMorningHour|isAfternoonHour)\(r\.hour/.test(line))
+      offenders.push(`${index + 1}｜${line.trim().slice(0, 70)}`);
+  });
+  assert.deepEqual(
+    offenders,
+    [],
+    `這些地方還在只看起始時間分上午／下午：\n  ${offenders.join("\n  ")}`,
+  );
 });

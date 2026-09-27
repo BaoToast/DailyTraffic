@@ -149,7 +149,12 @@ export function buildArmSettings(
   directionCodes: string[],
   savedSettings: IntersectionArmSetting[],
 ) {
-  const base = directionCodes.sort().map((directionCode, index) => {
+  /*
+   * ⚠️ 要先複製再排序。`directionCodes.sort()` 會就地把呼叫端的陣列重排；
+   *   目前五個呼叫端剛好都傳新陣列（其中一個還特地寫 `[...codes]` 防它），
+   *   所以今天沒有症狀，但下一個傳 state 陣列進來的呼叫端會被安靜地改到。
+   */
+  const base = [...directionCodes].sort().map((directionCode, index) => {
     const saved = savedSettings.find(
       (setting) =>
         setting.projectId === projectId &&

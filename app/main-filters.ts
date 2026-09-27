@@ -218,7 +218,7 @@ export const FIELD_LABELS: Record<MainFilterField, string> = {
 
 export const PERIOD_CHOICE_LABELS: Record<PeriodChoice, string> = {
   all: "全調查時段",
-  peak24: "全調查時段尖峰",
+  allPeak: "全調查時段尖峰",
   am: "上午尖峰小時",
   pm: "下午尖峰小時",
   AMPM: "上午＋下午並列",

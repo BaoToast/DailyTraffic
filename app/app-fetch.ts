@@ -170,7 +170,7 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit) {
     const cleanLabel = (value: unknown) => String(value ?? "").trim();
     const saveOfflineAlias = (aliasName: string, roadId: string) => { const aliasKey = roadNameMatchKey(aliasName); if (aliasKey) aliasStore.put({ _id: `${projectId}|${aliasKey}`, projectId, aliasKey, aliasName, roadId }); };
     /*
-     * 方向名稱只適用「路段」。路口的 A～G 是支線，各有自己的名字，
+     * 方向名稱只適用「路段」。路口的 A、B、C…是支線（數量由調查表決定），各有自己的名字，
      * 改路口名稱或合併路口時不能拿方向A／方向B去蓋——線上版
      * （app/api/roads/route.ts）與畫面上的即時更新都是這樣做的，
      * 只有這條離線路徑會蓋掉支線A、支線B的名稱，重新整理之後才會發現。

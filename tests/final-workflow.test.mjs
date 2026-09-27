@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  detectStateAnomalies,
+  ANOMALY_RESOLUTIONS,
   anomalyTypeCounts,
   quarterOrderKey,
   completenessSummary,
@@ -104,6 +106,8 @@ test("anomaly detector applies configurable quarter thresholds", () => {
         (sum, value) => sum + value,
         0,
       ),
+    (record) =>
+      Object.values(record.vehicleCounts).some((value) => Number(value) !== 0),
   );
   // detectAnomalies 現在回傳結構化物件（為了做季度區間與類型篩選），
   // 但 text 欄位的字面必須與舊版完全一致，匯出的「異常提醒」才不會變。
@@ -129,6 +133,8 @@ test("提醒敘述的分隔符號一律是全形斜線", () => {
     records,
     { dailyChangePct: 10, pcuChangePct: 10, vehicleShareChangePct: 5, peakShiftHours: 3, zeroHourLimit: 3 },
     (record) => Object.values(record.vehicleCounts).reduce((sum, value) => sum + value, 0),
+    (record) =>
+      Object.values(record.vehicleCounts).some((value) => Number(value) !== 0),
   );
   assert.ok(alerts.length > 0);
   for (const alert of alerts) assert.doesNotMatch(alert.text, /\|/);
@@ -188,6 +194,8 @@ test("方向名稱含有分隔符號時不會被截斷", () => {
     records,
     { dailyChangePct: 10, pcuChangePct: 10, vehicleShareChangePct: 5, peakShiftHours: 3, zeroHourLimit: 3 },
     (record) => Object.values(record.vehicleCounts).reduce((sum, value) => sum + value, 0),
+    (record) =>
+      Object.values(record.vehicleCounts).some((value) => Number(value) !== 0),
   );
   assert.ok(alerts.length > 0);
   assert.ok(alerts.every((alert) => alert.direction === "北向|往台北"));
@@ -214,6 +222,19 @@ test("異常類型統計會列出全部類型，沒有的補 0", () => {
      *   不然畫面上的類型標籤會少一個，使用者以為系統沒有檢查這一項。
      */
     { type: "調查日期不只一個", count: 0 },
+    /* 使用者 2026-09-24 新增：時間格長度超過 1 小時（同上，0 筆也要出現）。 */
+    { type: "調查格距異常", count: 0 },
+    /* 使用者 2026-09-24 新增：同一張表混用兩種以上格長。 */
+    { type: "調查格距混用", count: 0 },
+    /*
+     * K42／K43／K44（2026-09-24）：使用者定下的通則——「針對這類假設情況，
+     * 你首先要判定的是這是否為異常，只有使用者確認不是異常情形，才套用
+     * 你建議的處理方式」。三種都是「程式已經做好處理、卻沒有把情況講出來」。
+     * 同上：0 筆也要出現在統計裡，否則畫面的類型標籤會少一個。
+     */
+    { type: "平假日涵蓋不一致", count: 0 },
+    { type: "PCU係數全為0", count: 0 },
+    { type: "調查涵蓋無法判斷", count: 0 },
   ]);
 });
 
@@ -374,6 +395,9 @@ const anomalyThresholds = {
 };
 const anomalyPcu = (record) =>
   Object.values(record.vehicleCounts).reduce((sum, value) => sum + value, 0);
+/* 逐車種證據：任何一個車種不是 0 就算「當量係數設定過」。 */
+const anomalyAnyPcu = (record) =>
+  Object.values(record.vehicleCounts).some((value) => Number(value) !== 0);
 function anomalyRecords() {
   return [
     row({
@@ -398,6 +422,7 @@ test("異常提醒寫的是顯示名稱，不是內部鍵值", () => {
     anomalyRecords(),
     anomalyThresholds,
     anomalyPcu,
+    anomalyAnyPcu,
     {
       road: (roadId) => (roadId === "R1" ? "縣道123（起點～終點）" : roadId),
       direction: () => "駛出路口A（東側）",
@@ -429,6 +454,7 @@ test("畫面表格用的三個顯示欄位也要有值", () => {
     anomalyRecords(),
     anomalyThresholds,
     anomalyPcu,
+    anomalyAnyPcu,
     {
       road: () => "縣道123（起點～終點）",
       direction: () => "駛出路口A（東側）",
@@ -446,7 +472,12 @@ test("畫面表格用的三個顯示欄位也要有值", () => {
 });
 
 test("沒有傳 labels 時行為與舊版完全相同（向後相容）", () => {
-  const without = detectAnomalies(anomalyRecords(), anomalyThresholds, anomalyPcu);
+  const without = detectAnomalies(
+    anomalyRecords(),
+    anomalyThresholds,
+    anomalyPcu,
+    anomalyAnyPcu,
+  );
   assert.ok(without.length > 0);
   for (const alert of without) {
     assert.ok(alert.text.startsWith("R1／平日／駛出路口A"), alert.text);
@@ -463,6 +494,7 @@ test("提醒的分組與篩選仍然用鍵值，改名不會讓篩選失效", ()
     anomalyRecords(),
     anomalyThresholds,
     anomalyPcu,
+    anomalyAnyPcu,
     { road: () => "縣道123（起點～終點）", direction: () => "駛出路口A（東側）" },
   );
   assert.equal(filterAnomalies(alerts, { roadId: "R1" }).length, alerts.length);
@@ -471,4 +503,156 @@ test("提醒的分組與篩選仍然用鍵值，改名不會讓篩選失效", ()
     0,
     "用顯示名稱應該篩不到，代表鍵值沒有被顯示名稱取代",
   );
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  K42／K43／K44：三種「已經做好處理、卻沒有把情況講出來」的異常
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-24 定下的通則：
+ *   「針對這類假設情況，你首先要判定的是**這是否為異常**，只有使用者確認
+ *     不是異常情形，才套用你建議的處理方式」
+ *
+ * 三項的共同病灶：系統給了一個對的答案，但隱瞞了前提。
+ * 「靜靜出錯」是給錯答案；「靜靜處理」是給對答案但隱瞞前提——一樣不行。
+ *
+ * ⚠️ 每一項都附一個「不可以誤報」的反面，否則守門會變成「一律報異常」，
+ *   那比不報更糟（真正的異常會被淹沒）。
+ */
+const stateRow = (over) => ({
+  quarter: "115Q1",
+  roadId: "R1",
+  roadName: "中山路",
+  dayType: "平日",
+  directionCode: "A",
+  directionName: "往北",
+  hour: "07:00～08:00",
+  surveyType: "road",
+  motorcycle: 0,
+  small: 10,
+  large: 0,
+  special: 0,
+  sourceFileName: "x.xlsx",
+  sourceSheetName: "平日",
+  ...over,
+});
+/*
+ * ⚠️ 第三個參數（逐車種是否有非 0 的 PCU 貢獻）是 2026-09-26 新增的**必填**參數。
+ *   這裡的預設 `pcu(record) !== 0` 只是為了讓既有測試維持原本的語意；
+ *   要驗「係數設好了但正負抵銷成 0」那一種，呼叫端必須**明確**傳
+ *   `() => true` 與 `pcu: () => 0`——那正是下面兩支新測試在做的事。
+ */
+const typesOf = (
+  records,
+  pcu = () => 1,
+  anyVehiclePcu = (record) => pcu(record) !== 0,
+) => detectStateAnomalies(records, pcu, anyVehiclePcu).map((item) => item.type);
+
+test("⚠️ K43：有車但 PCU 合計為 0 要列成「PCU係數全為0」", () => {
+  assert.ok(typesOf([stateRow({})], () => 0).includes("PCU係數全為0"));
+});
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  K43 的判準是「逐車種有沒有非 0 的貢獻」，不是「合計是不是 0」
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 2026-09-26 抓到：K43 原本寫 `group.total > 0 && group.pcu <= 0`。
+ * 而合計為 0（或負數）有兩種完全不同的成因：
+ *   ① 係數真的都是 0／沒設定        → 這才是要提醒的
+ *   ② 使用者把某個車種設成**負係數**，＋X 與 −X 抵銷 → 係數設好了
+ * 舊判準把②也報成「PCU係數全為0」，而「時段車種分析」那一端
+ *（`app/period-analysis.ts` 的 anyPcu）算得出正常的尖峰——
+ * 同一筆資料、同一個畫面，兩個入口各說各話。
+ *
+ * ⚠️ 兩支要**成對**看：只驗「抵銷時不報」的話，「永遠不報」也會通過，
+ *   而那會把真正沒設定係數的情況整個藏掉。
+ * ⚠️ 反證（2026-09-26 實測）：把 app/final-workflow.ts 的 K43 判準改回
+ *   `group.pcu <= 0`，下面第一支就紅、第二支仍綠。
+ */
+test("⚠️ K43：係數設好但正負抵銷成 0 時，不可以報「PCU係數全為0」", () => {
+  assert.ok(
+    !typesOf(
+      [stateRow({})],
+      /* 合計剛好 0（例如大型車設 +2、機車設 −2 互相抵銷） */
+      () => 0,
+      /* 但逐車種確實有非 0 的貢獻 → 係數設定過 */
+      () => true,
+    ).includes("PCU係數全為0"),
+    "係數設好、只是正負抵銷成 0，被誤報成「係數全為 0」——" +
+      "而時段分析那一端算得出正常尖峰，兩個入口會各說各話",
+  );
+});
+
+test("⚠️ K43：合計是負數時同樣不算「沒設定」（負係數是使用者刻意設的）", () => {
+  assert.ok(
+    !typesOf([stateRow({})], () => -12, () => true).includes("PCU係數全為0"),
+    "合計為負數就報「係數全為 0」——負係數是系統允許、使用者刻意設的",
+  );
+});
+
+test("⚠️ K43 的另一半：逐車種真的都是 0 時，一定要報出來", () => {
+  assert.ok(
+    typesOf([stateRow({})], () => 0, () => false).includes("PCU係數全為0"),
+    "係數真的都沒設定卻不提醒——那尖峰會用車輛數挑而使用者不知道",
+  );
+});
+
+test("⚠️ K43 不可以誤報：PCU 正常時不列", () => {
+  assert.ok(!typesOf([stateRow({})], () => 5).includes("PCU係數全為0"));
+});
+
+test("⚠️ K43 不可以誤報：整組車輛數是 0（真的沒車）時不列", () => {
+  /* 沒車的時段 PCU 當然是 0，那不是「係數沒設定」。 */
+  assert.ok(
+    !typesOf([stateRow({ small: 0 })], () => 0).includes("PCU係數全為0"),
+  );
+});
+
+test("⚠️ K44：時段字串解析不出起訖時要列成「調查涵蓋無法判斷」", () => {
+  assert.ok(
+    typesOf([stateRow({ hour: "上午" })]).includes("調查涵蓋無法判斷"),
+  );
+});
+
+test("⚠️ K44 不可以誤報：正常時段字串不列", () => {
+  assert.ok(!typesOf([stateRow({})]).includes("調查涵蓋無法判斷"));
+});
+
+test("⚠️ K42：同一調查點平假日涵蓋不同要列成「平假日涵蓋不一致」", () => {
+  const weekday = [stateRow({}), stateRow({ hour: "08:00～09:00" })];
+  const holiday = [stateRow({ dayType: "假日" })];
+  assert.ok(
+    typesOf([...weekday, ...holiday]).includes("平假日涵蓋不一致"),
+  );
+});
+
+test("⚠️ K42 不可以誤報：平假日涵蓋相同時不列", () => {
+  const same = [stateRow({}), stateRow({ dayType: "假日" })];
+  assert.ok(!typesOf(same).includes("平假日涵蓋不一致"));
+});
+
+test("⚠️ K42 不可以誤報：只有一種日別時不列", () => {
+  assert.ok(!typesOf([stateRow({})]).includes("平假日涵蓋不一致"));
+});
+
+test("⚠️ K42 不可以誤報：其中一邊「解析不出來」不算涵蓋不一致", () => {
+  /*
+   * 「無法判斷」與「不一致」是兩件事。拿無法判斷當成不一致的證據，
+   * 使用者會被叫去核對兩個時段哪裡不同，而真正的問題是時間欄位格式。
+   */
+  const mixed = [stateRow({}), stateRow({ dayType: "假日", hour: "上午" })];
+  const types = typesOf(mixed);
+  assert.ok(!types.includes("平假日涵蓋不一致"), "不可以報成不一致");
+  assert.ok(types.includes("調查涵蓋無法判斷"), "應該報成無法判斷");
+});
+
+test("⚠️ 三種新異常都要有解決方式，而且說得出去哪一頁處理", () => {
+  for (const type of ["平假日涵蓋不一致", "PCU係數全為0", "調查涵蓋無法判斷"]) {
+    const resolution = ANOMALY_RESOLUTIONS[type];
+    assert.ok(resolution, `${type} 沒有解決方式`);
+    assert.ok(resolution.text.length > 40, `${type} 的解決方式太短，等於沒寫`);
+    assert.ok(resolution.anchorLabel, `${type} 沒有寫「前往哪一頁」`);
+  }
 });
