@@ -50,6 +50,14 @@
 - 正式 `npm run e2e` 有 **56 支腳本，以 `&&` 串行**。第一次整條命令在第八個瀏覽器腳本啟動本機伺服器時，因連接埠 8123 暫時被占用（`EADDRINUSE`）中斷，不能算全綠；該腳本單獨重跑退出碼 0。之後**從頭重跑完整同一條命令**，退出碼 0，56 支全部完成。沒有並行跑，也沒有降低測試範圍或修改正式程式以迴避環境衝突。
 - 手冊兩份 PDF SHA-256 同為 `a7b6ed6f8ce02245d0c7daa562215d4e97c53df74076efa2dcfab32a027d7d52`；除頁數與字數重算外，已抽查封面、第 7 頁與末頁的轉圖，未見文字截斷或重疊。桌面 Microsoft Excel 及真實調查附件在本輪未重新驗證，不得據此宣稱通過。發布後線上驗證仍以後續實跑紀錄為準，不以 Claude 宣稱取代。
 
+### 2026-09-28 發布後實測
+
+- 程式 release commit `8b88f99997c9d8a66558ee29e5c7478b244395db` 已推送到 `BaoToast/DailyTraffic` 的 `main`；推送後本機 HEAD、`origin/main` 與 GitHub 遠端 main 相同。
+- [建置與測試 run 36416817738](https://github.com/BaoToast/DailyTraffic/actions/runs/36416817738) 已完成且成功；[Pages build and deployment run 36416816895](https://github.com/BaoToast/DailyTraffic/actions/runs/36416816895) 已完成且成功。正式站台為 `https://baotoast.github.io/DailyTraffic/`。
+- 線上首頁帶 `?v=20.89` 查得新版 `index-CEooEMl2.js`。線上主 JS SHA-256 `9edf24e7981ec39df7f369cfe2676a79c9f02d8243fc7e1befff2dbb2ad1bf0a`、CSS `index-CLll6NhE.css` SHA-256 `d1574128261cf5f81fa2fa9b4322782edae40d56d7e5fa41a8366c840cb574dc`、新版 PDF SHA-256 `a7b6ed6f8ce02245d0c7daa562215d4e97c53df74076efa2dcfab32a027d7d52`，各自與本機逐位元相符。
+- 新版 JS、PDF、`VALIDATION_v20.89.md` 的線上路徑均 HTTP 200；舊版專屬 `index-CXHXgvoT.js`、v20.88 PDF、`VALIDATION_v20.88.md` 均 HTTP 404。CSS 本版沿用相同內容 hash，不應要求舊 CSS 路徑 404。
+- 本節發布後證據將以文件專用 commit 補存；最後仍需核對該文件 commit 的 CI、Pages、遠端 main 與工作樹。
+
 ## v20.88（2026-09-26）Claude 依 GPT 中斷前的複查摘要 ＋ 自己的第二次複查：七件
 
 ⚠️ **GPT 2026-09-27 更正**：以下保留 Claude 的候選說明供追溯，但「計算口徑完全未變」不成立：
