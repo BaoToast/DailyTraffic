@@ -287,6 +287,10 @@ test("更新說明的「如何更新」段落沒有殘留舊版號與舊資產�
       "那一行是「上一版是哪一版」的唯一來源，這一支靠它判斷",
   );
   assert.notEqual(previous, version, "前一正式版不可以等於本版");
+  assert.ok(
+    section.includes(`・網站顯示 ${version}`),
+    `「如何更新」必須要求確認網站顯示 ${version}，不可還寫前一版`,
+  );
 
   /*
    * ⚠️ 例外：**明講「沒有發布」的那幾個版號可以出現**。
@@ -722,14 +726,24 @@ test("根目錄的建置產物不可以比原始碼舊", async () => {
  */
 test("未發布候選版的區間與數量，三份現況文件都要寫到本版前一版", async () => {
   const { existsSync } = await import("node:fs");
-  const LAST_RELEASED = 81;
+  /*
+   * ⚠️ 2026-09-27：**基準線動了**。GPT 已把 v20.88 正式發布上線。
+   *   要分成兩個常數，不可以只改一個：
+   *     RANGE_BASE    ——「v20.82～.N 共 M 個」這種**歷史句子**的算術基準，永遠是 81。
+   *                      一起改掉會讓所有正確的歷史句子變紅。
+   *     LAST_RELEASED ——**現在**最後一個真的發布出去的版本。現況敘述靠它。
+   *   前一版就是正式發布版時，根本沒有未發布候選區間，
+   *   這時要求的是「寫明前一正式版是哪一版」。
+   */
+  const RANGE_BASE = 81;
+  const LAST_RELEASED = 88;
   const CJK = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const pkg = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
   const patch = Number(String(pkg.version).split(".")[1]);
   const wantTo = patch - 1;
-  const wantCount = wantTo - LAST_RELEASED;
+  const wantCount = wantTo - RANGE_BASE;
   assert.ok(wantCount >= 1, `算出來的未發布候選數是 ${wantCount}，版號解析壞了嗎？`);
 
   const FILES = [
@@ -752,8 +766,8 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
       seen += 1;
       assert.equal(
         count,
-        to - LAST_RELEASED,
-        `${name} 寫「v20.82～.${to} ${m[2]}個候選」，該區間實際是 ${to - LAST_RELEASED} 個`,
+        to - RANGE_BASE,
+        `${name} 寫「v20.82～.${to} ${m[2]}個候選」，該區間實際是 ${to - RANGE_BASE} 個`,
       );
       if (to === wantTo) current.add(name);
     }
@@ -761,6 +775,24 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
   /* 前置檢查：真的掃到句子，不是格式改掉之後安靜恆真。 */
   assert.ok(seen >= 2, `只抓到 ${seen} 句「v20.82～… N 個候選」——寫法改了嗎？`);
 
+  if (LAST_RELEASED >= wantTo) {
+    /* ⚠️ 一定要印出來，安靜跳過就等於把這一條悄悄關掉。 */
+    console.log(
+      `  ℹ️ v20.${LAST_RELEASED} 已正式發布，本版直接建在它之上，` +
+        "沒有「未發布候選區間」可寫——改成要求現況文件寫明前一正式版是哪一版。",
+    );
+    for (const name of ["PROJECT_HANDOFF.md", `VALIDATION_v20.${patch}.md`]) {
+      const url = new URL(`../${name}`, import.meta.url);
+      if (!existsSync(url)) continue;
+      const text = await readFile(url, "utf8");
+      assert.ok(
+        new RegExp(`前一正式版[：:]\\s*\`?v20\\.${LAST_RELEASED}\`?`).test(text),
+        `${name} 要寫明「前一正式版：v20.${LAST_RELEASED}」——` +
+          "現況文件要講清楚這一包是建在哪一個已發布版本之上",
+      );
+    }
+    return;
+  }
   for (const name of ["PROJECT_HANDOFF.md", `VALIDATION_v20.${patch}.md`]) {
     if (!existsSync(new URL(`../${name}`, import.meta.url))) continue;
     assert.ok(
@@ -798,11 +830,40 @@ test("驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時
   const reportUrl = new URL(`../VALIDATION_v20.${patch}.md`, import.meta.url);
   assert.ok(existsSync(reportUrl), `找不到 VALIDATION_v20.${patch}.md`);
   const report = await readFile(reportUrl, "utf8");
-  const claim = report.match(/\*\*(\d+) 頁 \/ ([\d,]+) 字元\*\*/);
+  /*
+   * ⚠️ 只看**本版那一節**（2026-09-27 抓到）。
+   *
+   *   原本是對整份報告做第一個 match。VALIDATION 是逐版累積的，本版那一節
+   *   一旦沒寫「N 頁 / M 字元」，正規式就會往下抓到**歷史版本**那一列，
+   *   然後拿舊版的頁數去比對新版的 PDF——實測：v20.88 的節裡只寫「34 頁」，
+   *   於是抓到 v20.87 的「33 頁 / 26,099 字元」，紅在「報告寫 33 頁，實際 34 頁」。
+   *   紅得對，但訊息把人帶往「PDF 錯了」，而真正的問題是「本版那一節沒寫」。
+   */
+  const sectionStart = report.search(
+    new RegExp(`^##\\s*v20\\.${patch}(?![\\d.])`, "m"),
+  );
+  assert.ok(
+    sectionStart >= 0,
+    `VALIDATION_v20.${patch}.md 裡找不到「## v20.${patch}」這一節的標題`,
+  );
+  const after = report.slice(sectionStart + 3);
+  const nextHeading = after.search(/^##\s+v[\d.]/m);
+  const section =
+    nextHeading >= 0 ? after.slice(0, nextHeading) : after;
+  const claim = section.match(/\*\*(\d+) 頁 \/ ([\d,]+) 字元\*\*/);
   assert.ok(
     claim,
-    "驗證報告裡找不到「**N 頁 / M 字元**」——寫法改了就要同步改這一支，" +
-      "不可以讓它安靜地變成恆真",
+    `VALIDATION_v20.${patch}.md 的「## v20.${patch}」那一節裡找不到` +
+      "「**N 頁 / M 字元**」——本版的手冊數字一定要寫在本版那一節，" +
+      "寫在別節會被當成歷史紀錄，這一支就會拿舊數字去比對新 PDF",
+  );
+  const notes = await readFile(new URL("../【更新說明】請先讀我.txt", import.meta.url), "utf8");
+  const manualStart = notes.lastIndexOf("本版手冊：");
+  assert.ok(manualStart >= 0, "更新說明裡找不到本版手冊段落");
+  const manualSection = notes.slice(manualStart, notes.indexOf("若採手動覆蓋方式更新", manualStart));
+  assert.ok(
+    manualSection.includes(`${claim[1]} 頁 / ${claim[2]} 字元`),
+    `更新說明的本版手冊段落必須寫 ${claim[1]} 頁 / ${claim[2]} 字元，不可沿用歷史數字`,
   );
 
   const dir = fileURLToPath(new URL("../manuals/", import.meta.url));
@@ -822,8 +883,16 @@ test("驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
     });
-    chars = [...text.normalize("NFKC")].length;
-  } catch {
+    /*
+     * ⚠️ 先把換行統一成 LF 再數（2026-09-27 加）。
+     *   Windows 的 poppler 會輸出 CRLF，於是同一份 PDF 在 Windows 上
+     *   會多出「行數」那麼多個字元（姊妹系統實測：16,388 vs 15,345，
+     *   差值剛好是行數）。不正規化的話，這個數字換一台機器就對不上，
+     *   而每一次對不上都會有人把數字改成自己那一台的值。
+     */
+    chars = [...text.replace(/\r\n?/g, "\n").normalize("NFKC")].length;
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
     console.log(
       "  ℹ️ 這台機器沒有 pdfinfo／pdftotext（poppler-utils），" +
         "跳過手冊頁數與字元數的重算比對——這不是失敗，是這個環境算不了。",
@@ -834,7 +903,7 @@ test("驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時
   assert.equal(
     chars,
     Number(claim[2].replace(/,/g, "")),
-    `報告寫 ${claim[2]} 字元，實際 ${chars}（NFKC 後、含空白，算法見報告裡的指令）`,
+    `報告寫 ${claim[2]} 字元，實際 ${chars}（換行統一為 LF、NFKC 後、含空白）`,
   );
 });
 
