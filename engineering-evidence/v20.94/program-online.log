@@ -1,0 +1,86 @@
+{
+  "head": "1d385b4144b1bb3275f19017c22c16151da45faa",
+  "verifiedAt": "2026-10-03T09:07:51.697Z",
+  "files": [
+    {
+      "file": "index.html",
+      "status": 200,
+      "sha256": "36d8bb2f8bf1dfe352f4c5e4eceb26e946d7e2a3c2b49b6613a9e2265469c123",
+      "matches": true
+    },
+    {
+      "file": "VALIDATION_v20.94.md",
+      "status": 200,
+      "sha256": "01882bfe9f36432109a8b34e3a460ec5d76d88780adc6d3b5506af9a056c39a0",
+      "matches": true
+    },
+    {
+      "file": "manuals/全日交通流量程式手冊_v20.94.pdf",
+      "status": 200,
+      "sha256": "18e7eca105f7502592a21fdff94718f97f709db471cea47362da9e724565d1b8",
+      "matches": true
+    },
+    {
+      "file": "assets/exceljs.min-CZeneQmJ.js",
+      "status": 200,
+      "sha256": "efa7300f379fd9ef1cb67070fc7a6539f120ba5aed5dd555cf78f27efe3c4286",
+      "matches": true
+    },
+    {
+      "file": "assets/index-BniIYehv.js",
+      "status": 200,
+      "sha256": "de28bbc40bf4bdc89d9dcc9a4ba9621783cb4312cd79a3055cdd05d3b7e884dc",
+      "matches": true
+    },
+    {
+      "file": "assets/index-b_09kH_a.css",
+      "status": 200,
+      "sha256": "6aa79bb8b56a5a95212ef3cd28835b523eaa2d95c1f7b3c796ac01c5de6e0694",
+      "matches": true
+    },
+    {
+      "file": "assets/jszip.min-EOxDqsNE.js",
+      "status": 200,
+      "sha256": "cd89802f6ed63bcc3126bb9e11c3ebe17d75632ac7cd99ec2923a96d0e2c69d9",
+      "matches": true
+    },
+    {
+      "file": "assets/xlsx-BSoArgVj.js",
+      "status": 200,
+      "sha256": "4a22ccdac1608b53b1c472b1efbb2070b51a7c9abd26a48848d7b9d4c640a160",
+      "matches": true
+    }
+  ],
+  "retired": [
+    {
+      "file": "assets/index-CEooEMl2.js",
+      "status": 404,
+      "gone": true
+    },
+    {
+      "file": "assets/index-CLll6NhE.css",
+      "status": 404,
+      "gone": true
+    },
+    {
+      "file": "assets/exceljs.min-DlPz0oVF.js",
+      "status": 404,
+      "gone": true
+    },
+    {
+      "file": "assets/jszip.min-BVPk16qh.js",
+      "status": 404,
+      "gone": true
+    },
+    {
+      "file": "manuals/全日交通流量程式手冊_v20.89.pdf",
+      "status": 404,
+      "gone": true
+    },
+    {
+      "file": "VALIDATION_v20.89.md",
+      "status": 404,
+      "gone": true
+    }
+  ]
+}

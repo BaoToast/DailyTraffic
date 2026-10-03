@@ -1,0 +1,31 @@
+import { readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+
+const root = process.argv[2];
+const head = process.argv[3];
+if (!root || !/^[a-f0-9]{40}$/.test(head || '')) throw new Error('root/head required');
+const base = 'https://baotoast.github.io/DailyTraffic/';
+const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const rows = [];
+const files = ['index.html', 'VALIDATION_v20.94.md', 'manuals/全日交通流量程式手冊_v20.94.pdf',
+  ...(await readdir(join(root, 'assets'))).map(name => 'assets/' + name)];
+for (const file of files) {
+  const url = base + file.split('/').map(encodeURIComponent).join('/') + '?verify=' + head + '-' + Date.now();
+  const response = await fetch(url, { headers: {'cache-control':'no-cache'} });
+  const actual = Buffer.from(await response.arrayBuffer());
+  const expected = await readFile(join(root, file));
+  const row = { file, status: response.status, sha256: hash(actual), matches: response.ok && hash(actual) === hash(expected) };
+  rows.push(row);
+}
+const old = ['assets/index-CEooEMl2.js','assets/index-CLll6NhE.css',
+  'assets/exceljs.min-DlPz0oVF.js','assets/jszip.min-BVPk16qh.js',
+  'manuals/全日交通流量程式手冊_v20.89.pdf','VALIDATION_v20.89.md'];
+const retired = [];
+for (const file of old) {
+  const response = await fetch(base + file.split('/').map(encodeURIComponent).join('/') + '?verify=' + head + '-' + Date.now());
+  retired.push({file, status:response.status, gone:response.status === 404});
+  await response.arrayBuffer();
+}
+console.log(JSON.stringify({head, verifiedAt:new Date().toISOString(), files:rows, retired}, null, 2));
+if (rows.some(row => !row.matches) || retired.some(row => !row.gone)) process.exitCode = 1;

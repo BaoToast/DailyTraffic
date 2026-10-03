@@ -1,6 +1,6 @@
 # 全日交通量及車種組成 v20.94 驗證報告
 
-## v20.94（2026-10-03）GPT 獨立高風險複查（本機封關通過／待遠端發布驗證）
+## v20.94（2026-10-03）GPT 獨立高風險複查並正式發布
 
 正式基準 `d6e3efb1b49fd2edc6c5c180d9fd462ee1d619c3`（v20.89）；
 來源專案 ZIP SHA-256 `510bb167f476d3b3367f81e7371ebb297c78d9d23db29cdae0e78b67600d71d1`，
@@ -8,7 +8,7 @@
 本輪新增歸類／門檻覆寫會影響有設定時的分類／異常判定，不能以舊文件
 「計算一行未改」概括整個 v20.89 → v20.94 差異；預設黃金值仍須維持。
 
-### 已完成封關與尚未完成的發布門檻
+### 完成封關與正式發布證據
 
 - 最終 Node 22.23.3／npm 11.6.2、預設 heap 的字面 `npm test` 離開碼 **0**：
   **829 項／828 通過／0 失敗／1 conditional skip**，含 lint、TypeScript、字形守門、
@@ -20,8 +20,18 @@
 - 正式 E2E **59/59 支串行通過**，完整 `npm run e2e` 離開碼 0；日誌保存於
   `engineering-evidence/v20.94/final-gate-e2e.log`。後續僅修改文件守門及歷史項數標註，
   未變更本套通過時的正式程式、建置產物或 E2E 腳本，不重跑相同驗證。
-- 尚未 commit／push／發布。GitHub Actions、Pages final-head 與線上檔案驗證
-  必須在發布後寫入實際證據，不得沿用 v20.89 的結果。
+- 程式 release commit `1d385b4144b1bb3275f19017c22c16151da45faa` 已推送 main，
+  commit 日期為台北時間 2026-10-03，與本節／README／更新說明日期一致。
+  [CI 37111885873](https://github.com/BaoToast/DailyTraffic/actions/runs/37111885873) 與
+  [Pages 37111885393](https://github.com/BaoToast/DailyTraffic/actions/runs/37111885393)
+  均為該 commit 的 success，不是前一版結果。
+  2026-10-03 17:07 台北時間以 cache-busting 實測：新版 HTML、五個 JS／CSS 資產、
+  v20.94 PDF 與本報告皆 HTTP 200 且 SHA-256 與 Repository 相同；
+  v20.89 的四個舊變動資產、舊 PDF、舊報告皆 404，固定 xlsx chunk 保留。
+  完整逐檔紀錄：`engineering-evidence/v20.94/program-online.log`。
+  正式 Documents 工作區亦以 npm ci 重建鎖定依賴，退出碼 0，未改 lockfile。
+  最後純文件提交不變更程式／測試／版本／資產；其 HEAD 自身須另核對
+  origin/main、遠端 main、CI／Pages 與線上雜湊，完成後於交付收據回報。
 - 先前 827 項／826 通過的紀錄是甜甜圈與診斷修正前的結果。新增反證後，
   已重新完成上述 829 項的字面完整命令；不能以舊結果替代本版封關。
 

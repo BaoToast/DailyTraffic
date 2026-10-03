@@ -28,3 +28,8 @@ https://github.com/nodejs/node/issues/65934 。本專案只調整測試的診斷
 第一次臨時 probe 點了圖檔入口而不是單張下載鈕，故等待下載逾時；紀錄保留，
 更正 probe 選擇器後通過，正式程式未為此改動。recipe.txt 是重現步驟備查，
 原本在 ignored `_review_artifacts` 執行，不屬於正式掛鉤 E2E 清單或新增的第 60 支。
+
+`program-online.log` 為程式 release commit 的 cache-busting 線上逐檔 SHA-256 與舊版 404。
+`formal-npm-ci.log` 為正式 Documents 工作區更新到同一 commit 後的乾淨依賴重建。
+`verify-pages-recipe.txt` 為可重現的線上核對步驟，使用實際執行的 Git HEAD 作參數。
+GitHub 對應 commit 的 CI／Pages 紀錄及最後文件 HEAD，可由 main 歷史和 Actions 核對。

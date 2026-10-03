@@ -56,6 +56,9 @@ source guard 紅燈冒稱為瀏覽器反證。A27 的兩顆 mutation 均實際�
 ## 最終驗證與發布證據
 
 完整 literal `npm test` 退出碼 0：829 項／828 通過／0 失敗／1 缺真實附件略過。
-59/59 支串行 E2E 已通過，尚未 commit／push／發布。release commit、final-head
-CI／Pages、線上版本與資產 SHA-256 在實際完成後補入。
+59/59 支串行 E2E 已通過；程式 release commit `1d385b4144b1bb3275f19017c22c16151da45faa`。
+台北發布日期 2026-10-03；該 commit 的 CI `37111885873`、Pages `37111885393` 均 success。
+線上 HTML、五個資產、手冊與報告 SHA-256 一致，前一版變動資產／手冊／報告均 404。
+證據隨 Repository 保存在 `engineering-evidence/v20.94/`；最後文件 HEAD 的 CI／Pages
+須再次驗證，最終 commit 與流程 ID 於交付收據記錄，也可由 GitHub main 的 Actions 核對。
 不要採信 Claude 原包的「全綠」，也不要以舊 v20.89 的 deployment run 冒充本版證據。
