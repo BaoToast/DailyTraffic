@@ -1,0 +1,85 @@
+TAP version 13
+# Subtest: package.json 與 package-lock.json 的版本號和程式顯示的一致
+ok 1 - package.json 與 package-lock.json 的版本號和程式顯示的一致
+  ---
+  duration_ms: 6.8865
+  type: 'test'
+  ...
+# Subtest: 畫面上的手冊連結檔名帶著目前版本
+ok 2 - 畫面上的手冊連結檔名帶著目前版本
+  ---
+  duration_ms: 5.8612
+  type: 'test'
+  ...
+# Subtest: 手冊裡有本版的更新說明區塊
+ok 3 - 手冊裡有本版的更新說明區塊
+  ---
+  duration_ms: 2.9922
+  type: 'test'
+  ...
+# Subtest: GitHub Pages 根目錄建置產物與目前版本一致
+ok 4 - GitHub Pages 根目錄建置產物與目前版本一致
+  ---
+  duration_ms: 6.4829
+  type: 'test'
+  ...
+# Subtest: 驗證報告檔名與目前版本一致，不得殘留舊版
+ok 5 - 驗證報告檔名與目前版本一致，不得殘留舊版
+  ---
+  duration_ms: 2.1618
+  type: 'test'
+  ...
+# Subtest: 更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名
+ok 6 - 更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名
+  ---
+  duration_ms: 3.9929
+  type: 'test'
+  ...
+# Subtest: 更新說明裡寫出來的每一個 SHA-256 都要與實際檔案相符
+ok 7 - 更新說明裡寫出來的每一個 SHA-256 都要與實際檔案相符
+  ---
+  duration_ms: 11.1298
+  type: 'test'
+  ...
+# Subtest: 更新說明與驗證報告都不可以有兩段共用同一個版號
+ok 8 - 更新說明與驗證報告都不可以有兩段共用同一個版號
+  ---
+  duration_ms: 6.9835
+  type: 'test'
+  ...
+#   ℹ️ 與最後一次建置逐位元相同、時間戳不列入比較：index-BniIYehv.js、index-b_09kH_a.css
+#   ℹ️ 主程式與樣式兩個產物都與最後一次建置逐位元相同，不需要再比 mtime（逐位元相同是比時間更強的證據）。
+# Subtest: 根目錄的建置產物不可以比原始碼舊
+ok 9 - 根目錄的建置產物不可以比原始碼舊
+  ---
+  duration_ms: 5.9438
+  type: 'test'
+  ...
+# Subtest: 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+ok 10 - 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+  ---
+  duration_ms: 6.675
+  type: 'test'
+  ...
+#   ℹ️ 這台機器沒有 pdfinfo／pdftotext（poppler-utils），跳過手冊頁數與字元數的重算比對——這不是失敗，是這個環境算不了。
+# Subtest: 驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時跳過並說明）
+ok 11 - 驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時跳過並說明）
+  ---
+  duration_ms: 54.4962
+  type: 'test'
+  ...
+# Subtest: 文件寫的測試條數必須等於那支檔案裡 test() 的數量
+ok 12 - 文件寫的測試條數必須等於那支檔案裡 test() 的數量
+  ---
+  duration_ms: 21.6996
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 225.9038

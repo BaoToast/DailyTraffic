@@ -268,6 +268,140 @@ ok(
 );
 await closeLeftovers();
 
+/* ── E：混批（一批檔案的日期指向兩個以上期別）一律擋死 ──────────────
+ *
+ * 使用者 2026-09-29 裁示「混入別季混批不擋，三支程式請同步」。
+ * 路口轉向本來就擋死，這一支原本只有一個 confirm()，按確定就寫進去。
+ *
+ * ⚠️ 兩邊都要驗：
+ *   E-1 混批 → 確認鈕**停用**、畫面寫明原因、一筆都寫不進去。
+ *   E-2 同一批全部同一個期別 → 確認鈕**要按得下去**（放寬過頭的反證）。
+ *   少了 E-2 的話，把按鈕改成「永遠停用」也會綠——那是半個守門。
+ */
+async function openReportMany(files, quarterText = "115Q1") {
+  await page.locator('.toolbar button:has-text("匯入資料")').first().click();
+  await page.waitForTimeout(400);
+  await page
+    .locator('.modal-backdrop .modal label:has-text("資料季度") input')
+    .fill(quarterText);
+  await page
+    .locator('.modal-backdrop .modal input[type="file"][accept*=".xlsx"]')
+    .setInputFiles(
+      files.map((file) => ({
+        name: file.name,
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: makeFile(file.dateText, file.base),
+      })),
+    );
+  await page.waitForTimeout(3400);
+}
+const confirmButtonState = () =>
+  page.evaluate(() => {
+    const buttons = [
+      ...document.querySelectorAll(".modal-backdrop footer button"),
+    ];
+    const hit = buttons.find((node) => /^確認/.test(node.textContent || ""));
+    return hit
+      ? { found: true, disabled: hit.disabled, title: hit.title || "" }
+      : { found: false, disabled: null, title: "" };
+  });
+
+/* E-1：甲檔 1 月（落在所選的 115Q1）、乙檔 8 月（115Q3）——真的混批。 */
+const beforeE = await roadCount();
+await openReportMany(
+  [
+    { name: "E1_1月.xlsx", dateText: "監測日期：115年01月26日(平日)", base: 50 },
+    { name: "E2_8月.xlsx", dateText: "監測日期：115年08月05日(平日)", base: 60 },
+  ],
+  "115Q1",
+);
+const eAlert = await reportAlert();
+ok(
+  "E-1 檢核報告就寫出「指向 2 個不同的期別」",
+  /指向 2 個不同的期別/.test(eAlert),
+  eAlert.slice(0, 280),
+);
+ok(
+  "E-1 而且寫明確認鈕已停用",
+  /已停用/.test(eAlert),
+  eAlert.slice(0, 280),
+);
+ok(
+  "E-1 說明要講清楚為什麼沒有「確認無誤」這條路",
+  /無論寫進哪一個期別，都一定有一批是錯的/.test(eAlert) &&
+    /沒有「確認無誤」這個選項/.test(eAlert),
+  eAlert.slice(0, 320),
+);
+ok(
+  "E-1 混批時不可以再印「按確認匯入時會再問一次」（那句對混批是錯的）",
+  !/會再問一次/.test(eAlert),
+  eAlert.slice(0, 280),
+);
+ok(
+  "E-1 混批時也不可以給「改用檔案日期的季別」（指向好幾季，一顆按鈕表達不出改哪一個）",
+  (await page.locator('[data-testid="use-file-quarter"]').count()) === 0,
+);
+const eState = await confirmButtonState();
+ok("E-1 找得到確認鈕（前置）", eState.found === true);
+ok("E-1 確認鈕真的停用了", eState.disabled === true, `disabled=${eState.disabled}`);
+ok(
+  "E-1 而且停用時說得出原因（不是按了沒反應）",
+  /兩個以上的期別/.test(eState.title),
+  eState.title || "（沒有說明）",
+);
+/*
+ * ⚠️ 這裡刻意**去按那顆確認鈕**，不是按「取消」。
+ *
+ *   按取消當然寫不進去，那條斷言在「阻擋被拿掉」的版本上照樣會綠——
+ *   等於什麼都沒驗（我 2026-09-29 第一版就是這樣寫的，反證抓到了）。
+ *   停用的按鈕收不到 click，所以修好的版本按了一樣沒事；
+ *   阻擋被拿掉的版本會真的走進 confirmPendingImport() 並寫進去。
+ *
+ * ⚠️ 用 DOM 的 .click() 而不是 Playwright 的 click()：
+ *   Playwright 會等按鈕變成可按，停用時它會等到逾時而不是「按了沒事」。
+ */
+dialogs.length = 0;
+await page.evaluate(() => {
+  const hit = [...document.querySelectorAll(".modal-backdrop footer button")].find(
+    (node) => /^確認/.test(node.textContent || ""),
+  );
+  hit?.click();
+});
+await page.waitForTimeout(2600);
+ok(
+  "E-1 去按那顆停用的確認鈕，一個調查點都不會被寫進去",
+  (await roadCount()) === beforeE,
+  `${beforeE} 個調查點`,
+);
+ok("E-1 而且不會跳出任何確認框", dialogs.length === 0, dialogs.join(" | ").slice(0, 160));
+await page
+  .locator('.modal-backdrop button:has-text("取消，資料不變")')
+  .first()
+  .click();
+await page.waitForTimeout(600);
+await closeLeftovers();
+
+/* E-2：同一批兩份都是 1 月（同一個期別）——確認鈕一定要按得下去。 */
+const beforeE2 = await roadCount();
+await openReportMany(
+  [
+    { name: "E3_1月甲.xlsx", dateText: "監測日期：115年01月12日(平日)", base: 70 },
+    { name: "E4_1月乙.xlsx", dateText: "監測日期：115年01月19日(平日)", base: 80 },
+  ],
+  "115Q1",
+);
+const e2Alert = await reportAlert();
+ok(
+  "E-2 同一批同一個期別時不可以出現混批的說明",
+  !/個不同的期別/.test(e2Alert),
+  e2Alert.slice(0, 200),
+);
+const e2State = await confirmButtonState();
+ok("E-2 確認鈕要按得下去", e2State.disabled === false, `disabled=${e2State.disabled}`);
+await confirmImport();
+ok("E-2 而且真的寫得進去", (await roadCount()) > beforeE2, `${beforeE2} → ?`);
+
 /* ── D：期別顯示切換 ── */
 await openReport("D_3月.xlsx", "監測日期：115年03月09日(平日)", 40);
 await confirmImport();

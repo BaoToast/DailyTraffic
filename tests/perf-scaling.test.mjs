@@ -160,7 +160,7 @@ test("⚠️ 結論草稿（四個時段 × 全部指標）：資料 ×10 時間
     const rows = corpus(size);
     return () => buildConclusion(rows, condition, META);
   });
-  console.log("  " + result.why);
+  console.error("  " + result.why);
   assert.ok(
     result.ok,
     `${result.why}\n` +
@@ -181,7 +181,7 @@ test("⚠️ 結論草稿（只勾一個時段）：資料 ×10 時間不可以 
     const rows = corpus(size);
     return () => buildConclusion(rows, condition, META);
   });
-  console.log("  " + result.why);
+  console.error("  " + result.why);
   assert.ok(result.ok, `${result.why}\n成長倍數超過 ${ALLOWED}。`);
 });
 
@@ -196,7 +196,7 @@ test("⚠️ 這一支真的抓得到平方成長（反證，不然門檻訂錯�
     };
   };
   const bad = scaling("刻意寫壞的平方寫法", 1000, quadratic);
-  console.log("  （反證）" + bad.why);
+  console.error("  （反證）" + bad.why);
   assert.ok(
     !bad.ok,
     `平方寫法竟然通過了（${bad.factor.toFixed(1)} 倍 ≤ ${ALLOWED}）——` +
@@ -220,6 +220,6 @@ test("⚠️ 這一支真的抓得到平方成長（反證，不然門檻訂錯�
    *   ⚠️ 門檻（RATIO=10、ALLOWED=30）與平方那一組的 1000／10000 都沒有動。
    */
   const good = scaling("正常的線性寫法", 300000, linear);
-  console.log("  （反證）" + good.why);
+  console.error("  （反證）" + good.why);
   assert.ok(good.ok, `線性寫法被誤判成不合格：${good.why}`);
 });

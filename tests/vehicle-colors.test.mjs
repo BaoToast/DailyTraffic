@@ -193,7 +193,7 @@ test("（僅記錄，不擋）紅綠色盲視角下的最差配對是多少", ()
       pair = `${colors[i]}↔${colors[j]}`;
     }
   }
-  console.log(`    （記錄）紅綠色盲視角最差配對 ${pair} ΔE ${worst.toFixed(1)}`);
+  console.error(`    （記錄）紅綠色盲視角最差配對 ${pair} ΔE ${worst.toFixed(1)}`);
   assert.ok(Number.isFinite(worst), "算不出色盲色差，代表算式壞了");
 });
 

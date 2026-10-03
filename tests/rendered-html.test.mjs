@@ -424,9 +424,8 @@ test("keeps configurable factors, legacy Excel and all editable chart datasets",
   assert.doesNotMatch(source, /addImage\(/);
   for (const token of [
     "<c:dLbls>",
-    'showCatName val="1"',
-    'showPercent val="1"',
-    'showLeaderLines val="1"',
+    'showCatName val="0"',
+    'showPercent val="0"',
   ])
     assert.match(
       source,

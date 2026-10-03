@@ -11,6 +11,14 @@ export type VehicleClassSetting = {
   targetLabel: string;
   roadPcu: number;
   turnPcu: Record<TurnKey, number>;
+  /*
+   * ⚠️ 季別／路段覆寫（使用者 2026-09-30 裁示的 B2）。**兩個都是選填**：
+   *   沒寫（undefined）或寫空字串都代表「這個計畫的預設歸類」，
+   *   行為與改版前完全相同。解析順位見 settingFor() 上面那一段。
+   *   舊存檔沒有這兩個欄位，讀進來是 undefined，所以不可以改成必填。
+   */
+  quarter?: string;
+  roadId?: string;
 };
 
 export type VehicleRecordLike = {
@@ -130,8 +138,80 @@ function safeCount(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  歸類設定的解析順位：季別×路段 > 季別 > 路段 > 計畫預設
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-30 裁示：車種歸類可以依「季別×路段」覆寫。
+ *
+ * ⚠️ 兩道自保，與 B1（異常門檻覆寫）同一套，理由也同一個：
+ *   ① `quarter`／`roadId` **一律選填**。沒有任何設定帶這兩個欄位時，
+ *      走的是**完全相同**的那一行 `find()`，輸出逐位元不變。
+ *      （黃金值由 tests/vehicle-scope-golden.test.mjs 釘住。）
+ *   ② 空字串與 undefined **等義**：舊存檔沒有這兩個欄位，
+ *      畫面上選「全季別／全路段」則是空字串。兩種都要落回計畫預設，
+ *      不可以變成「找不到設定」而讓那個車種掉成未分類——
+ *      掉成未分類不會報錯，只會讓某一類的數字安靜少掉一塊。
+ *
+ * ⚠️ 順位是**季別優先**（與 factor-scope.ts 的 resolveFactors 相同）。
+ *   兩邊順位不一致的話，同一筆資料的「歸類」與「當量係數」會來自不同
+ *   的覆寫組合——那種錯只會讓數字偏掉一點，沒有人看得出來。
+ *
+ * ⚠️ 這裡刻意**不引用 factor-scope 的 resolveFactors**：那一支解的是
+ *   「一整組係數」，這裡解的是「一個車種對到哪一類」，鍵還多一個 sourceKey。
+ *   硬套會讓兩邊互相牽制。順位規則以下面這張表為準，並由
+ *   tests/vehicle-scope.test.mjs 逐條釘住。
+ */
+function scopeText(value: string | undefined | null) {
+  return String(value ?? "").trim();
+}
+/** 這一筆設定適用於這一筆紀錄嗎（不看順位，只看適不適用）。 */
+function scopeApplies(setting: VehicleClassSetting, record: VehicleRecordLike) {
+  const quarter = scopeText(setting.quarter);
+  const roadId = scopeText(setting.roadId);
+  if (quarter && quarter !== scopeText(record.quarter)) return false;
+  if (roadId && roadId !== scopeText(record.roadId)) return false;
+  return true;
+}
+/** 愈具體分數愈高：季別×路段 3 ＞ 季別 2 ＞ 路段 1 ＞ 計畫預設 0。 */
+function scopeRank(setting: VehicleClassSetting) {
+  const quarter = scopeText(setting.quarter) ? 1 : 0;
+  const roadId = scopeText(setting.roadId) ? 1 : 0;
+  if (quarter && roadId) return 3;
+  if (quarter) return 2;
+  if (roadId) return 1;
+  return 0;
+}
+/**
+ * 從一批設定裡挑出這一筆紀錄該用的那一個。
+ *
+ * ⚠️ 同分時取**先出現**的那一個（`>` 不是 `>=`），與改版前 `find()`
+ *   的行為一致——改版前同一個 sourceKey 有兩筆設定時取的就是第一筆。
+ */
+function mostSpecific(matches: VehicleClassSetting[]) {
+  let best: VehicleClassSetting | undefined;
+  let bestRank = -1;
+  for (const setting of matches) {
+    const rank = scopeRank(setting);
+    if (rank > bestRank) {
+      best = setting;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
 export function settingFor(record: VehicleRecordLike, sourceKey: string, settings: VehicleClassSetting[]) {
-  return settings.find(setting => setting.projectId === String(record.projectId ?? "") && setting.sourceKey === sourceKey);
+  const projectId = String(record.projectId ?? "");
+  return mostSpecific(
+    settings.filter(
+      setting =>
+        setting.projectId === projectId &&
+        setting.sourceKey === sourceKey &&
+        scopeApplies(setting, record),
+    ),
+  );
 }
 
 export function effectiveVehicleCounts(record: VehicleRecordLike, settings: VehicleClassSetting[]) {
@@ -145,7 +225,18 @@ export function effectiveVehicleCounts(record: VehicleRecordLike, settings: Vehi
 }
 
 export function effectiveVehicleLabel(record: VehicleRecordLike, targetKey: string, settings: VehicleClassSetting[]) {
-  const setting = settings.find(item => item.projectId === String(record.projectId ?? "") && item.targetKey === targetKey);
+  /*
+   * ⚠️ 這裡查的鍵是 targetKey（不是 sourceKey），但**順位必須與 settingFor 一致**。
+   *   不一致的後果很難看出來：同一筆資料的數字走季別覆寫那一組、
+   *   顯示名稱卻走計畫預設那一組，圖上會出現「大客車」的標籤配著
+   *   已經被歸到特種車的數字。
+   */
+  const projectId = String(record.projectId ?? "");
+  const setting = mostSpecific(
+    settings.filter(
+      item => item.projectId === projectId && item.targetKey === targetKey && scopeApplies(item, record),
+    ),
+  );
   return setting?.targetLabel || rawVehicleLabels(record)[targetKey] || coreVehicleLabels[targetKey as CoreVehicleKey] || targetKey.replace(/^custom:/, "");
 }
 
@@ -324,4 +415,184 @@ export function hasNonZeroVehiclePcu(
   return Object.values(
     vehiclePcuByTarget(record, core, coreTurns, settings, scopes),
   ).some((value) => Number.isFinite(value) && Number(value) !== 0);
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  歸類在比較區間內變過嗎——**圖上一定要標出來的那件事**
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-30 裁示做「車種歸類依季別×路段覆寫」時，同一句話裡就交代了：
+ *   「**圖上當然也要明白標出來**」。
+ *
+ * ⚠️ 為什麼這件事非標不可（這是整個 B2 唯一真正的高風險）：
+ *   115Q1 把小貨車歸到小型車、115Q2 歸到大型車，歷季趨勢圖上「大型車」
+ *   就會暴增，**而實際車流一輛都沒變**——只是歸類換了。
+ *   圖只畫數字，看不出來；使用者會把那個假的成長寫進報告。
+ *
+ * ⚠️ 判準是「**同一個原始車種在畫面上這批資料裡被歸到不同的分析類別**」，
+ *   不是「有沒有設覆寫」。設了覆寫但兩季都歸到同一類，數字是可比的，
+ *   標它只會變成雜訊——**恆亮的標註等於沒有標註**，第三次之後沒有人會看。
+ *
+ * ⚠️ 跨季別與跨路段都要分別講清楚：
+ *   跨季別＝趨勢不可比；跨路段＝同一張圖上兩條路的同一類不是同一件事。
+ */
+export type ClassificationChange = {
+  /** 原始車種的鍵與名稱（使用者在檔案裡看到的那個名字）。 */
+  sourceKey: string;
+  sourceLabel: string;
+  /** 這個原始車種在這批資料裡被歸到的每一類，以及各自出現在哪些季別／路段。 */
+  groups: {
+    targetKey: string;
+    targetLabel: string;
+    quarters: string[];
+    roadIds: string[];
+  }[];
+  /** 差異出現在季別之間嗎。 */
+  acrossQuarters: boolean;
+  /** 差異出現在路段之間嗎。 */
+  acrossRoads: boolean;
+};
+
+/**
+ * 畫面上這批紀錄裡，有哪些原始車種的歸類不一致。
+ *
+ * ⚠️ 純函式、不碰 DOM：三處呈現（畫面標註、圖旁說明、Excel 旁欄）
+ *   全部從這一份結果長出來，才不會三處各寫一套而互相矛盾。
+ */
+export function classificationChangesAcross(
+  records: VehicleRecordLike[],
+  settings: VehicleClassSetting[],
+): ClassificationChange[] {
+  /* sourceKey → targetKey → { quarters, roadIds } */
+  const seen = new Map<
+    string,
+    { label: string; targets: Map<string, { label: string; quarters: Set<string>; roadIds: Set<string> }> }
+  >();
+  for (const record of records ?? []) {
+    const labels = rawVehicleLabels(record);
+    for (const sourceKey of Object.keys(rawVehicleCounts(record))) {
+      const setting = settingFor(record, sourceKey, settings);
+      const targetKey = setting?.targetKey || sourceKey;
+      const entry =
+        seen.get(sourceKey) ??
+        (() => {
+          const fresh = {
+            label:
+              labels[sourceKey] ||
+              coreVehicleLabels[sourceKey as CoreVehicleKey] ||
+              sourceKey.replace(/^custom:/, ""),
+            targets: new Map<string, { label: string; quarters: Set<string>; roadIds: Set<string> }>(),
+          };
+          seen.set(sourceKey, fresh);
+          return fresh;
+        })();
+      const target =
+        entry.targets.get(targetKey) ??
+        (() => {
+          const fresh = {
+            label: effectiveVehicleLabel(record, targetKey, settings),
+            quarters: new Set<string>(),
+            roadIds: new Set<string>(),
+          };
+          entry.targets.set(targetKey, fresh);
+          return fresh;
+        })();
+      const quarter = String(record.quarter ?? "").trim();
+      const roadId = String(record.roadId ?? "").trim();
+      if (quarter) target.quarters.add(quarter);
+      if (roadId) target.roadIds.add(roadId);
+    }
+  }
+  const changes: ClassificationChange[] = [];
+  for (const [sourceKey, entry] of seen) {
+    if (entry.targets.size < 2) continue;
+    const groups = [...entry.targets].map(([targetKey, target]) => ({
+      targetKey,
+      targetLabel: target.label,
+      quarters: [...target.quarters].sort(),
+      roadIds: [...target.roadIds].sort(),
+    }));
+    /*
+     * ⚠️ 「跨季別」的判準不是「兩組的季別集合不同」，而是
+     *   **同一個季別有沒有出現在兩組以上**的反面：
+     *   某一季只出現在 A 組、另一季只出現在 B 組 → 跨季別（趨勢不可比）。
+     *   同一季同時出現在兩組 → 那是同一季內不同路段的差異，不是跨季別。
+     */
+    const quarterOwners = new Map<string, Set<string>>();
+    const roadOwners = new Map<string, Set<string>>();
+    for (const group of groups) {
+      for (const quarter of group.quarters)
+        (quarterOwners.get(quarter) ?? quarterOwners.set(quarter, new Set()).get(quarter)!).add(group.targetKey);
+      for (const roadId of group.roadIds)
+        (roadOwners.get(roadId) ?? roadOwners.set(roadId, new Set()).get(roadId)!).add(group.targetKey);
+    }
+    // 保留逐點／逐季關聯：兩點跨季互換時，集合完全相同仍不可比較。
+    const targetsByRoad = new Map<string, { quarters: Set<string>; targets: Set<string> }>();
+    const targetsByQuarter = new Map<string, { roads: Set<string>; targets: Set<string> }>();
+    for (const record of records) {
+      if (!Object.hasOwn(rawVehicleCounts(record), sourceKey)) continue;
+      const road = String(record.roadId ?? "").trim();
+      const quarter = String(record.quarter ?? "").trim();
+      const target = settingFor(record, sourceKey, settings)?.targetKey || sourceKey;
+      if (!road || !quarter) continue;
+      const byRoad = targetsByRoad.get(road) ?? { quarters: new Set<string>(), targets: new Set<string>() };
+      byRoad.quarters.add(quarter); byRoad.targets.add(target); targetsByRoad.set(road, byRoad);
+      const byQuarter = targetsByQuarter.get(quarter) ?? { roads: new Set<string>(), targets: new Set<string>() };
+      byQuarter.roads.add(road); byQuarter.targets.add(target); targetsByQuarter.set(quarter, byQuarter);
+    }
+    const roadChangedAcrossQuarters = [...targetsByRoad.values()].some(group => group.quarters.size > 1 && group.targets.size > 1);
+    const quarterChangedAcrossRoads = [...targetsByQuarter.values()].some(group => group.roads.size > 1 && group.targets.size > 1);
+    const acrossQuarters = Boolean(roadChangedAcrossQuarters) ||
+      (quarterOwners.size > 1 && [...quarterOwners.values()].some(set => set.size === 1));
+    const acrossRoads = Boolean(quarterChangedAcrossRoads) ||
+      (roadOwners.size > 1 && [...roadOwners.values()].some(set => set.size === 1));
+    changes.push({
+      sourceKey,
+      sourceLabel: entry.label,
+      groups: groups.sort((a, b) => a.targetKey.localeCompare(b.targetKey)),
+      acrossQuarters,
+      acrossRoads,
+    });
+  }
+  return changes.sort((a, b) => a.sourceKey.localeCompare(b.sourceKey));
+}
+
+/**
+ * 把上面那份結果寫成人看的句子。
+ *
+ * ⚠️ 三處呈現共用這一支，只差外面的容器：
+ *   ・畫面上的圖 → 畫在**畫布外面**的標註（所以高解析圖檔天生乾淨）
+ *   ・圖旁說明   → 多一行
+ *   ・Excel      → 寫在**一旁的欄位**（使用者 2026-09-30 指定）
+ *
+ * ⚠️ 一定要寫出「數字不可比」這個後果。只說「歸類有變更」的話，
+ *   使用者不會知道那代表趨勢圖上的成長可能是假的。
+ */
+export function classificationChangeLines(changes: ClassificationChange[]): string[] {
+  const lines: string[] = [];
+  for (const change of changes ?? []) {
+    const parts = change.groups.map(group => {
+      const where = [
+        group.quarters.length ? group.quarters.join("、") : "",
+        group.roadIds.length ? `路段 ${group.roadIds.join("、")}` : "",
+      ]
+        .filter(Boolean)
+        .join("／");
+      return `${group.targetLabel}（${where || "未標明期別"}）`;
+    });
+    const scope = [
+      change.acrossQuarters ? "不同季別之間" : "",
+      change.acrossRoads ? "不同路段之間" : "",
+    ]
+      .filter(Boolean)
+      .join("與");
+    lines.push(
+      `原始車種「${change.sourceLabel}」在${scope || "這批資料裡"}被歸到不同的分析類別：` +
+        `${parts.join("；")}。` +
+        `這一類的數字在${change.acrossQuarters ? "歷季之間" : "這幾條路段之間"}不可以直接比較——` +
+        `車流沒有變、只是歸類換了，圖上一樣會看到增減。`,
+    );
+  }
+  return lines;
 }

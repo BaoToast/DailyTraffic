@@ -656,7 +656,7 @@ test("根目錄的建置產物不可以比原始碼舊", async () => {
   const jsCurrent = await sameAsLastBuild(match[1]);
   const cssCurrent = await sameAsLastBuild(cssName);
   if (jsCurrent || cssCurrent)
-    console.log(
+    console.error(
       `  ℹ️ 與最後一次建置逐位元相同、時間戳不列入比較：` +
         [jsCurrent ? match[1] : null, cssCurrent ? cssName : null]
           .filter(Boolean)
@@ -671,7 +671,7 @@ test("根目錄的建置產物不可以比原始碼舊", async () => {
    * 而且**已經有比它更強的證據**（逐位元相同）。明講一聲再結束。
    */
   if (!assetTimesInPlay.length) {
-    console.log(
+    console.error(
       "  ℹ️ 主程式與樣式兩個產物都與最後一次建置逐位元相同，" +
         "不需要再比 mtime（逐位元相同是比時間更強的證據）。",
     );
@@ -683,7 +683,7 @@ test("根目錄的建置產物不可以比原始碼舊", async () => {
   const spreadMs = Math.max(...times) - Math.min(...times);
   if (spreadMs < 120_000) {
     /* ⚠️ 一定要印出來。安靜跳過就等於把這一條悄悄關掉。 */
-    console.log(
+    console.error(
       `  \u2139\ufe0f 整棵樹的 mtime 跨距只有 ${Math.round(spreadMs)} 毫秒，` +
         "判定為剛解壓／剛 checkout 的樹——mtime 在這裡不帶先後資訊，跳過新舊比較。",
     );
@@ -736,14 +736,27 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    *   這時要求的是「寫明前一正式版是哪一版」。
    */
   const RANGE_BASE = 81;
-  const LAST_RELEASED = 88;
+  const LAST_RELEASED = 89;
   const CJK = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const pkg = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
   const patch = Number(String(pkg.version).split(".")[1]);
   const wantTo = patch - 1;
-  const wantCount = wantTo - RANGE_BASE;
+  /*
+   * ⚠️ 2026-09-29：現況句的區間要從 **LAST_RELEASED + 1** 起算，不是從 .82。
+   *
+   *   2026-09-27 那一版只拆了兩個常數，現況句卻還是要求
+   *   「v20.82～.N 共 (N − 81) 個」。到了這一輪（LAST_RELEASED = 89、
+   *   本版 .91、未發布的只有 .90 一個）那句話會變成
+   *   「v20.82～.90 共 9 個候選未發布」——**而 .88 與 .89 是真的發布上線了**。
+   *   守門逼著文件去寫一句假話，那比沒有守門更糟。
+   *
+   *   正確的算法：未發布候選＝(LAST_RELEASED + 1) ～ (本版 patch − 1)。
+   *   RANGE_BASE 留著不動，它是**歷史句子**的算術基準，改它會讓正確的歷史句子變紅。
+   */
+  const currentFrom = LAST_RELEASED + 1;
+  const wantCount = wantTo - LAST_RELEASED;
   assert.ok(wantCount >= 1, `算出來的未發布候選數是 ${wantCount}，版號解析壞了嗎？`);
 
   const FILES = [
@@ -777,7 +790,7 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
 
   if (LAST_RELEASED >= wantTo) {
     /* ⚠️ 一定要印出來，安靜跳過就等於把這一條悄悄關掉。 */
-    console.log(
+    console.error(
       `  ℹ️ v20.${LAST_RELEASED} 已正式發布，本版直接建在它之上，` +
         "沒有「未發布候選區間」可寫——改成要求現況文件寫明前一正式版是哪一版。",
     );
@@ -793,13 +806,33 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
     }
     return;
   }
+  /*
+   * ⚠️ 現況句的區間是 (LAST_RELEASED + 1) ～ (本版 patch − 1)。
+   *   只有一個候選時區間退化成單一版號，所以兩種寫法都收：
+   *   「v20.90～.90 共 1 個」與「v20.90 一個候選未發布」。
+   *   逼人為了滿足守門去寫「.90～.90」這種怪句子，是本末倒置。
+   */
+  const single = currentFrom === wantTo;
+  const pattern = single
+    ? new RegExp(`v20\\.${wantTo}[^。\n]{0,12}?([0-9一二三四五六七八九十]+)\\s*個候選`)
+    : new RegExp(
+        `v20\\.${currentFrom}\\s*[～~]\\s*(?:v20)?\\.?${wantTo}[^。\n]{0,10}?([0-9一二三四五六七八九十]+)\\s*個候選`,
+      );
   for (const name of ["PROJECT_HANDOFF.md", `VALIDATION_v20.${patch}.md`]) {
-    if (!existsSync(new URL(`../${name}`, import.meta.url))) continue;
+    const url = new URL(`../${name}`, import.meta.url);
+    if (!existsSync(url)) continue;
+    const hit = (await readFile(url, "utf8")).match(pattern);
+    const count = hit ? (CJK[hit[1]] ?? Number(hit[1])) : null;
     assert.ok(
-      current.has(name),
-      `${name} 沒有任何一句把未發布候選區間寫到本版前一版` +
-        `（v20.82～.${wantTo}，共 ${wantCount} 個）。` +
-        "這一份講的是「目前狀態」，區間停在更早的版本就等於在說舊話",
+      Boolean(hit),
+      `${name} 沒有任何一句寫出現在真的未發布的候選` +
+        `（v20.${currentFrom}${single ? "" : `～.${wantTo}`}，共 ${wantCount} 個）。` +
+        "這一份講的是「目前狀態」，要寫出現在有哪幾個候選還沒發布",
+    );
+    assert.equal(
+      count,
+      wantCount,
+      `${name} 寫 ${hit[1]} 個候選未發布，實際是 ${wantCount} 個`,
     );
   }
 });
@@ -893,7 +926,7 @@ test("驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時
     chars = [...text.replace(/\r\n?/g, "\n").normalize("NFKC")].length;
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
-    console.log(
+    console.error(
       "  ℹ️ 這台機器沒有 pdfinfo／pdftotext（poppler-utils），" +
         "跳過手冊頁數與字元數的重算比對——這不是失敗，是這個環境算不了。",
     );
@@ -934,7 +967,8 @@ test("文件寫的測試條數必須等於那支檔案裡 test() 的數量", asy
   const CJK = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const bad = [];
   let seen = 0;
-  for (const doc of ["README.md","VALIDATION_v20.88.md","PROJECT_HANDOFF.md","【更新說明】請先讀我.txt"]) {
+  const version = await systemVersion();
+  for (const doc of ["README.md",`VALIDATION_${version}.md`,"PROJECT_HANDOFF.md","【更新說明】請先讀我.txt"]) {
     const path = join(ROOT, doc);
     if (!existsSync(path)) continue;
     const text = await rf(path, "utf8");

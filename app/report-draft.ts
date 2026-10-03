@@ -216,6 +216,31 @@ export type ReportDraftContext = {
     omitted: number;
   };
   factors: { label: string; value: string }[];
+  /*
+   * ── #24-②：季別×路段專屬覆寫，報告草稿也要印出來 ─────────────
+   *
+   * 使用者 2026-09-29 的原話（講的是 Excel，但這裡是同一個症狀）：
+   *   「如果使用者更動了係數，但 excel 顯示的卻是預設係數嗎? 如果是這樣，
+   *     請你修正，不然使用者會以為這份 excel 是計算錯誤的」
+   *
+   * 舊版這一段只寫「本計畫採用的 PCU 當量係數：…」一組。有覆寫的時候，
+   * 那句話是**錯的**——數字是依覆寫算的，拿這幾個係數回推一定對不上，
+   * 而讀報告的人會以為是計算錯誤。
+   *
+   * ⚠️ 空陣列代表「沒有任何覆寫」，那時候維持舊的一句話就是對的，
+   *   不可以無條件改成「計畫預設」——沒有覆寫時那樣寫反而在暗示有。
+   */
+  factorScopes: { label: string; changes: { label: string; value: string }[] }[];
+  /*
+   * 車種歸類在報告涵蓋的期間內不一致時的說明（B2，使用者 2026-09-30 裁示）。
+   *
+   * ⚠️ 這一段**非寫進報告不可**。歸類換過的那一類，歷季之間的增減
+   *   可能完全是歸類造成的，車流一輛都沒變；只在畫面上標、報告裡不寫，
+   *   讀報告的人會把那個假的成長當成真的趨勢寫進結論。
+   * ⚠️ 空陣列＝歸類一致，那時候**一個字都不要寫**——
+   *   憑空多一句「歸類一致」會讓人以為這裡本來有問題。
+   */
+  classificationChanges: string[];
   intersectionNote: string;
   sourceFileCount: number;
   qualityIssueCount: number;
@@ -681,10 +706,43 @@ function sectionLines(
     }
     case "settings": {
       const lines: string[] = [];
+      const scopes = c.factorScopes ?? [];
       if (c.factors.length)
         lines.push(
-          `本計畫採用的 PCU 當量係數：${c.factors.map((f) => `${f.label} ${f.value}`).join("、")}。`,
+          `${scopes.length ? "本計畫預設" : "本計畫採用"}的 PCU 當量係數：${c.factors
+            .map((f) => `${f.label} ${f.value}`)
+            .join("、")}。`,
         );
+      /*
+       * ⚠️ 覆寫只列**與預設不同**的車種——全部列出來反而看不出改了哪一個
+       *   （與 Excel 的「PCU係數」工作表同一條規則）。
+       * ⚠️ 適用範圍用的是畫面上那個一模一樣的字（呼叫端傳 `pcuScopeLabel` 的結果），
+       *   使用者才對得上他在「當量係數設定」看到的那一列。
+       */
+      if (scopes.length) {
+        lines.push(
+          `本計畫另有 ${scopes.length} 組「季別×路段」專屬覆寫，` +
+            `報告裡的數字是依覆寫算出來的；` +
+            `拿上面那組「計畫預設」回推會對不上，那不是計算錯誤。`,
+        );
+        for (const scope of scopes)
+          lines.push(
+            scope.changes.length
+              ? `　・${scope.label}：${scope.changes
+                  .map((item) => `${item.label} ${item.value}`)
+                  .join("、")}`
+              : `　・${scope.label}：一般PCU係數與計畫預設相同（可能只改了轉向當量）。`,
+          );
+      }
+      /*
+       * ⚠️ B2：歸類不一致要寫進報告，而且要寫出後果（數字不可比）。
+       *   這幾句與畫面上的標註、Excel 的「車種歸類提醒」欄**同一個來源**
+       *  （app/vehicle-analysis.ts 的 classificationChangeLines），
+       *   三處分開寫的話遲早會有一處說法不同，而使用者會把三種說法
+       *   都抄進同一份報告。
+       */
+      for (const line of c.classificationChanges ?? [])
+        lines.push(`車種歸類提醒：${line}`);
       if (c.intersectionNote) lines.push(c.intersectionNote);
       return lines;
     }

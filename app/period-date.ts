@@ -436,6 +436,67 @@ export function periodMismatchPrompt(checks: PeriodDateCheck[]): string {
   );
 }
 
+/**
+ * ── 混批：一批檔案的日期指向兩個以上的期別 → 一定要擋死 ──────────
+ *
+ * 使用者 2026-09-29 裁示「混入別季混批不擋，三支程式請同步」。
+ * 路口轉向本來就擋（它逐檔解析季別，預覽裡有兩種以上就停用按鈕並紅底），
+ * 這一支與交通服務水準原本**只有一個 confirm()**，按「確定」就寫進去了。
+ *
+ * ⚠️ 判準刻意**不是**「日期與所選期別對不上就擋」。
+ *   那會擋掉合法的情形——季末跨月調查、廠商延後幾天補測，
+ *   那些是真的要匯進去的，擋死就是製造一個假的紅。
+ *   `periodMismatchPrompt()` 的二次確認要保留，它處理的就是這一種。
+ *
+ * ⚠️ 要擋的是另一件事：**同一批檔案的日期指向兩個以上不同的期別**。
+ *   這一批無論寫進哪一個期別，都一定有一批是錯的——
+ *   沒有任何一個正確答案，所以不該讓使用者「確認」。
+ *   確認框的語意是「我知道我在做什麼」，而這裡沒有一個對的選項可以做。
+ *
+ * ⚠️ 計票的是**讀得出日期的每一份**（status match 與 mismatch 都算），
+ *   不是只算 mismatch 的那幾份。只算 mismatch 會漏掉**最常見**的混批：
+ *   選 115Q1、甲檔是 1 月（match）、乙檔是 8 月（mismatch）——
+ *   只數到一個期別（115Q3）就不擋，而那正是一批橫跨 115Q1 與 115Q3 的資料。
+ *   判準要問的是「這一批檔案的日期一共指向幾個期別」，
+ *   與使用者這一刻選了哪一個**無關**。
+ *
+ * ⚠️ 讀不到日期的（unknown）不參與計票：它沒有指向任何期別，
+ *   拿它去湊「兩種以上」會憑空生出一個假的混批。
+ *   `dateLabel` 是空字串的同理（換算不出期別）。
+ *
+ * ⚠️ 這一支與交通服務水準的 period-date.js 是**同一套判斷**，
+ *   兩支的訊息文字也刻意一致——使用者在兩支程式看到的是同一句話。
+ *
+ * 回傳擋下來的訊息字串；不是混批就回空字串（呼叫端不必擋）。
+ */
+export function mixedPeriodBlock(checks: PeriodDateCheck[]): string {
+  const dated = (Array.isArray(checks) ? checks : []).filter(
+    (item) =>
+      item &&
+      item.dateLabel &&
+      (item.status === "match" || item.status === "mismatch"),
+  );
+  const labels: string[] = [];
+  for (const item of dated)
+    if (!labels.includes(item.dateLabel)) labels.push(item.dateLabel);
+  if (labels.length < 2) return "";
+  const lines = labels.map(function (label) {
+    const files = dated
+      .filter((item) => item.dateLabel === label)
+      .map((item) => item.file || "（未命名）");
+    return "　・" + label + "：" + files.join("、");
+  });
+  return (
+    "⚠️ 這一批檔案的調查日期指向 " +
+    labels.length +
+    " 個不同的期別，系統已阻擋寫入。\n\n" +
+    lines.join("\n") +
+    "\n\n無論寫進哪一個期別，都一定有一批是錯的，" +
+    "所以這裡沒有「確認無誤」這個選項。\n" +
+    "請按「取消預覽」，把它們分成各自的期別分批匯入。"
+  );
+}
+
 /** 讀不到日期的那幾份整理成一句提醒（不阻擋匯入）。 */
 export function periodUnknownNotice(checks: PeriodDateCheck[]): string {
   const unknown = (Array.isArray(checks) ? checks : []).filter(
@@ -588,3 +649,78 @@ export const PERIOD_DISPLAY_LABELS: Record<PeriodDisplayMode, string> = {
   quarter: "季別",
   month: "調查月份",
 };
+
+/* ══════════════════════════════════════════════════════════════════
+ *  覆蓋前的日期把關：要被蓋掉的舊資料，調查日期和這一批不一樣
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-29：
+ *   「我比較擔心程式會因為檔案編號一樣，例如 115Q1 檔案編號 T15-01，
+ *     115Q4 檔案編號也是 T15-01，後者資料卻覆蓋掉了前者，但明明檔案裡面
+ *     顯示的是不同監測日期，只要裡面資料是不同監測日期，那麼檔案就是
+ *     不一樣的，這也是為什麼我說檔案編號對使用者來說不重要的原因。」
+ *
+ * ⚠️ 先講清楚三支現在都不會因為「檔名編號一樣」而互相覆蓋：
+ *   身分鍵一律含期別（交通服務水準 row.id 含 year＋Qquarter、
+ *   全日交通量 trafficIdentity() 含 quarter、路口轉向各處先濾 record.quarter），
+ *   而期別是使用者選的、再用檔案裡的調查日期核對，
+ *   完全沒有任何一處從檔名編號推期別。兩季同號 → 兩個鍵 → 不覆蓋。
+ *
+ * ⚠️ 真正還留著的縫是另一個：使用者把期別選錯（或沿用上一次的預設值），
+ *   於是 115Q4 那一批被寫進 115Q1 —— 這時候鍵真的撞上，舊資料真的被蓋掉。
+ *   原本的防線只說「日期和所選期別對不上」，沒有說出「而且會蓋掉既有資料」。
+ *   那兩件事的嚴重性差很多：前者常常是合法的（季末跨月、延後補測），
+ *   後者是把另一次調查的結果換掉。
+ *
+ * 判準：要覆蓋的那幾筆，舊資料的調查日期與這一批都讀得出來、而且不一樣。
+ *
+ * ⚠️ 刻意不看檔名、不看編號——依使用者裁示，編號是流水號，
+ *   判斷依據一律是檔案裡的調查日期。
+ * ⚠️ 只有一邊讀得出日期、或兩邊日期相同的，不算衝突：
+ *   讀不出日期就沒有證據，拿沒有證據的去擋就是假的紅；
+ *   日期相同代表這是同一次調查的重匯，那本來就該覆蓋。
+ *
+ * ⚠️ 文案與交通服務水準的 period-date.js 逐字相同（三支共用同一套字）。
+ */
+export type OverwriteDateConflict = {
+  /** 顯示給使用者的「這是哪一筆」（期別・路口或路段・資料別…）。 */
+  label: string;
+  /** 既有那一筆的調查日期。 */
+  oldDate?: string | null;
+  /** 這一批要寫進去的調查日期。 */
+  newDate?: string | null;
+};
+
+export function overwriteDateConflictPrompt(
+  conflicts: OverwriteDateConflict[],
+  undoNote?: string,
+): string {
+  const real = (Array.isArray(conflicts) ? conflicts : []).filter(function (item) {
+    if (!item) return false;
+    const oldDate = String(item.oldDate == null ? "" : item.oldDate).trim();
+    const newDate = String(item.newDate == null ? "" : item.newDate).trim();
+    return Boolean(oldDate) && Boolean(newDate) && oldDate !== newDate;
+  });
+  if (!real.length) return "";
+  const lines = real.map(function (item) {
+    return (
+      "　・" + (item.label || "（未命名）") +
+      "：原本是 " + String(item.oldDate).trim() +
+      "，這一批是 " + String(item.newDate).trim()
+    );
+  });
+  return (
+    "⚠️ 這一批會蓋掉 " + real.length +
+    " 筆已經存在的資料，而被蓋掉的那幾筆，調查日期和這一批不一樣。\n\n" +
+    lines.join("\n") +
+    "\n\n調查日期不一樣，就代表這是兩次不同的調查，" +
+    "不是同一份資料的新版本。\n" +
+    "最常見的原因是：調查廠商把不同期別的檔案編成同一個編號" +
+    "（例如兩季都叫 T15-01），而這裡選到的期別不是這一批資料真正的期別。\n" +
+    "檔案編號一樣不代表是同一份資料，判斷依據一律是檔案裡的調查日期。\n\n" +
+    "請按「取消」，回去把期別改成這一批資料自己的期別，" +
+    "上面那幾筆就不會被動到。\n" +
+    (undoNote ? undoNote + "\n" : "") +
+    "確定仍要蓋掉請按「確定」。"
+  );
+}

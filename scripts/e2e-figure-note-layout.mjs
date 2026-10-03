@@ -250,28 +250,83 @@ await page.waitForTimeout(600);
  *   但不知道停在哪」。另外兩支也踩過同一個坑。
  */
 console.log("\n══ 四、側欄跳轉之後標題不可以被工具列遮住 ══");
-const jump = await page.evaluate(() => {
-  const target = document.querySelector('[id^="block-"]');
-  if (!target) return null;
-  target.scrollIntoView({ block: "start", behavior: "auto" });
-  const bar = document.querySelector('[data-testid="main-toolbar"]');
-  return {
-    id: target.id,
-    top: Math.round(target.getBoundingClientRect().top),
-    barBottom: Math.round(bar?.getBoundingClientRect().bottom ?? -1),
-    margin: getComputedStyle(target).scrollMarginTop,
-  };
-});
-await page.waitForTimeout(400);
+/*
+ * ⚠️ #44：舊版只取**第一個** `[id^="block-"]` 就下結論。
+ *
+ *   側欄的小分頁有十幾個落點，而 `scroll-margin-top` 是逐塊寫的——
+ *   只量第一塊的話，後面任何一塊漏掉 scroll-margin-top 都量不到，
+ *   而這一條照樣是綠的。「量了一個、當成量了全部」是最貴的那種假的綠：
+ *   它讓人以為這一整類問題有人守著。
+ *
+ *   改成**逐塊**跳轉、逐塊量，並且把每一塊的結果都印出來。
+ */
+/*
+ * ⚠️ 落點分布在**五個分區**裡（block-kpi／block-trend／block-pcu／
+ *   block-export-center…共 14 個），而每一個分區的內容是各自獨立的畫面，
+ *   別的分區的區塊**不在 DOM 裡**。所以只停在「圖表與比較」那一頁掃，
+ *   永遠只會掃到 1 個——那正是第一版寫出來的結果（實測只有
+ *   block-composition 一個），而「逐塊」在只有一塊時等於沒改。
+ *
+ *   改成**逐分區**走一遍，每一區把當下看得到的落點全部量完。
+ */
+const jumpResults = [];
+for (const [tabName, tabId] of Object.entries(TABS)) {
+  await gotoTab(page, tabId);
+  await page.waitForTimeout(900);
+  const ids = await page.evaluate(() =>
+    [...document.querySelectorAll('[id^="block-"]')]
+      .filter((el) => el.getClientRects().length)
+      .map((el) => el.id),
+  );
+  for (const id of ids) {
+    const result = await page.evaluate((targetId) => {
+      const target = document.getElementById(targetId);
+      if (!target) return null;
+      target.scrollIntoView({ block: "start", behavior: "auto" });
+      const bar = document.querySelector('[data-testid="main-toolbar"]');
+      return {
+        id: targetId,
+        top: Math.round(target.getBoundingClientRect().top),
+        barBottom: Math.round(bar?.getBoundingClientRect().bottom ?? -1),
+        margin: getComputedStyle(target).scrollMarginTop,
+      };
+    }, id);
+    await page.waitForTimeout(120);
+    if (result) jumpResults.push({ ...result, tab: tabName });
+  }
+}
+await gotoTab(page, TABS.charts);
+await page.waitForTimeout(700);
 ok(
-  "前置：找得到跳轉目標（找不到的話下一條恆真）",
-  Boolean(jump),
-  jump ? `#${jump.id}，scroll-margin-top: ${jump.margin}` : "找不到",
+  "前置：找得到跳轉目標（找不到的話下面每一條都恆真）",
+  jumpResults.length > 0,
+  `共 ${jumpResults.length} 個落點`,
 );
+/*
+ * ⚠️ 前置二：不可以只有一個。
+ *   只剩一個的時候「逐塊」和「只量第一塊」沒有差別，這個修正就失效了，
+ *   而且沒有任何症狀。選擇器改壞、區塊 id 改名、或走頁邏輯壞掉，
+ *   都會落到這裡。
+ */
 ok(
-  "⑥ 跳轉落點的上緣在主工具列下面（不是躲在它後面）",
-  Boolean(jump) && jump.top >= jump.barBottom - 1,
-  jump ? `目標上緣 ${jump.top}px、工具列下緣 ${jump.barBottom}px` : "",
+  "前置：落點不只一個（只有一個的話「逐塊」等於沒改）",
+  jumpResults.length >= 2,
+  `共 ${jumpResults.length} 個落點：${jumpResults.map((x) => `${x.tab}/${x.id}`).join("、")}`,
+);
+console.log("── 逐塊落點（先印再斷言）──");
+for (const item of jumpResults)
+  console.log(
+    `　${item.tab} #${item.id}：上緣 ${item.top}px、工具列下緣 ${item.barBottom}px、scroll-margin-top ${item.margin}`,
+  );
+const jumpBad = jumpResults.filter((item) => !(item.top >= item.barBottom - 1));
+ok(
+  "⑥ 每一塊跳轉落點的上緣都在主工具列下面（不是躲在它後面）",
+  jumpBad.length === 0,
+  jumpBad.length
+    ? `這幾塊躲在工具列後面：${jumpBad
+        .map((item) => (item ? `#${item.id}（上緣 ${item.top}px、工具列下緣 ${item.barBottom}px）` : "（讀不到）"))
+        .join("；")}`
+    : `${jumpResults.length} 塊全部讓開了`,
 );
 
 ok("整段沒有 JS 例外", errors.length === 0, errors.slice(0, 2).join(" | "));

@@ -529,7 +529,7 @@ ok(
 await few
   .locator(".trend-canvas-wrap")
   .first()
-  .screenshot({ path: join(here, "manual", "point-labels-few.png") })
+  .screenshot({ path: join(SAMPLES, "point-labels-few.png") })
   .catch(() => {});
 
 ok("過程中沒有 JS 例外", errors.length === 0, failOnly(errors.slice(0, 3).join(" / ")));

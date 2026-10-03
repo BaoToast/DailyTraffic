@@ -1,0 +1,98 @@
+TAP version 13
+# Subtest: 無分隔符的檔名要切得出乾淨的路段名稱
+ok 1 - 無分隔符的檔名要切得出乾淨的路段名稱
+  ---
+  duration_ms: 28.4821
+  type: 'test'
+  ...
+# Subtest: 有分隔符的舊寫法維持原本行為，不可被新規則影響
+ok 2 - 有分隔符的舊寫法維持原本行為，不可被新規則影響
+  ---
+  duration_ms: 0.12
+  type: 'test'
+  ...
+# Subtest: 路名裡的數字不可以被誤認成案號而剝掉
+ok 3 - 路名裡的數字不可以被誤認成案號而剝掉
+  ---
+  duration_ms: 0.1556
+  type: 'test'
+  ...
+# Subtest: 同一條路在下一季（場次號 +1）要被認成同一條
+ok 4 - 同一條路在下一季（場次號 +1）要被認成同一條
+  ---
+  duration_ms: 37.6982
+  type: 'test'
+  ...
+# Subtest: 平日與假日不可以收斂成同一個名稱
+ok 5 - 平日與假日不可以收斂成同一個名稱
+  ---
+  duration_ms: 0.2967
+  type: 'test'
+  ...
+# Subtest: 調查點編號刻意維持原樣——它是紀錄的鍵，不得順手改掉
+ok 6 - 調查點編號刻意維持原樣——它是紀錄的鍵，不得順手改掉
+  ---
+  duration_ms: 0.3945
+  type: 'test'
+  ...
+# Subtest: 只有代號、沒有路名的檔名要被認出是「還沒取名字」
+ok 7 - 只有代號、沒有路名的檔名要被認出是「還沒取名字」
+  ---
+  duration_ms: 0.4294
+  type: 'test'
+  ...
+# Subtest: 真實附件目錄使用原生路徑，不可因 Windows file URL 而錯誤略過
+not ok 8 - 真實附件目錄使用原生路徑，不可因 Windows file URL 而錯誤略過
+  ---
+  duration_ms: 6.2669
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\road-name-identity.test.mjs:199:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + '/D:/Users/95108/AppData/Local/Temp/realdata'
+    - 'D:\\Users\\95108\\AppData\\Local\\Temp\\realdata'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'D:\\Users\\95108\\AppData\\Local\\Temp\\realdata'
+  actual: '/D:/Users/95108/AppData/Local/Temp/realdata'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/road-name-identity.test.mjs:200:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: 全部真實檔名：名稱剝得乾淨、不空白、不互撞、跨季全部對得上
+ok 9 - 全部真實檔名：名稱剝得乾淨、不空白、不互撞、跨季全部對得上 # SKIP 這台機器上沒有真實調查檔（找過 /D:/Users/95108/AppData/Local/Temp/realdata）
+  ---
+  duration_ms: 0.2606
+  type: 'test'
+  ...
+# Subtest: ⚠️ TS 與 T 兩種寫法都要剝得乾淨（四條規則一致）
+ok 10 - ⚠️ TS 與 T 兩種寫法都要剝得乾淨（四條規則一致）
+  ---
+  duration_ms: 0.3116
+  type: 'test'
+  ...
+# Subtest: ⚠️ 既有檔名寫法算出來的 roadId 不可以改變
+ok 11 - ⚠️ 既有檔名寫法算出來的 roadId 不可以改變
+  ---
+  duration_ms: 0.1672
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 9
+# fail 1
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 479.9422

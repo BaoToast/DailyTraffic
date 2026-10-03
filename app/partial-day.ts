@@ -564,3 +564,69 @@ export function peakFromBuckets(
     return { label: "資料不足", value: 0, status: "not-enough" };
   return best;
 }
+
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  時間格超過 1 小時 → 擋下匯入（使用者 2026-09-30 裁示）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 原話：「針對如果**時間格超過 1 小時的異常，跳出視窗後，請直接阻止檔案匯入**，
+ * 視窗告知**本程式不支援超過 1 小時的時段**」。
+ *
+ * ⚠️ 2026-09-24 的舊裁示是「提醒、不阻擋」；2026-09-30 改成擋。
+ *   理由：一格 2 小時的量標成「輛/小時」會高估一倍，而「每小時趨勢」那張表
+ *   是按整點分組的——一筆 07:00～09:00 會整個落進 07 時那一列，
+ *   08 時讀不到任何紀錄而斷線（這就是 H32）。擋在門口，H32 就不會發生。
+ *
+ * ⚠️ **只擋單一格長度 > 60 分鐘。**
+ *   15／20／30／45 分鐘一格都是正常的調查（使用者手上的真實檔就有 45 分鐘的），
+ *   一格 = 60 分鐘當然也正常。擋錯的後果是他正常的檔案匯不進去。
+ *
+ * ⚠️ 逐格看，**不取眾數**：48 格裡有 1 格誤植成 2 小時的話眾數仍然是 60，
+ *   那一格會被蓋掉——而那正是最需要被抓出來的那一格。
+ *
+ * ⚠️ 看的是**已經解析成紀錄的 `hour`**，不掃原始檔文字：
+ *   姊妹專案的真實檔裡有「上午尖峰 (07:00～09:00)」這種調查時段標示，
+ *   掃文字會整批誤報。
+ *
+ * @returns 要擋的時候回傳給使用者看的整段訊息；沒問題時回空字串。
+ */
+export function longIntervalBlock(
+  records: { hour?: unknown; sourceFileName?: unknown; sourceSheetName?: unknown }[],
+): string {
+  const byFile = new Map<string, Map<number, number>>();
+  for (const record of Array.isArray(records) ? records : []) {
+    const range = parseTimeRange(String(record?.hour ?? ""));
+    if (!range) continue;
+    const minutes = range.end - range.start;
+    /* 只擋「超過 1 小時」；剛好 60 分鐘與更細的格距都是正常的。 */
+    if (minutes <= 60) continue;
+    const where =
+      String(record?.sourceFileName ?? "") ||
+      "原始檔";
+    const sheet = String(record?.sourceSheetName ?? "");
+    const key = where + (sheet ? `【${sheet}】` : "");
+    const bucket = byFile.get(key) ?? new Map<number, number>();
+    bucket.set(minutes, (bucket.get(minutes) ?? 0) + 1);
+    byFile.set(key, bucket);
+  }
+  if (!byFile.size) return "";
+  const lines = [...byFile.entries()].map(([where, lengths]) => {
+    const parts = [...lengths.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([minutes, count]) =>
+        Number.isInteger(minutes / 60)
+          ? `${minutes / 60} 小時 × ${count} 格`
+          : `${minutes} 分鐘 × ${count} 格`,
+      );
+    return `・${where}：${parts.join("、")}`;
+  });
+  return (
+    "本程式不支援超過 1 小時的時段，這一批已經擋下來，一筆都沒有寫進去。\n\n" +
+    lines.join("\n") +
+    "\n\n交通量調查以 1 小時一格為主，細一點是 15／20／30／45 分鐘；" +
+    "不會有超過 1 小時一格的調查，這多半是時間欄位誤植" +
+    "（例如把「07:00～08:00」打成「07:00～09:00」）。\n" +
+    "請回原始檔把那幾格的時間改正，再重新匯入。"
+  );
+}

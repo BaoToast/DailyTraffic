@@ -1,0 +1,102 @@
+TAP version 13
+# Subtest: 順位：季別×路段 > 季別 > 路段 > 計畫預設
+ok 1 - 順位：季別×路段 > 季別 > 路段 > 計畫預設
+  ---
+  duration_ms: 0.8407
+  type: 'test'
+  ...
+# Subtest: ⚠️ 順位必須與 PCU 係數（factor-scope）一致：季別優先，不是路段優先
+ok 2 - ⚠️ 順位必須與 PCU 係數（factor-scope）一致：季別優先，不是路段優先
+  ---
+  duration_ms: 0.1439
+  type: 'test'
+  ...
+# Subtest: 空字串與沒有這個欄位等義（舊存檔讀進來是 undefined，畫面上選「全部」是空字串）
+ok 3 - 空字串與沒有這個欄位等義（舊存檔讀進來是 undefined，畫面上選「全部」是空字串）
+  ---
+  duration_ms: 0.5843
+  type: 'test'
+  ...
+# Subtest: 同分時取先出現的那一筆（與改版前 find() 的行為相同）
+ok 4 - 同分時取先出現的那一筆（與改版前 find() 的行為相同）
+  ---
+  duration_ms: 0.1357
+  type: 'test'
+  ...
+# Subtest: 顯示名稱的順位必須與數字的順位相同
+ok 5 - 顯示名稱的順位必須與數字的順位相同
+  ---
+  duration_ms: 0.1978
+  type: 'test'
+  ...
+# Subtest: 兩路段跨季互換歸類：兩個維度都必須警告，不可只比較集合
+not ok 6 - 兩路段跨季互換歸類：兩個維度都必須警告，不可只比較集合
+  ---
+  duration_ms: 6.9972
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\vehicle-scope.test.mjs:120:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/vehicle-scope.test.mjs:125:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: ★ 跨季別歸類不同時，偵測得出來，而且說得出「不可以直接比較」
+ok 7 - ★ 跨季別歸類不同時，偵測得出來，而且說得出「不可以直接比較」
+  ---
+  duration_ms: 0.3413
+  type: 'test'
+  ...
+# Subtest: ★ 同一季裡不同路段歸類不同時，說成跨路段，不可以說成跨季別
+ok 8 - ★ 同一季裡不同路段歸類不同時，說成跨路段，不可以說成跨季別
+  ---
+  duration_ms: 0.2249
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證一：歸類一致時**不可以**有任何標註（恆亮的標註等於沒有標註）
+ok 9 - ⚠️ 反證一：歸類一致時**不可以**有任何標註（恆亮的標註等於沒有標註）
+  ---
+  duration_ms: 0.265
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證二：完全沒有設定時也不可以標（沒有設定＝自成一類，不是歸類變更）
+ok 10 - ⚠️ 反證二：完全沒有設定時也不可以標（沒有設定＝自成一類，不是歸類變更）
+  ---
+  duration_ms: 0.2677
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證三：只有一筆資料時不可以標
+ok 11 - ⚠️ 反證三：只有一筆資料時不可以標
+  ---
+  duration_ms: 0.1261
+  type: 'test'
+  ...
+# Subtest: 兩個原始車種同時變過時，兩個都要列出來
+ok 12 - 兩個原始車種同時變過時，兩個都要列出來
+  ---
+  duration_ms: 0.2133
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 11
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 149.9225

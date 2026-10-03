@@ -1109,6 +1109,77 @@ function ChartPngButton({
 }
 
 /*
+ * ══════════════════════════════════════════════════════════════════════
+ *  「這段期間的車種歸類不一致」的圖上標註（B2，2026-09-30）
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-30 裁示車種歸類可以依季別×路段覆寫時，同一句話交代：
+ *   「**圖上當然也要明白標出來**」
+ *   「匯出成 excel 時，可以改為說明行寫在一旁欄位上」
+ *   「下載為高清晰圖檔時，**維持圖版面淨空**」
+ *
+ * ⚠️ 這個標註刻意做成**畫布外面**的 DOM，不畫進 canvas。
+ *   三個理由，第三個最重要：
+ *     ① 文字在畫布外面才能換行、才能被選取複製。
+ *     ② 高解析圖檔是用 paintToCanvas() **重畫**的，畫布外的東西不會進去——
+ *        所以「圖版面淨空」是**天生**成立的，不是靠某個人記得不要畫。
+ *     ③ 哪一天有人把它畫進 paint() 裡，守門會紅
+ *       （tests/vehicle-scope-render.test.mjs）。
+ *
+ * ⚠️ 沒有不一致時**整塊不畫**（不是畫一個空框）。恆亮的警告等於沒有警告。
+ */
+/*
+ * 車種歸類「套用範圍」的三個小工具。
+ *
+ * ⚠️ 刻意放在元件**外面**：放在裡面的話每次 render 都是新的函式，
+ *   useMemo 的依賴清單就抓不住它（eslint 的 react-hooks/exhaustive-deps
+ *   會要求把它列進依賴，而列進去等於每次 render 都重算）。
+ *   這三支不碰任何狀態，本來就不該住在元件裡。
+ */
+const scopeValue = (value: string) => (value === SCOPE_ANY ? "" : value);
+const settingScope = (setting: VehicleClassSetting) => ({
+  quarter: String(setting.quarter ?? "").trim(),
+  roadId: String(setting.roadId ?? "").trim(),
+});
+/** 這一筆設定剛好就是「這個範圍自己的」那一筆嗎（不是繼承來的）。 */
+const isOwnScope = (
+  setting: VehicleClassSetting,
+  quarter: string,
+  roadId: string,
+) => {
+  const own = settingScope(setting);
+  return own.quarter === quarter && own.roadId === roadId;
+};
+
+function ClassificationChangeBanner({
+  lines,
+  chartId,
+}: {
+  lines: string[];
+  chartId: string;
+}) {
+  if (!lines.length) return null;
+  return (
+    <div
+      className="classification-change-note"
+      data-testid="classification-change-note"
+      data-chart={chartId}
+    >
+      <b>⚠️ 這張圖的期間內，車種歸類設定不一致</b>
+      <ul>
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+      <small>
+        要改回一致，請到「車種分類與當量管理」把各季別／路段的歸類設成同一類；
+        這段文字不會出現在「下載高解析圖片」的圖檔裡（圖檔只有圖）。
+      </small>
+    </div>
+  );
+}
+
+/*
  * 需使用者確認的清單：逐筆列出 ＋ 類型標籤篩選 ＋ 每一類的筆數。
  *
  * 使用者 2026-09-13 指定的四件事（三支同步）：
@@ -1196,9 +1267,64 @@ function ChartNoteBox({ note }: { note: ChartNote }) {
    *   分成兩塊的話捲動時會各自對齊，圖與文字的對應關係就斷了。
    */
   const extra = levelSections(note.levels);
+  /*
+   * ── #14：每一張圖的說明都要能複製，不是只有歷季趨勢 ──────────
+   *
+   * 使用者要的是「把圖放進簡報時，旁邊有一段可以照著念的說明」。
+   * 舊版只有歷季趨勢那一張有「複製說明文字」，其他每一張圖的說明
+   * 都得用滑鼠框選——而這幾段有標題、有分級小節，框選一定會框歪。
+   *
+   * ⚠️ 按鈕做在 ChartNote 這個**共用元件**裡，不是逐張圖各貼一顆：
+   *   逐張貼的話，下一張新圖又會漏掉，而且漏掉不會有任何症狀。
+   * ⚠️ 複製出去的是**純文字**（把 ** 粗體標記拿掉），不是畫面上的 HTML——
+   *   貼進簡報或 Word 時才不會帶一堆看不懂的星號。
+   * ⚠️ `data-chart-note` 的用途是「匯出的圖片裡不可以有說明文字」，
+   *   所以這顆按鈕掛在 aside **裡面**是對的：它跟著說明一起被排除在圖外。
+   */
+  const plainText = [
+    note.title,
+    "",
+    ...note.lines,
+    ...extra.flatMap((section) => ["", section.title, ...section.lines]),
+  ]
+    .join("\n")
+    .replace(/\*\*/g, "");
+  const copyNote = () => {
+    const downloadAsText = () => {
+      const blob = new Blob([plainText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${note.title || "圖表說明"}.txt`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    };
+    /*
+     * ⚠️ 不可以寫成 `navigator.clipboard?.writeText(text).catch(…)`——
+     *   clipboard 是 undefined 時整條短路成 undefined，連 .catch 都不跑
+     *   （2026-09-25 在 copyTrendScript 實測過的同一個坑）。
+     *   非安全內容（http 的區網網址）與舊瀏覽器都會這樣。
+     */
+    if (!navigator.clipboard?.writeText) {
+      downloadAsText();
+      return;
+    }
+    navigator.clipboard.writeText(plainText).catch(downloadAsText);
+  };
   return (
     <aside className="chart-note" data-chart-note>
-      <h4>{note.title}</h4>
+      <div className="chart-note-head">
+        <h4>{note.title}</h4>
+        <button
+          type="button"
+          className="chart-note-copy"
+          data-testid="chart-note-copy"
+          onClick={copyNote}
+          title="把這一段說明複製成純文字，方便貼進簡報或報告"
+        >
+          複製說明文字
+        </button>
+      </div>
       {note.lines.map((line, index) => (
         <p key={index}>{boldParts(line)}</p>
       ))}
@@ -1391,11 +1517,14 @@ import {
 } from "./traffic-parser";
 import {
   CORE_VEHICLE_KEYS,
+  classificationChangeLines,
+  classificationChangesAcross,
   effectiveVehicleCounts,
   effectiveVehicleLabel,
   missingVehicleFactors,
   rawVehicleCounts,
   rawVehicleLabels,
+  settingFor as vehicleSettingFor,
   sumVehicleCounts,
   sumVehiclePcu,
   hasNonZeroVehiclePcu,
@@ -1409,11 +1538,13 @@ import {
 import {
   ANY as SCOPE_ANY,
   conflictsIn as scopeConflictsIn,
+  newConflictsAfter as newScopeConflictsAfter,
   ownScope as ownPcuScope,
   removeScope as removePcuScope,
   resolveFactors as resolvePcuFactors,
   scopeLabel as pcuScopeLabel,
   upsertScope as upsertPcuScope,
+  type FactorScope,
 } from "./factor-scope";
 import {
   METRIC_KEYS,
@@ -1470,13 +1601,13 @@ import {
   coverageLabelOf,
   coverageNote,
   formatRange,
-  parseTimeRange,
   peakFromBuckets,
   peaksByDay,
   sameSurveyCoverage,
   surveyCoverage,
   valueInWindow,
   type SurveyCoverage,
+  longIntervalBlock,
 } from "./partial-day";
 import {
   buildArmSettings,
@@ -1533,6 +1664,8 @@ import {
   checkSurveyPeriodInput,
   surveyPeriodInputMessage,
   periodMismatchPrompt,
+  mixedPeriodBlock,
+  overwriteDateConflictPrompt,
   periodUnknownNotice,
   PERIOD_DISPLAY_LABELS,
   type PeriodDateCheck,
@@ -1557,6 +1690,7 @@ import {
   validateImport,
   type AnomalyAlert,
   type ComparisonReportTemplate,
+  type AnomalyThresholds,
   type ImportHistoryEntry,
   type ReviewStatus,
   type WorkflowState,
@@ -1979,6 +2113,43 @@ const LEGACY_TURN_PCU_KEY = "traffic-turn-pcu-factors-v1";
  *   上面每一條相容性都要自己另外做一次。
  */
 const PCU_SCOPES_BY_PROJECT_KEY = "traffic-pcu-scopes-by-project-v1";
+/*
+ * 異常門檻的「季別×路段」覆寫（B1，使用者 2026-09-30 裁示）。
+ *
+ * ⚠️ 與 PCU 覆寫**完全同一套作法**（同樣依計畫存放、同樣空陣列就刪掉、
+ *   同樣列進 PROJECT_SCOPED_KEYS）。兩套寫法不同的話，
+ *   刪計畫時一定會漏掉其中一個，而殘留的設定會在下次建立同代碼的計畫時
+ *   **無聲生效**——那是最難查的一種。
+ */
+const THRESHOLD_SCOPES_BY_PROJECT_KEY = "traffic-threshold-scopes-by-project-v1";
+/*
+ * ⚠️ 這份鍵名清單就是 `AnomalyThresholds` 的五個欄位。
+ *   日後那個型別多一個欄位而這裡沒跟上，存檔驗證會把新欄位當成不存在——
+ *   守門 tests/threshold-scope.test.mjs 會比對兩邊，漏掉就紅。
+ */
+const THRESHOLD_KEYS = [
+  "dailyChangePct",
+  "pcuChangePct",
+  "vehicleShareChangePct",
+  "peakShiftHours",
+  "zeroHourLimit",
+] as const;
+/*
+ * 門檻欄位的中文名稱——**畫面與摘要共用同一份**。
+ *
+ * ⚠️ 2026-09-30 截圖看過才發現的：摘要原本直接印鍵名，
+ *   畫面上會出現「dailyChangePct 25」這種東西給使用者看。
+ *   這一支程式早就有「不可以把英文 id 露給使用者」的規矩
+ *  （尖峰明細那一塊退回顯示 id 就被抓過），這裡犯了同一件。
+ */
+const THRESHOLD_LABELS: Record<(typeof THRESHOLD_KEYS)[number], string> = {
+  dailyChangePct: "全日量變動警示（%）",
+  pcuChangePct: "PCU變動警示（%）",
+  vehicleShareChangePct: "車種占比變動（百分點）",
+  peakShiftHours: "尖峰位移（小時）",
+  zeroHourLimit: "零流量時段上限",
+};
+type ThresholdScopes = FactorScope<AnomalyThresholds>[];
 
 function isValidPcu(value: unknown): value is PcuFactors {
   if (!value || typeof value !== "object") return false;
@@ -2192,6 +2363,35 @@ function isValidScope(value: unknown): value is PcuScopes[number] {
   return isValidPcu(factors.core) && isValidTurnPcu(factors.coreTurns);
 }
 
+/** 一筆門檻覆寫長得對不對（壞掉的存檔要整筆丟掉，不可以半信半疑地用）。 */
+function isValidThresholdScope(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const raw = value as { quarter?: unknown; roadId?: unknown; factors?: unknown };
+  if (typeof raw.quarter !== "string" || typeof raw.roadId !== "string") return false;
+  const factors = raw.factors as Record<string, unknown> | undefined;
+  if (!factors || typeof factors !== "object") return false;
+  return THRESHOLD_KEYS.every(
+    (key) => typeof factors[key] === "number" && Number.isFinite(factors[key]),
+  );
+}
+
+function readProjectThresholdScopes(projectId: string): ThresholdScopes {
+  if (!projectId) return [];
+  const raw = readMap(THRESHOLD_SCOPES_BY_PROJECT_KEY)[projectId];
+  return Array.isArray(raw)
+    ? (raw.filter(isValidThresholdScope) as ThresholdScopes)
+    : [];
+}
+
+function writeProjectThresholdScopes(projectId: string, scopes: ThresholdScopes) {
+  if (!projectId) return false;
+  const map = readMap(THRESHOLD_SCOPES_BY_PROJECT_KEY);
+  /* 空陣列＝沒有覆寫，直接刪掉，不要留一個空陣列在儲存區。 */
+  if (scopes.length) map[projectId] = scopes;
+  else delete map[projectId];
+  return safeWrite(THRESHOLD_SCOPES_BY_PROJECT_KEY, map);
+}
+
 function readProjectPcuScopes(projectId: string): PcuScopes {
   if (!projectId) return [];
   const raw = readMap(PCU_SCOPES_BY_PROJECT_KEY)[projectId];
@@ -2218,6 +2418,7 @@ const PROJECT_SCOPED_KEYS = [
   PCU_BY_PROJECT_KEY,
   TURN_PCU_BY_PROJECT_KEY,
   PCU_SCOPES_BY_PROJECT_KEY,
+  THRESHOLD_SCOPES_BY_PROJECT_KEY,
   CONCLUSION_TEMPLATE_KEY,
 ] as const;
 
@@ -4053,6 +4254,7 @@ function chartXml(
     cache: (number | null)[];
   }[],
   type: "bar" | "line" | "doughnut" = "bar",
+  valueFormat = "#,##0.0",
 ) {
   const catCount = series[0]?.cache.length ?? 0;
   /*
@@ -4066,10 +4268,13 @@ function chartXml(
   const ser = series
     .map(
       (s, i) =>
-        `<c:ser><c:idx val="${i}"/><c:order val="${i}"/><c:tx><c:v>${xmlText(s.name)}</c:v></c:tx>${type === "doughnut" ? s.cache.map((_, point) => `<c:dPt><c:idx val="${point}"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="${doughnutColors[point % doughnutColors.length]}"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`).join("") : `<c:spPr><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`}${type === "line" ? '<c:marker><c:symbol val="circle"/><c:size val="6"/></c:marker>' : ""}<c:cat><c:strRef><c:f>${xmlText(categories)}</c:f><c:strCache><c:ptCount val="${catCount}"/></c:strCache></c:strRef></c:cat><c:val><c:numRef><c:f>${xmlText(s.formula)}</c:f><c:numCache><c:formatCode>#,##0.0</c:formatCode><c:ptCount val="${s.cache.length}"/>${s.cache.map((v, j) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? "" : `<c:pt idx="${j}"><c:v>${Number(v)}</c:v></c:pt>`)).join("")}</c:numCache></c:numRef></c:val></c:ser>`,
+        `<c:ser><c:idx val="${i}"/><c:order val="${i}"/><c:tx><c:v>${xmlText(s.name)}</c:v></c:tx>${type === "doughnut" ? s.cache.map((_, point) => `<c:dPt><c:idx val="${point}"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="${doughnutColors[point % doughnutColors.length]}"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`).join("") : `<c:spPr><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill><a:ln>${type === "line" ? `<a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill>` : "<a:noFill/>"}</a:ln></c:spPr>`}${type === "line" ? '<c:marker><c:symbol val="circle"/><c:size val="6"/></c:marker>' : ""}<c:cat><c:strRef><c:f>${xmlText(categories)}</c:f><c:strCache><c:ptCount val="${catCount}"/></c:strCache></c:strRef></c:cat><c:val><c:numRef><c:f>${xmlText(s.formula)}</c:f><c:numCache><c:formatCode>${xmlText(valueFormat)}</c:formatCode><c:ptCount val="${s.cache.length}"/>${s.cache.map((v, j) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? "" : `<c:pt idx="${j}"><c:v>${Number(v)}</c:v></c:pt>`)).join("")}</c:numCache></c:numRef></c:val></c:ser>`,
     )
     .join("");
-  const doughnutLabels = `<c:dLbls><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="zh-TW"/></a:p></c:txPr><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="1"/><c:showSerName val="0"/><c:showPercent val="1"/><c:showBubbleSize val="0"/><c:separator>&#10;</c:separator><c:showLeaderLines val="1"/><c:leaderLines><c:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="8A98A6"/></a:solidFill></a:ln></c:spPr></c:leaderLines></c:dLbls>`;
+  // Real Office rendering overlaps small-slice text. Use the legend and the
+  // adjacent editable data table instead of inline labels. Do not freeze a
+  // visibility mask from cached values: the worksheet selectors change them.
+  const doughnutLabels = `<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>`;
   const plot =
     type === "bar"
       ? `<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>${ser}<c:gapWidth val="85"/><c:axId val="123456"/><c:axId val="123457"/></c:barChart>`
@@ -4079,7 +4284,7 @@ function chartXml(
   const axes =
     type === "doughnut"
       ? ""
-      : `<c:catAx><c:axId val="123456"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:tickLblPos val="nextTo"/><c:crossAx val="123457"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="123457"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="#,##0.0" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="123456"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>`;
+      : `<c:catAx><c:axId val="123456"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:tickLblPos val="nextTo"/><c:crossAx val="123457"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="123457"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="${xmlText(valueFormat)}" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="123456"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:date1904 val="0"/><c:lang val="zh-TW"/><c:roundedCorners val="0"/><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1400" b="1"/></a:pPr><a:r><a:rPr lang="zh-TW"/><a:t>${xmlText(title)}</a:t></a:r></a:p></c:rich></c:tx><c:layout/><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>${plot}${axes}</c:plotArea><c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`;
 }
 async function addNativeCharts(
@@ -4095,6 +4300,7 @@ async function addNativeCharts(
       cache: (number | null)[];
     }[];
     type?: "bar" | "line" | "doughnut";
+    valueFormat?: string;
   }[],
 ) {
   const JSZip = (await import("jszip")).default;
@@ -4144,7 +4350,7 @@ async function addNativeCharts(
   specs.forEach((s, i) =>
     zip.file(
       `xl/charts/chart${i + 1}.xml`,
-      chartXml(s.title, s.categories, s.series, s.type),
+      chartXml(s.title, s.categories, s.series, s.type, s.valueFormat),
     ),
   );
   let types = await zip.file("[Content_Types].xml")!.async("string");
@@ -4317,6 +4523,17 @@ export default function DashboardClient({ user }: { user: User }) {
   const [vehicleClassDraft, setVehicleClassDraft] = useState<
     VehicleClassSetting[]
   >([]);
+  /*
+   * 車種歸類的「套用範圍」（使用者 2026-09-30 裁示的 B2）。
+   *
+   * ⚠️ 預設停在全季別 × 全路段，也就是改版前的行為。使用者不碰這兩個下拉，
+   *   這個功能對他完全不存在——與 PCU 係數那一組（scopeQuarter／scopeRoadId）
+   *   同一個原則，連 SCOPE_ANY 這個值都共用，免得兩處各有一套「全部」的寫法。
+   */
+  const [vehicleScopeQuarter, setVehicleScopeQuarter] =
+    useState<string>(SCOPE_ANY);
+  const [vehicleScopeRoadId, setVehicleScopeRoadId] =
+    useState<string>(SCOPE_ANY);
   // 記住每個車種「獨立分析」時使用者自訂的當量，切去四大類再切回來時可以還原。
   const independentPcuMemory = useRef(
     new Map<
@@ -4580,6 +4797,46 @@ export default function DashboardClient({ user }: { user: User }) {
     );
   }, [pendingImport, importQuarterKey]);
   /*
+   * ── 混批：一批檔案的日期指向兩個以上期別 → 擋死 ────────────────
+   *
+   * 使用者 2026-09-29：「混入別季混批不擋，三支程式請同步」。
+   *
+   * ⚠️ **只算一次**，畫面說明、確認鈕的停用與寫入路徑三處共用這一份。
+   *   三處各自算一次的話，就會出現「畫面說按鈕停用了、按鈕其實按得下去」
+   *   ——而那比沒有擋更糟：使用者不知道該信哪一個。
+   *
+   * ⚠️ 判準與計票範圍寫在 period-date.ts 的 mixedPeriodBlock() 上，
+   *   那一支與交通服務水準的 period-date.js 是同一套判斷、同一句訊息。
+   */
+  const mixedPeriodMessage = useMemo(
+    () => mixedPeriodBlock(livePeriodChecks),
+    [livePeriodChecks],
+  );
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  時間格超過 1 小時 → **擋下匯入**（使用者 2026-09-30 裁示）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 原話：「針對如果**時間格超過 1 小時的異常，跳出視窗後，請直接阻止檔案匯入**，
+   * 視窗告知**本程式不支援超過 1 小時的時段**」。
+   *
+   * ⚠️ 2026-09-24 的舊行為是「提醒、不阻擋」。使用者 2026-09-30 改了裁示：
+   *   一格 2 小時的量標成「輛/小時」會高估一倍，而且「每小時趨勢」那張表
+   *   是按整點分組的——一筆 07:00～09:00 會整個落進 07 時那一列，
+   *   08 時讀不到任何紀錄而斷線。與其讓錯的資料進來之後再解釋，不如擋在門口。
+   *
+   * ⚠️ **只擋單一格長度 > 60 分鐘**。15／20／30／45 分鐘一格都是正常的調查
+   *   （使用者手上的真實檔就有 45 分鐘的），**絕對不可以連帶擋掉**——
+   *   擋錯的後果是他正常的檔案匯不進去。反證在 tests/long-interval-block.test.mjs。
+   *
+   * ⚠️ 判準與下面那段提醒文字**共用同一支函式**，兩邊各寫一份的話，
+   *   遲早出現「畫面說擋、實際沒擋」或反過來。
+   */
+  const longIntervalMessage = useMemo(
+    () => longIntervalBlock(pendingImport?.records ?? []),
+    [pendingImport],
+  );
+  /*
    * ── 一鍵「改用檔案日期的季別」 ───────────────────────────────
    *
    * 使用者 2026-09-11：「如果我有 N 份檔案 只要有一個錯 我就得全部重選
@@ -4590,7 +4847,10 @@ export default function DashboardClient({ user }: { user: User }) {
    * ⚠️ 只有在**所有對不上的檔案都指向同一季**時才給這顆按鈕。
    *   指向好幾季的話，一顆按鈕沒辦法表達要改成哪一個；
    *   隨便挑一個預設值，使用者按下去才發現改錯了——那比沒有按鈕更糟。
-   *   那種情況本來就該分批匯入（而且混批本來就會被擋住）。
+   *   那種情況本來就該分批匯入。
+   *   ⚠️ 2026-09-29 更正：這裡原本寫「而且混批本來就會被擋住」——
+   *     **那句在當時並不成立**。混批那時只有一個 confirm()，按確定就寫進去了。
+   *     同一天補上了真正的阻擋（見 mixedPeriodMessage），現在這句話才是真的。
    *
    * ⚠️ 這一段與路口轉向的 importDateSuggestedPeriod 是同一套判斷，
    *   兩支共用 period-date.ts 的 dateLabel（形如「114Q3」），
@@ -4899,6 +5159,102 @@ export default function DashboardClient({ user }: { user: User }) {
    *   不要另外再算一次。
    */
   const [pcuScopes, setPcuScopes] = useState<PcuScopes>([]);
+  /*
+   * 異常門檻的覆寫（B1，使用者 2026-09-30 裁示）。
+   * ⚠️ 空陣列＝沒有任何覆寫＝行為與改版前完全相同。
+   */
+  const [thresholdScopes, setThresholdScopes] = useState<ThresholdScopes>([]);
+  const [thresholdScopeQuarter, setThresholdScopeQuarter] =
+    useState<string>(SCOPE_ANY);
+  const [thresholdScopeRoadId, setThresholdScopeRoadId] =
+    useState<string>(SCOPE_ANY);
+  /*
+   * 這一格現在**生效**的門檻（有自己的就用自己的，沒有就顯示繼承來的值）。
+   * ⚠️ 顯示繼承值是刻意的：使用者打開某一季時要看得到現在到底是怎麼判的。
+   *   繼承來的值在輸入有效數值之前不會變成這一格的專屬設定。
+   */
+  const ownThresholdScope = useMemo(
+    () =>
+      thresholdScopes.find(
+        (scope) =>
+          scope.quarter === thresholdScopeQuarter &&
+          scope.roadId === thresholdScopeRoadId,
+      ) ?? null,
+    [thresholdScopes, thresholdScopeQuarter, thresholdScopeRoadId],
+  );
+  /** 這一格現在生效的五個門檻值（沒有專屬設定時就是上層的值）。 */
+  const effectiveThresholds = useMemo(
+    () =>
+      resolvePcuFactors(
+        thresholdScopes,
+        workflow.thresholds,
+        thresholdScopeQuarter === SCOPE_ANY ? "" : thresholdScopeQuarter,
+        thresholdScopeRoadId === SCOPE_ANY ? "" : thresholdScopeRoadId,
+      ),
+    [thresholdScopes, workflow.thresholds, thresholdScopeQuarter, thresholdScopeRoadId],
+  );
+  /**
+   * 改一個門檻值。
+   *
+   * ⚠️ 兩條路徑，界線很清楚：
+   *   ・全季別×全路段 → 改的是**計畫預設**，與改版前完全相同的那一行。
+   *   ・指定了範圍　　 → 改的是**那一格的專屬門檻**，計畫預設一個字都不動。
+   *
+   * ⚠️ 建立新的專屬門檻時要先問「這一筆會新增哪些重疊」（B3 同一套）：
+   *   拿「目前一共有幾個重疊」去問的話，每改一次都會被同一個舊重疊問一次，
+   *   問到最後一定變成無腦按確定，那比不問更糟。
+   */
+  function changeThreshold(key: keyof AnomalyThresholds, value: number) {
+    if (
+      thresholdScopeQuarter === SCOPE_ANY &&
+      thresholdScopeRoadId === SCOPE_ANY
+    ) {
+      setWorkflow((previous) => ({
+        ...previous,
+        thresholds: { ...previous.thresholds, [key]: value },
+      }));
+      return;
+    }
+    const next = {
+      quarter: thresholdScopeQuarter,
+      roadId: thresholdScopeRoadId,
+      factors: { ...effectiveThresholds, [key]: value },
+    };
+    const added = newScopeConflictsAfter(thresholdScopes, next);
+    if (added.length) {
+      const lines = added
+        .map(
+          (conflict) =>
+            `　・${pcuScopeLabel(quarterLabel(conflict.quarter), conflict.roadId, roadNameOf(conflict.roadId))}`,
+        )
+        .join("\n");
+      const okToGo = window.confirm(
+        `這一筆門檻設定會讓下面這幾格同時符合兩組設定：\n\n${lines}\n\n` +
+          `這幾格會套用「季別」那一組（季別優先）。\n` +
+          `如果那不是你要的，請按取消，改成直接對那幾格各自設定。`,
+      );
+      if (!okToGo) return;
+    }
+    const scopes = upsertPcuScope(thresholdScopes, next) as ThresholdScopes;
+    setThresholdScopes(scopes);
+    if (!writeProjectThresholdScopes(activeProject, scopes))
+      setToast("門檻覆寫沒有存進瀏覽器（空間可能已滿），重新整理後會回到舊值");
+  }
+  /** 把這一格的專屬門檻拿掉，讓它回去跟著上層走。 */
+  function removeThresholdScope() {
+    const scopes = removePcuScope(
+      thresholdScopes,
+      thresholdScopeQuarter,
+      thresholdScopeRoadId,
+    ) as ThresholdScopes;
+    setThresholdScopes(scopes);
+    if (!writeProjectThresholdScopes(activeProject, scopes))
+      setToast("門檻覆寫沒有存進瀏覽器（空間可能已滿），重新整理後會回到舊值");
+    else
+      setToast(
+        `「${pcuScopeLabel(quarterLabel(thresholdScopeQuarter), thresholdScopeRoadId, roadNameOf(thresholdScopeRoadId))}」的專屬門檻已移除，改回跟著上層走`,
+      );
+  }
   /* 編輯中的範圍（哪一季、哪一段）。預設就是「全季別 × 全路段」。 */
   const [scopeQuarter, setScopeQuarter] = useState<string>(SCOPE_ANY);
   const [scopeRoadId, setScopeRoadId] = useState<string>(SCOPE_ANY);
@@ -4916,6 +5272,7 @@ export default function DashboardClient({ user }: { user: User }) {
     setTurnPcuDraft(structuredClone(nextTurn));
     setProjectHasOwnFactors(hasOwnPcuFactors(activeProject));
     setPcuScopes(readProjectPcuScopes(activeProject));
+    setThresholdScopes(readProjectThresholdScopes(activeProject));
     /*
      * ⚠️ 換計畫時編輯中的範圍要**歸零回全季別×全路段**。
      *   不歸零的話，在 A 計畫選了「115Q2 × R-01」之後切到 B 計畫，
@@ -4924,6 +5281,9 @@ export default function DashboardClient({ user }: { user: User }) {
      */
     setScopeQuarter(SCOPE_ANY);
     setScopeRoadId(SCOPE_ANY);
+    /* 門檻那一組的範圍同理要歸零（理由與上面同一條）。 */
+    setThresholdScopeQuarter(SCOPE_ANY);
+    setThresholdScopeRoadId(SCOPE_ANY);
     /*
      * ⚠️ 這個 disable 是**刻意**的，而且理由要寫下來（2026-09-11 補）：
      *   這是「換計畫時把係數從儲存區載進來」的一次性 effect，
@@ -5077,14 +5437,48 @@ export default function DashboardClient({ user }: { user: User }) {
       );
       return;
     }
-    const nextScopes = upsertPcuScope(pcuScopes, {
+    const pendingScope = {
       quarter: scopeQuarter,
       roadId: scopeRoadId,
       factors: {
         core: { ...pcuDraft },
         coreTurns: structuredClone(turnPcuDraft),
       },
-    });
+    };
+    /*
+     * ── B3：衝突要在**設定的當下**就問（使用者 2026-09-30 裁示）──────
+     *
+     * 舊行為是把重疊列在下面的摘要裡，而使用者設定完就走了，
+     * 那段警告要捲下去才看得到，很可能等到數字出來才發現。
+     *
+     * ⚠️ 問的是「**這一筆會新增哪些重疊**」，不是「現在一共有幾個重疊」。
+     *   拿總數去問的話，使用者每改一次都會被同一個舊重疊問一次——
+     *   問到最後一定變成無腦按確定，那比不問更糟。
+     * ⚠️ 下面的摘要**保留**：確認視窗管「你正在做的這一步」，
+     *   摘要管「目前整體長什麼樣」。拿掉摘要，使用者按過確定之後
+     *   就再也看不到自己有哪些重疊。
+     */
+    const newConflicts = newScopeConflictsAfter(pcuScopes, pendingScope);
+    if (newConflicts.length) {
+      const lines = newConflicts.map(
+        (conflict) =>
+          `　・${quarterLabel(conflict.quarter)} × ${roadNameOf(conflict.roadId)}` +
+          `：會同時符合「${quarterLabel(conflict.quarter)} 的全路段設定」與` +
+          `「${roadNameOf(conflict.roadId)} 的全季別設定」`,
+      );
+      if (
+        !confirm(
+          `⚠️ 這一筆設定會讓 ${newConflicts.length} 個「季別 × 路段」同時符合兩組覆寫。\n\n` +
+            lines.join("\n") +
+            `\n\n這幾格會套用「季別」那一組（季別優先）。\n` +
+            `那是系統訂的順位，不是你指定的——如果那幾格其實想用路段那一組，\n` +
+            `請在設定完之後，為那幾格各建立一筆明確的「這一季 × 這一路段」設定。\n\n` +
+            `按「確定」繼續套用；按「取消」回去改範圍。`,
+        )
+      )
+        return;
+    }
+    const nextScopes = upsertPcuScope(pcuScopes, pendingScope);
     setPcuScopes(nextScopes);
     const savedScopes = writeProjectPcuScopes(activeProject, nextScopes);
     /*
@@ -5099,11 +5493,20 @@ export default function DashboardClient({ user }: { user: User }) {
         : "覆寫已套用到目前畫面，但無法寫入瀏覽器儲存（可能空間已滿或瀏覽器封鎖網站資料），關閉後會失效。",
     );
   };
-  /** 路段代碼 → 顯示名稱（摘要與提示都用這一支，避免兩種寫法）。 */
-  const roadNameOf = (roadId: string) =>
-    roadId === SCOPE_ANY
-      ? ""
-      : records.find((record) => record.roadId === roadId)?.roadName || roadId;
+  /**
+   * 路段代碼 → 顯示名稱（摘要與提示都用這一支，避免兩種寫法）。
+   *
+   * ⚠️ 包在 useCallback 裡：報告草稿的 useMemo 依賴它，不包的話它每一次
+   *   render 都是新的函式，那個 useMemo 就等於沒有快取（每次重算），
+   *   而且 eslint 的 exhaustive-deps 會直接紅。
+   */
+  const roadNameOf = useCallback(
+    (roadId: string) =>
+      roadId === SCOPE_ANY
+        ? ""
+        : records.find((record) => record.roadId === roadId)?.roadName || roadId,
+    [records],
+  );
   /** 把目前這一格的覆寫刪掉＝那一格還原成計畫預設。 */
   const clearPcuScope = (quarter: string, roadId: string) => {
     if (!activeProject) return;
@@ -5694,6 +6097,34 @@ export default function DashboardClient({ user }: { user: User }) {
       .map(([key, label]) => ({ key, label }))
       .sort((a, b) => a.label.localeCompare(b.label, "zh-TW"));
   }, [activeRecords]);
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  歸類在比較區間內變過嗎——**圖上要明白標出來的那件事**（B2）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * 使用者 2026-09-30 裁示 B2 時同一句話交代：「圖上當然也要明白標出來」。
+   *
+   * ⚠️ 判準是「同一個原始車種被歸到不同的分析類別」，不是「有沒有設覆寫」。
+   *   設了覆寫但都歸到同一類時數字是可比的，標它只會變成雜訊——
+   *   **恆亮的標註等於沒有標註**。反證見 tests/vehicle-scope.test.mjs。
+   *
+   * ⚠️ 兩份：一份看**整個計畫**（設定視窗裡用，提醒他目前的設定長什麼樣），
+   *   一份看**畫面上這批**（圖上用，因為圖只畫得出畫面上這批）。
+   */
+  const vehicleScopeChangeLines = useMemo(
+    () =>
+      classificationChangeLines(
+        classificationChangesAcross(activeRecords, vehicleClassSettings),
+      ),
+    [activeRecords, vehicleClassSettings],
+  );
+  const chartClassificationLines = useMemo(
+    () =>
+      classificationChangeLines(
+        classificationChangesAcross(analysisRecords, vehicleClassSettings),
+      ),
+    [analysisRecords, vehicleClassSettings],
+  );
   const analysisVehicleCatalog = useMemo(
     () => vehicleCatalog(analysisRecords, vehicleClassSettings, false),
     [analysisRecords, vehicleClassSettings],
@@ -5702,27 +6133,91 @@ export default function DashboardClient({ user }: { user: User }) {
     () => missingVehicleFactors(activeRecords, vehicleClassSettings),
     [activeRecords, vehicleClassSettings],
   );
+  /*
+   * ══════════════════════════════════════════════════════════════════
+   *  車種歸類的「季別×路段」覆寫（B2，使用者 2026-09-30 裁示）
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * ⚠️ 儲存的欄位用**空字串**代表「全部」，畫面上的下拉用 `SCOPE_ANY`（"*"）。
+   *   兩邊在這裡轉換，不要讓 "*" 流進存檔——舊存檔沒有這兩個欄位，
+   *   讀進來是 undefined，而 undefined 與空字串在 lib 裡是等義的；
+   *   多一個 "*" 就變成第三種寫法，遲早有人只處理其中兩種。
+   */
+  /**
+   * 這個範圍目前**生效**的一整份歸類（有自己的就用自己的，沒有就顯示繼承來的值）。
+   *
+   * ⚠️ 顯示繼承值是刻意的：使用者打開「115Q2」時要看得到現在到底是怎麼算的，
+   *   看到空白或預設值會讓他以為這一季沒有設定過任何東西。
+   *   繼承來的值在存檔時**不會**被寫成這一格的專屬設定（見 saveVehicleClassSettings
+   *   裡的「只寫真的不一樣的那幾列」）。
+   */
+  function vehicleDraftForScope(quarter: string, roadId: string) {
+    const probe = {
+      projectId: activeProject,
+      quarter,
+      roadId,
+      motorcycle: 0,
+      small: 0,
+      large: 0,
+      special: 0,
+    };
+    return syncCoreVehicleSettings(
+      activeVehicleSourceCatalog.map((item) => {
+        const own = vehicleClassSettings.find(
+          (setting) =>
+            setting.projectId === activeProject &&
+            setting.sourceKey === item.key &&
+            isOwnScope(setting, quarter, roadId),
+        );
+        if (own) return { ...own, quarter, roadId };
+        const inherited = vehicleSettingFor(probe, item.key, vehicleClassSettings);
+        return inherited
+          ? { ...inherited, quarter, roadId }
+          : {
+              ...defaultVehicleSetting(activeProject, item.key, item.label),
+              quarter,
+              roadId,
+            };
+      }),
+      pcuFactors,
+      turnPcuFactors,
+    );
+  }
   function openVehicleClassManager() {
     if (!activeVehicleSourceCatalog.length)
       return setToast("目前計畫尚未匯入車種資料");
     // 每次重新打開都從乾淨狀態開始：上次按「取消」而沒有套用的暫存值，
     // 不應該在這一次被還原回來。
     independentPcuMemory.current.clear();
-    setVehicleClassDraft(
-      syncCoreVehicleSettings(
-        activeVehicleSourceCatalog.map(
-          (item) =>
-            vehicleClassSettings.find(
-              (setting) =>
-                setting.projectId === activeProject &&
-                setting.sourceKey === item.key,
-            ) ?? defaultVehicleSetting(activeProject, item.key, item.label),
-        ),
-        pcuFactors,
-        turnPcuFactors,
-      ),
-    );
+    /* ⚠️ 範圍也要回到全季別×全路段：留著上一次選的範圍，使用者會在不知情的
+     *   狀況下編輯某一季的專屬設定，而畫面上看起來和編輯計畫預設一模一樣。 */
+    setVehicleScopeQuarter(SCOPE_ANY);
+    setVehicleScopeRoadId(SCOPE_ANY);
+    setVehicleClassDraft(vehicleDraftForScope("", ""));
     setShowVehicleManager(true);
+  }
+  /** 這個範圍有幾個車種是「自己的」專屬歸類（不是繼承來的）。 */
+  const vehicleScopeOwnCount = useMemo(
+    () =>
+      vehicleClassSettings.filter(
+        (setting) =>
+          setting.projectId === activeProject &&
+          isOwnScope(
+            setting,
+            scopeValue(vehicleScopeQuarter),
+            scopeValue(vehicleScopeRoadId),
+          ),
+      ).length,
+    [vehicleClassSettings, activeProject, vehicleScopeQuarter, vehicleScopeRoadId],
+  );
+  /** 換範圍：把草稿換成那個範圍現在生效的內容（未套用的改動會被丟掉，所以要先問）。 */
+  function changeVehicleScope(nextQuarter: string, nextRoadId: string) {
+    setVehicleScopeQuarter(nextQuarter);
+    setVehicleScopeRoadId(nextRoadId);
+    independentPcuMemory.current.clear();
+    setVehicleClassDraft(
+      vehicleDraftForScope(scopeValue(nextQuarter), scopeValue(nextRoadId)),
+    );
   }
   function updateVehicleClassDraft(
     sourceKey: string,
@@ -5784,8 +6279,8 @@ export default function DashboardClient({ user }: { user: User }) {
       return setToast(
         `「${invalid.sourceLabel}」保留為獨立車種時，4 個PCU係數都必須是有效數字`,
       );
-    // 係數不設下限（依需求由使用者自訂），但 0 或負數會讓該車種在 PCU 相關
-    // 分析中被歸零，這種情況多半是打錯，存檔後主動提醒一次。
+    // 係數不設下限；0 與負數都按設定值計算，負值不可擅自歸零。
+    // 存檔後提醒使用者確認非正值，而不是改動計算結果。
     const zeroFactors = vehicleClassDraft.filter(
       (setting) =>
         !CORE_VEHICLE_KEYS.includes(setting.targetKey as CoreVehicleKey) &&
@@ -5796,15 +6291,61 @@ export default function DashboardClient({ user }: { user: User }) {
     const draftKeys = new Set(
       vehicleClassDraft.map((setting) => setting.sourceKey),
     );
+    const editQuarter = scopeValue(vehicleScopeQuarter);
+    const editRoadId = scopeValue(vehicleScopeRoadId);
+    const editingDefault = !editQuarter && !editRoadId;
+    /*
+     * 先把「這一次要重寫的那幾列」拿掉，其餘原封不動。
+     *
+     * ⚠️ 只拿掉**同一個範圍**的列。編輯 115Q2 專屬設定時去動到計畫預設，
+     *   等於使用者設定某一季卻改掉了全部季別——那是 B2 最容易犯的錯，
+     *   而且他要到下一季匯入才會發現。
+     */
+    const kept = vehicleClassSettings.filter(
+      (setting) =>
+        setting.projectId !== activeProject ||
+        !draftKeys.has(setting.sourceKey) ||
+        !isOwnScope(setting, editQuarter, editRoadId),
+    );
+    /*
+     * ⚠️ 編輯某個範圍時，**只寫真的與繼承值不一樣的那幾列**。
+     *
+     *   使用者 2026-09-30：「車種歸類沒使用上時 就照原本正常功能去走」。
+     *   如果把整份草稿都寫成「115Q2 專屬」，那麼他只是打開看一下，
+     *   115Q2 的歸類就被**凍結**了：之後改計畫預設，115Q2 不會跟著動，
+     *   而畫面上完全看不出為什麼。
+     *
+     *   計畫預設那一層（全季別×全路段）不套這條規則——那一層本來就是
+     *   「一定要有一份」，行為與改版前完全相同。
+     */
+    const rowsToWrite = editingDefault
+      ? vehicleClassDraft
+      : vehicleClassDraft.filter((setting) => {
+          const inherited = vehicleSettingFor(
+            {
+              projectId: activeProject,
+              quarter: editQuarter,
+              roadId: editRoadId,
+              motorcycle: 0,
+              small: 0,
+              large: 0,
+              special: 0,
+            },
+            setting.sourceKey,
+            kept,
+          );
+          if (!inherited) return true;
+          return (
+            inherited.targetKey !== setting.targetKey ||
+            inherited.targetLabel !== setting.targetLabel ||
+            inherited.roadPcu !== setting.roadPcu ||
+            (["left", "through", "right"] as TurnKey[]).some(
+              (turn) => inherited.turnPcu?.[turn] !== setting.turnPcu?.[turn],
+            )
+          );
+        });
     const next = syncCoreVehicleSettings(
-      [
-        ...vehicleClassSettings.filter(
-          (setting) =>
-            setting.projectId !== activeProject ||
-            !draftKeys.has(setting.sourceKey),
-        ),
-        ...vehicleClassDraft,
-      ],
+      [...kept, ...rowsToWrite],
       pcuFactors,
       turnPcuFactors,
     );
@@ -5816,10 +6357,19 @@ export default function DashboardClient({ user }: { user: User }) {
       );
     // 套用之後也要走同一條關閉路徑，接著開路口幾何視窗。
     closeVehicleManager();
+    /*
+     * ⚠️ 套用到哪裡一定要說出來。編輯的是某一季／某一條的專屬歸類時，
+     *   訊息還寫「已套用至全部分析」的話，使用者會以為全部季別都改了。
+     */
+    const scopeNote = editingDefault
+      ? "已套用至全部分析及匯出檔"
+      : rowsToWrite.length
+        ? `已套用到「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」，其他季別與路段不受影響`
+        : `「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」沒有任何一項與上層不同，所以沒有建立專屬設定（它會繼續跟著上層走）`;
     setToast(
       zeroFactors.length
-        ? `車種歸類與獨立當量已套用；請注意「${zeroFactors.map((setting) => setting.sourceLabel).join("、")}」有 0 或負數的 PCU 係數，該車種在 PCU 相關分析中會被歸零`
-        : "車種歸類與獨立當量已套用至全部分析及匯出檔",
+        ? `車種歸類與獨立當量${scopeNote}；請注意「${zeroFactors.map((setting) => setting.sourceLabel).join("、")}」有 0 或負數的 PCU 係數，系統會依設定值計算（負值不會自動歸零），請確認設定`
+        : `車種歸類與獨立當量${scopeNote}`,
     );
   }
   const quarters = useMemo(
@@ -6184,7 +6734,11 @@ export default function DashboardClient({ user }: { user: User }) {
     yearStyle,
     workflow.surveyDateOverrides,
   ]);
-  const quarterLabel = (value: string) => quarterLabels.labels[value] || value;
+  /* ⚠️ 同 roadNameOf：報告草稿的 useMemo 依賴它，必須是穩定的函式。 */
+  const quarterLabel = useCallback(
+    (value: string) => quarterLabels.labels[value] || value,
+    [quarterLabels],
+  );
   /*
    * 季度字串在畫面與匯出檔上要顯示成什麼樣子。
    * 只換文字：傳進來的 quarter 仍是分組、排序與識別鍵的依據。
@@ -10663,10 +11217,17 @@ export default function DashboardClient({ user }: { user: User }) {
               vehicleClassSettings,
             ),
         },
+        /*
+         * ⚠️ B1：門檻的「季別×路段」覆寫。**可選參數、放在最後**，
+         *   沒有覆寫時（空陣列）`resolveFactors` 回傳的是原本那個門檻物件
+         *   **本身**（同一個參考），下游每一個比較逐位元不變。
+         */
+        thresholdScopes,
       ),
     [
       activeRecords,
       workflow.thresholds,
+      thresholdScopes,
       pcuFactors,
       turnPcuFactors,
       vehicleClassSettings,
@@ -11632,6 +12193,33 @@ export default function DashboardClient({ user }: { user: User }) {
             value: String(setting.roadPcu ?? 1),
           })),
       ],
+      /*
+       * ── #24-②：報告草稿也要印出季別×路段的覆寫 ───────────────
+       *
+       * ⚠️ 判準與文字都與 Excel 的「PCU係數」工作表**同一套**：
+       *   只列與預設不同的車種、適用範圍用 `pcuScopeLabel`（畫面上那個一模一樣的字）。
+       *   各寫一份的話，同一批覆寫在 Excel 與報告草稿裡會長得不一樣。
+       */
+      factorScopes: pcuScopes
+        .filter((scope) => scope && scope.factors && scope.factors.core)
+        .map((scope) => ({
+          label: pcuScopeLabel(
+            quarterLabel(scope.quarter),
+            scope.roadId,
+            roadNameOf(scope.roadId),
+          ),
+          changes: CORE_VEHICLE_KEYS.filter(
+            (key) => scope.factors.core[key] !== pcuFactors[key],
+          ).map((key) => ({
+            label: coreVehicleLabels[key],
+            value: String(scope.factors.core[key]),
+          })),
+        })),
+      /*
+       * ⚠️ B2：歸類不一致的說明走**同一份來源**（chartClassificationLines），
+       *   與畫面上的標註、Excel 的「車種歸類提醒」欄逐字相同。
+       */
+      classificationChanges: chartClassificationLines,
       intersectionNote: hasIntersectionRecords
         ? `本範圍含路口格式資料，路口幾何與轉向當量設定會影響 PCU 換算結果。`
         : "",
@@ -11666,6 +12254,8 @@ export default function DashboardClient({ user }: { user: User }) {
     roadOptions,
     hasIntersectionRecords,
     intersectionFlowLabel,
+    /* ⚠️ B2：歸類變更的說明要進報告草稿，所以它變了草稿就要重算。 */
+    chartClassificationLines,
     roadRows,
     intersectionOnlyRows,
     filtered,
@@ -11703,6 +12293,10 @@ export default function DashboardClient({ user }: { user: User }) {
     trendMetricName,
     trendUnit,
     draftCoverageNote,
+    /* #24-②：報告草稿的「季別×路段專屬覆寫」要跟著覆寫與路名一起重算。 */
+    pcuScopes,
+    quarterLabel,
+    roadNameOf,
   ]);
   const generatedDraft = useMemo(
     () => buildReportDraft(reportDraftContext, draftSections),
@@ -12568,10 +13162,16 @@ export default function DashboardClient({ user }: { user: User }) {
                 `這不會阻擋匯入；匯入後到「資料維護 → 執行資料異常檢查」可以指定哪一個才是調查日期。`,
             ),
           /*
-           * ⚠️ 調查格距超過 1 小時：**提醒，不阻擋**（使用者 2026-09-24）。
+           * ⚠️ 調查格距超過 1 小時：**擋下匯入**（使用者 2026-09-30 改的裁示）。
            *
-           *   「不可能出現 2 小時以上類型的調查資料，那反而要列為異常，
-           *     系統應該匯入時會提示，以及列入資料異常清單裡吧」
+           *   2026-09-24 的原話是「系統應該匯入時會提示，以及列入資料異常清單裡吧」
+           *   ——那一版做成「提醒、不阻擋」。
+           *   2026-09-30 她改了：「時間格超過 1 小時的異常，跳出視窗後，
+           *   **請直接阻止檔案匯入**，視窗告知**本程式不支援超過 1 小時的時段**」。
+           *
+           *   ⚠️ 真正的阻擋在 `longIntervalMessage`（確認鈕停用 ＋ 紅底說明）。
+           *   這一段只是檢核報告裡的逐檔說明，兩邊的判準共用
+           *   `longIntervalBlock()` 的同一條規則（> 60 分鐘）。
            *
            * ⚠️ 逐格看，不取眾數：48 格裡有 1 格誤植成 2 小時的話眾數仍然是
            *   60，那一格會被蓋掉——而那正是最需要被抓出來的情形。
@@ -12580,37 +13180,10 @@ export default function DashboardClient({ user }: { user: User }) {
            *   這種調查時段標示，掃文字會整批誤報。
            */
           ...(function () {
-            const byFile = new Map<string, Map<number, number>>();
-            for (const record of parsed) {
-              const range = parseTimeRange(String(record.hour ?? ""));
-              if (!range) continue;
-              const minutes = range.end - range.start;
-              if (minutes <= 60 || minutes > 24 * 60) continue;
-              const where =
-                (record.sourceFileName || "原始檔") +
-                (record.sourceSheetName ? `【${record.sourceSheetName}】` : "");
-              const bucket = byFile.get(where) ?? new Map<number, number>();
-              bucket.set(minutes, (bucket.get(minutes) ?? 0) + 1);
-              byFile.set(where, bucket);
-            }
-            return [...byFile.entries()].map(([where, lengths]) => {
-              const parts = [...lengths.entries()]
-                .sort((a, b) => b[0] - a[0])
-                .map(([minutes, n]) =>
-                  Number.isInteger(minutes / 60)
-                    ? `${minutes / 60} 小時 × ${n} 格`
-                    : `${minutes} 分鐘 × ${n} 格`,
-                );
-              return (
-                `「${where}」有時間格長度超過 1 小時（${parts.join("、")}）。` +
-                "交通量調查以 1 小時一格為主、細一點是 15／20／30 分鐘，" +
-                "不會有 2 小時以上一格的調查，這多半是時間欄位誤植——" +
-                "例如把「07:00～08:00」打成「07:00～09:00」。" +
-                "這不會阻擋匯入，也不會改任何數值，但它會影響單位（一格 2 小時" +
-                "的量標成「輛/小時」會高估一倍，本系統一律照實際格距標示）。" +
-                "匯入後到「資料維護 → 執行資料異常檢查」也會列出這一項。"
-              );
-            });
+            const message = longIntervalBlock(parsed);
+            return message
+              ? [`有時間格長度超過 1 小時，這一批會被擋下來。\n${message}`]
+              : [];
           })(),
           ...sourceCellWarnings,
           ...armAuditWarnings,
@@ -12665,6 +13238,9 @@ export default function DashboardClient({ user }: { user: User }) {
   async function confirmPendingImport(noonResolved = false) {
     if (!pendingImport) return;
     if (!importQuarterKey) return setToast("請先填寫資料季度（例如 115Q2）。");
+    // Every entry into the writer (including the noon-resolution continuation)
+    // must enforce the same rule as the disabled preview button.
+    if (longIntervalMessage) return setToast(longIntervalMessage);
     /*
      * ── 使用者在確認視窗裡把季別改掉了 ──────────────────────
      *
@@ -12691,8 +13267,92 @@ export default function DashboardClient({ user }: { user: User }) {
      *   那是解析當下算的。使用者改完季別之後，舊的比對結果會說
      *   「日期和 114Q2 不符」，而他已經改成 114Q3 了，訊息是錯的。
      */
+    /*
+     * ── 混批一律擋死，而且要擋在二次確認**之前** ──────────────────
+     *
+     * ⚠️ 順序不可以顛倒。放在二次確認後面的話，使用者會先看到
+     *   「按確定＝我確認無誤，仍要以這個期別匯入」，按了確定才被擋下來——
+     *   那等於讓他先做一個不存在的選擇，再告訴他那個選擇無效。
+     *
+     * ⚠️ 這是 setToast 而不是 confirm：混批沒有「確認無誤」這個選項。
+     *   確認鈕那一層已經停用了，走不到這裡；這一道是防「有別的路徑進來」。
+     */
+    if (mixedPeriodMessage) return setToast(mixedPeriodMessage);
     const prompt = periodMismatchPrompt(livePeriodChecks);
     if (prompt && !confirm(prompt)) return;
+    /*
+     * ── 覆蓋前的日期把關（使用者 2026-09-29 的擔心）─────────────────
+     *
+     * 「115Q1 檔案編號 T15-01，115Q4 檔案編號也是 T15-01，後者資料卻覆蓋掉了
+     *   前者，但明明檔案裡面顯示的是不同監測日期」。
+     *
+     * ⚠️ 擋在 setBusy(true) 與任何 API 寫入**之前**。
+     *   放在合併 afterRecords 那一段就太晚了——檔案已經上傳進去了。
+     * ⚠️ 判準與文案都在 app/period-date.ts 的 overwriteDateConflictPrompt()，
+     *   三支共用同一套字，這裡只負責把「舊日期 vs 新日期」湊出來。
+     * ⚠️ 要用**改過季別之後**的 quarter 去算身分鍵，不可以用
+     *   pendingImport.parsedQuarter——那是解析當下的季別，使用者改完之後
+     *   拿舊季別算出來的鍵撞不到任何既有資料，這一道就會安靜地永遠不觸發。
+     * ⚠️ 舊日期走 effectiveSurveyDate()（畫面上顯示的那一個）。
+     * ⚠️ 同一組（項目・舊日期・新日期）只列一次，最多列 8 組。
+     */
+    {
+      const incoming = pendingImport.records.map((record) => ({
+        ...record,
+        quarter: importQuarterKey,
+      }));
+      const existingByKey = new Map(
+        activeRecords.map((record) => [trafficIdentity(record), record]),
+      );
+      const rawConflicts = incoming.flatMap((record) => {
+        const old = existingByKey.get(trafficIdentity(record));
+        if (!old) return [];
+        return [
+          {
+            label: [
+              record.quarter,
+              record.roadName || record.roadId || "",
+              record.dayType || "",
+            ]
+              .filter(Boolean)
+              .join("・"),
+            oldDate: effectiveSurveyDate(old, workflow.surveyDateOverrides),
+            newDate: effectiveSurveyDate(record, workflow.surveyDateOverrides),
+          },
+        ];
+      });
+      const isConflict = (item: { oldDate?: string; newDate?: string }) => {
+        const oldDate = String(item.oldDate ?? "").trim();
+        const newDate = String(item.newDate ?? "").trim();
+        return Boolean(oldDate) && Boolean(newDate) && oldDate !== newDate;
+      };
+      const seenConflict = new Set<string>();
+      const unique: typeof rawConflicts = [];
+      for (const item of rawConflicts.filter(isConflict)) {
+        const key = [item.label, item.oldDate, item.newDate].join("\u0000");
+        if (seenConflict.has(key)) continue;
+        seenConflict.add(key);
+        unique.push(item);
+      }
+      if (unique.length) {
+        const shown = unique.slice(0, 8);
+        const hidden = unique.length - shown.length;
+        const message = overwriteDateConflictPrompt(
+          shown,
+          "（若仍要蓋掉：被蓋掉的舊資料會存成一個還原點，" +
+            "事後可以到「資料產出與維護 → 還原點」復原。）",
+        );
+        if (
+          !confirm(
+            message +
+              (hidden > 0
+                ? "\n（另外還有 " + hidden + " 組同樣的情形沒有列出）"
+                : ""),
+          )
+        )
+          return;
+      }
+    }
     /*
      * ── 橫跨中午的尖峰小時：寫入前先問 ──────────────────────
      *
@@ -13022,6 +13682,7 @@ export default function DashboardClient({ user }: { user: User }) {
     projectId: string;
     records: TrafficRecord[];
     pcuScopes: PcuScopes;
+    thresholdScopes: ThresholdScopes;
     pcuFactors: PcuFactors;
     turnPcuFactors: TurnPcuFactors;
     roadAliases: RoadAlias[];
@@ -13053,6 +13714,7 @@ export default function DashboardClient({ user }: { user: User }) {
        *   讀到的就是預設係數——不會因為新增了覆寫而讀出奇怪的值。
        */
       pcuScopes: input.pcuScopes,
+      thresholdScopes: input.thresholdScopes,
       vehicleClassSettings: vehicleClassSettings
         .filter((setting) => setting.projectId === input.projectId)
         .map(({ projectId: _projectId, ...setting }) => setting),
@@ -13186,6 +13848,7 @@ export default function DashboardClient({ user }: { user: User }) {
         projectId: activeProject,
         records: activeRecords,
         pcuScopes,
+        thresholdScopes,
         /* 目前畫面上的這個計畫：state 裡的就是它自己的係數。 */
         pcuFactors,
         turnPcuFactors,
@@ -13254,6 +13917,7 @@ export default function DashboardClient({ user }: { user: User }) {
             projectId: project.id,
             records: allRows.filter((row) => row.projectId === project.id),
             pcuScopes: readProjectPcuScopes(project.id),
+            thresholdScopes: readProjectThresholdScopes(project.id),
             /*
              * ⚠️ 一定要逐計畫讀，不可以用畫面上的 pcuFactors／turnPcuFactors。
              *   用 state 的話每一份 bundle 都會是**目前這個計畫**的係數。
@@ -13403,6 +14067,7 @@ export default function DashboardClient({ user }: { user: User }) {
         pcuFactors?: PcuFactors;
         turnPcuFactors?: TurnPcuFactors;
         pcuScopes?: unknown;
+        thresholdScopes?: unknown;
         vehicleClassSettings?: Omit<VehicleClassSetting, "projectId">[];
         roadAliases?: RoadAlias[];
         intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];
@@ -13511,6 +14176,14 @@ export default function DashboardClient({ user }: { user: User }) {
           ? ((bundle.pcuScopes as unknown[]).filter(isValidScope) as PcuScopes)
           : [],
       );
+      const restoredThresholdScopes = Array.isArray(bundle.thresholdScopes)
+        ? bundle.thresholdScopes.filter(isValidThresholdScope) as ThresholdScopes
+        : [];
+      if (!writeProjectThresholdScopes(newId, restoredThresholdScopes))
+        allRestoreWarnings.push(`「${baseName}」的門檻覆寫未存入瀏覽器`);
+      if (Array.isArray(bundle.thresholdScopes) &&
+          restoredThresholdScopes.length !== bundle.thresholdScopes.length)
+        allRestoreWarnings.push(`「${baseName}」有格式不正確的門檻覆寫，已略過（那些範圍沿用計畫預設門檻）`);
       if (bundle.conclusionTemplates?.length)
         writeConclusionTemplates(newId, bundle.conclusionTemplates);
       if (bundle.workflow) await saveWorkflow(newId, bundle.workflow);
@@ -13562,6 +14235,7 @@ export default function DashboardClient({ user }: { user: User }) {
         turnPcuFactors?: TurnPcuFactors;
         /* 依季別／路段的係數覆寫；舊備份沒有這個欄位。 */
         pcuScopes?: unknown;
+        thresholdScopes?: unknown;
         vehicleClassSettings?: Omit<VehicleClassSetting, "projectId">[];
         roadAliases?: RoadAlias[];
         intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];
@@ -13912,6 +14586,17 @@ export default function DashboardClient({ user }: { user: User }) {
         restoreWarnings.push(
           `備份中有 ${droppedScopes} 組依季別／路段的係數格式不正確，已略過（那些範圍會套用計畫預設係數）`,
         );
+      // Old backups have no scopes: clear the destination's old overrides,
+      // rather than retaining settings that were never in the backup.
+      const restoredThresholdScopes = Array.isArray(payload.thresholdScopes)
+        ? payload.thresholdScopes.filter(isValidThresholdScope) as ThresholdScopes
+        : [];
+      setThresholdScopes(restoredThresholdScopes);
+      if (!writeProjectThresholdScopes(targetProjectId, restoredThresholdScopes))
+        restoreWarnings.push("依季別／路段的門檻覆寫未存入瀏覽器");
+      if (Array.isArray(payload.thresholdScopes) &&
+          restoredThresholdScopes.length !== payload.thresholdScopes.length)
+        restoreWarnings.push("備份中有格式不正確的門檻覆寫，已略過（那些範圍沿用計畫預設門檻）");
       if (payload.vehicleClassSettings) {
         const next = [
           ...vehicleClassSettings.filter(
@@ -14889,13 +15574,49 @@ export default function DashboardClient({ user }: { user: User }) {
           PCU係數: setting.roadPcu,
         })),
     );
-    const classRows = vehicleClassSettings
-      .filter((setting) => setting.projectId === activeProject)
-      .map((setting) => ({
-        原始車種: setting.sourceLabel,
-        分析歸類: setting.targetLabel,
-        是否合併: setting.targetKey === setting.sourceKey ? "否" : "是",
-      }));
+    /*
+     * ── B2：車種歸類的季別／路段覆寫在匯出檔裡也要看得出來（2026-09-30）──
+     *
+     * ⚠️ **沒有任何覆寫時，這兩欄不會出現**，匯出檔與改版前逐位元相同
+     *   （使用者 2026-09-30：「車種歸類沒使用上時 就照原本正常功能去走」）。
+     * ⚠️ 有覆寫卻不印這兩欄的話，匯出檔裡會出現兩列「原始車種＝小貨車」
+     *   而看不出差別在哪——那比不印更糟，因為它看起來像重複資料。
+     */
+    const projectClassSettings = vehicleClassSettings.filter(
+      (setting) => setting.projectId === activeProject,
+    );
+    const hasClassScope = projectClassSettings.some(
+      (setting) =>
+        String(setting.quarter ?? "").trim() || String(setting.roadId ?? "").trim(),
+    );
+    const classRows = projectClassSettings.map((setting) => ({
+      原始車種: setting.sourceLabel,
+      分析歸類: setting.targetLabel,
+      是否合併: setting.targetKey === setting.sourceKey ? "否" : "是",
+      ...(hasClassScope
+        ? {
+            套用季別: String(setting.quarter ?? "").trim()
+              ? showQuarter(String(setting.quarter))
+              : "全季別",
+            套用路段: String(setting.roadId ?? "").trim()
+              ? roadNameOf(String(setting.roadId)) || String(setting.roadId)
+              : "全路段",
+          }
+        : {}),
+    }));
+    /*
+     * ── B2：歸類不一致時，說明寫在**一旁的欄位**（使用者 2026-09-30 指定）──
+     *
+     * 原話：「匯出成 excel 時，可以改為說明行寫在一旁欄位上」。
+     * ⚠️ 逐列都寫同一句是刻意的：Excel 的一列被排序或篩選之後，
+     *   只寫在第一列的備註就跟它要提醒的那些數字分開了。
+     * ⚠️ 沒有不一致時**整欄不加**，匯出檔與改版前相同。
+     */
+    const classificationNote = chartClassificationLines.join("　");
+    const withClassNote = <T extends Record<string, unknown>>(rows: T[]) =>
+      classificationNote
+        ? rows.map((row) => ({ ...row, 車種歸類提醒: classificationNote }))
+        : rows;
     const flowSettingRows = effectiveIntersectionSettings.map((setting) => ({
       路口編號: setting.roadId,
       來源支線: `路口${setting.directionCode}`,
@@ -14926,8 +15647,8 @@ export default function DashboardClient({ user }: { user: User }) {
     add("current", roadDetails, "路段本季明細");
     add("current", intersectionDetails, `路口${intersectionFlowLabel}明細`);
     add("history", historicalDailyExport, "歷季全日交通量");
-    add("composition", comp, "歷季車種組成");
-    add("composition", directionComp, "方向別車種組成");
+    add("composition", withClassNote(comp), "歷季車種組成");
+    add("composition", withClassNote(directionComp), "方向別車種組成");
     /*
      * 這一張以前是把 dayComparisons 直接丟給 json_to_sheet，而它是 React
      * 狀態物件，欄名就是程式碼裡的屬性名——匯出的 .xls 標題列會是
@@ -15089,6 +15810,13 @@ export default function DashboardClient({ user }: { user: User }) {
       const wb = new ExcelJS.Workbook();
       wb.creator = "全日交通量及車種組成";
       wb.calcProperties.fullCalcOnLoad = true;
+      const classificationNote = chartClassificationLines.join("　");
+      const projectClassSettings = vehicleClassSettings.filter(
+        (setting) => setting.projectId === activeProject,
+      );
+      const hasClassScope = projectClassSettings.some(
+        (setting) => String(setting.quarter ?? "").trim() || String(setting.roadId ?? "").trim(),
+      );
       const header = (row: ExcelJsRow) =>
         row.eachCell((cell: ExcelJsCell) => {
           cell.fill = {
@@ -15702,6 +16430,7 @@ export default function DashboardClient({ user }: { user: User }) {
         "調查涵蓋",
         ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（輛）`),
         ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（%）`),
+        ...(classificationNote ? ["車種歸類提醒"] : []),
       ]);
       historicalCompositionRows.forEach((r, i) => {
         const row = hc.addRow([
@@ -15725,11 +16454,14 @@ export default function DashboardClient({ user }: { user: User }) {
               result: r.vehiclePct[vehicle.key] ?? 0,
             }),
         );
+        if (classificationNote)
+          row.getCell(HC_LEAD_COLUMNS + analysisVehicleCatalog.length * 2 + 1).value = classificationNote;
       });
       hc.columns = [
         ...[12, 10, 16, 36, 26],
         ...analysisVehicleCatalog.map(() => 17),
         ...analysisVehicleCatalog.map(() => 14),
+        ...(classificationNote ? [80] : []),
       ].map((width) => ({ width }));
       header(hc.getRow(1));
       analysisVehicleCatalog.forEach(
@@ -15740,8 +16472,46 @@ export default function DashboardClient({ user }: { user: User }) {
       );
       hc.autoFilter = {
         from: "A1",
-        to: `${colName(HC_LEAD_COLUMNS + analysisVehicleCatalog.length * 2)}${historicalCompositionRows.length + 1}`,
+        to: `${colName(HC_LEAD_COLUMNS + analysisVehicleCatalog.length * 2 + (classificationNote ? 1 : 0))}${historicalCompositionRows.length + 1}`,
       };
+      if (classificationNote)
+        hc.getColumn(HC_LEAD_COLUMNS + analysisVehicleCatalog.length * 2 + 1).alignment = { wrapText: true, vertical: "top" };
+      if (hasClassScope) {
+        const classSheet = wb.addWorksheet("車種歸類設定");
+        classSheet.addRow(["原始車種", "分析歸類", "是否合併", "套用季別", "套用路段", "一般PCU", "直行", "右轉", "左轉"]);
+        for (const setting of projectClassSettings)
+          classSheet.addRow([
+            setting.sourceLabel, setting.targetLabel,
+            setting.targetKey === setting.sourceKey ? "否" : "是",
+            setting.quarter ? showQuarter(setting.quarter) : "全季別",
+            setting.roadId ? roadNameOf(setting.roadId) : "全路段",
+            setting.targetKey === setting.sourceKey ? setting.roadPcu : `使用${setting.targetLabel}係數`,
+            ...(["through", "right", "left"] as TurnKey[]).map((turn) =>
+              setting.targetKey === setting.sourceKey ? setting.turnPcu[turn] : `使用${setting.targetLabel}係數`),
+          ]);
+        classSheet.columns = [20, 20, 12, 18, 28, 24, 24, 24, 24].map((width) => ({ width }));
+        header(classSheet.getRow(1));
+      }
+      if (classificationNote) {
+        const directionSheet = wb.addWorksheet("方向別車種組成");
+        directionSheet.addRow(["日別", "調查點", "方向",
+          ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（輛）`),
+          ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（%）`),
+          "車種歸類提醒"]);
+        for (const r of compositionExportRows) {
+          const total = Object.values(r.vehicles).reduce((sum, value) => sum + value, 0);
+          directionSheet.addRow([r.dayType, r.roadName, r.directionName,
+            ...analysisVehicleCatalog.map((vehicle) => r.vehicles[vehicle.key] ?? 0),
+            ...analysisVehicleCatalog.map((vehicle) => total ? (r.vehicles[vehicle.key] ?? 0) / total : 0),
+            classificationNote]);
+        }
+        directionSheet.columns = [12, 28, 24, ...analysisVehicleCatalog.map(() => 17),
+          ...analysisVehicleCatalog.map(() => 14), 80].map((width) => ({ width }));
+        analysisVehicleCatalog.forEach((_, index) =>
+          directionSheet.getColumn(4 + analysisVehicleCatalog.length + index).numFmt = "0.0%");
+        directionSheet.getColumn(4 + analysisVehicleCatalog.length * 2).alignment = { wrapText: true, vertical: "top" };
+        header(directionSheet.getRow(1));
+      }
       const hct = wb.addWorksheet("歷季組成圖表資料", {
         views: [{ state: "frozen", ySplit: 1 }],
       });
@@ -15807,7 +16577,50 @@ export default function DashboardClient({ user }: { user: User }) {
       header(hourlySheet.getRow(1));
       hourlySheet.getColumn(4).numFmt = "#,##0.0";
       const factors = wb.addWorksheet("PCU係數");
-      factors.addRow(["原始車種", "分析歸類", "目前套用一般PCU係數", "說明"]);
+      /*
+       * ══════════════════════════════════════════════════════════════
+       *  #24：這張表原本只印「計畫預設那一組」，沒有印季別×路段的覆寫
+       * ══════════════════════════════════════════════════════════════
+       *
+       * 使用者 2026-09-29 的判斷（原話）：「這問題是指如果使用者更動了係數，
+       * 但 excel 顯示的卻是預設係數嗎? 如果是這樣，請你修正，
+       * 不然使用者會以為這份 excel 是計算錯誤的」。
+       *
+       * ⚠️ 症狀正是這樣：表上的**數字**是拿覆寫算的（`pcuScopes` 有傳進計算），
+       *   但這張「PCU係數」表只印 `pcuFactors`（計畫預設），標題還寫
+       *   「**目前套用**一般PCU係數」。使用者拿這張表回推就是對不起來，
+       *   而他會得到一個錯的結論：**這份 Excel 算錯了**。
+       *   ——數字沒有錯，是「說明係數的那張表」不完整。
+       *
+       * ⚠️ 刻意**不改任何數值**，只把覆寫補印出來，並在有覆寫時把
+       *   「目前套用」這個說法改掉（有覆寫的時候，預設那一組就不是「目前套用」的）。
+       */
+      const exportedScopes = pcuScopes.filter(
+        (scope) => scope && scope.factors && scope.factors.core,
+      );
+      factors.addRow([
+        "原始車種",
+        "分析歸類",
+        exportedScopes.length ? "計畫預設一般PCU係數" : "目前套用一般PCU係數",
+        "說明",
+      ]);
+      if (exportedScopes.length)
+        factors.addRow([
+          "⚠️ 注意",
+          "",
+          "",
+          /*
+           * ⚠️ 這一格會原樣印進 Excel，不是網頁——
+           *   Markdown 的 ** 粗體會變成使用者看得到的星號
+           *   （tests/plaintext-markup.test.mjs 守這一條）。要強調用「」。
+           * ⚠️ 也不可以寫「下面」「本表最後」這種位置代稱：
+           *   欄位一改順序就變成錯的指路（tests/wording.test.mjs 守這一條）。
+           *   一律用那個段落自己的名字。
+           */
+          `本計畫另有 ${exportedScopes.length} 組「季別×路段」專屬覆寫。`
+            + "表中的數字是「依覆寫」算出來的；拿「計畫預設」那幾列回推會對不上，"
+            + "那不是計算錯誤。請對照本表的『季別×路段專屬覆寫』段落。",
+        ]);
       CORE_VEHICLE_KEYS.forEach((key) =>
         factors.addRow([
           coreVehicleLabels[key],
@@ -15834,6 +16647,50 @@ export default function DashboardClient({ user }: { user: User }) {
               : `合併至${setting.targetLabel}`,
           ]),
         );
+      /*
+       * ── 季別×路段專屬覆寫，逐組印出來 ─────────────────────────────
+       *
+       * ⚠️ 適用範圍要用**畫面上那個一模一樣的字**（`pcuScopeLabel`），
+       *   使用者才對得上他在「當量係數設定」看到的那一列。
+       *   自己再組一句「115Q2 的某路段」就是第二種寫法，兩邊一定會漂移。
+       * ⚠️ 覆寫只列**與預設不同**的車種，全部列出來反而看不出改了哪一個。
+       */
+      if (exportedScopes.length) {
+        factors.addRow(["", "", "", ""]);
+        factors.addRow([
+          "季別×路段專屬覆寫",
+          "",
+          "",
+          /* ⚠️ 不可以寫「上面的計畫預設」——用段落自己的名字，欄位換順序才不會說錯。 */
+          "這個段落列出的各組會蓋掉『計畫預設』那幾列。表中的數字就是依這些覆寫算出來的。",
+        ]);
+        for (const scope of exportedScopes) {
+          const label = pcuScopeLabel(
+            quarterLabel(scope.quarter),
+            scope.roadId,
+            roadNameOf(scope.roadId),
+          );
+          const changed = CORE_VEHICLE_KEYS.filter(
+            (key) => scope.factors.core[key] !== pcuFactors[key],
+          );
+          if (!changed.length) {
+            factors.addRow([
+              label,
+              "",
+              "",
+              "這一組的一般PCU係數與計畫預設相同（可能只改了轉向當量）。",
+            ]);
+            continue;
+          }
+          for (const key of changed)
+            factors.addRow([
+              label,
+              coreVehicleLabels[key],
+              scope.factors.core[key],
+              `覆寫（計畫預設是 ${pcuFactors[key]}）`,
+            ]);
+        }
+      }
       factors.addRows([
         [
           "計算說明",
@@ -16147,9 +17004,9 @@ export default function DashboardClient({ user }: { user: User }) {
           ],
           /* v20.59 新增「圖表說明」：它是歷季趨勢那張圖的講稿，歸在同一組。 */
           history: ["歷季趨勢", "圖表說明", "歷季全日交通量"],
-          composition: ["目前車種組成", "歷季車種組成", "歷季組成圖表資料"],
+          composition: ["目前車種組成", "歷季車種組成", "歷季組成圖表資料", "方向別車種組成"],
           hourly: ["每小時趨勢"],
-          settings: ["路口轉向PCU係數", "路口駛出對應", "PCU係數"],
+          settings: ["路口轉向PCU係數", "路口駛出對應", "PCU係數", "車種歸類設定"],
           trace: ["原始來源追溯", "匯入與版本紀錄", "品質檢核"],
           charts: ["可編輯圖表"],
         };
@@ -16349,6 +17206,7 @@ export default function DashboardClient({ user }: { user: User }) {
           title: "歷季各調查點、各日別車種組成比例趨勢（%）",
           categories: `'歷季組成圖表資料'!$A$2:$A$${nct}`,
           type: "line",
+          valueFormat: "0.0%",
           series: trendVehicleSeries,
         },
         {
@@ -16644,14 +17502,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/全日交通流量程式手冊_v20.89.pdf"
+                  href="./manuals/全日交通流量程式手冊_v20.94.pdf"
                   /*
                    * ⚠️ download 一定要**帶檔名**，不可以只寫 `download`。
                    *   沒給值時瀏覽器是從網址推檔名的；單檔試用版把手冊嵌成
                    *   data: URI，那種網址裡沒有檔名，使用者拿到的就會是「下載」。
                    *   （使用者 2026-09-14 實際回報過。）
                    */
-                  download="全日交通流量程式手冊_v20.89.pdf"
+                  download="全日交通流量程式手冊_v20.94.pdf"
                 >
                   下載新手手冊
                 </a>
@@ -18438,6 +19296,11 @@ export default function DashboardClient({ user }: { user: User }) {
                     ["flowView", "peakScope", "metric"],
                     "這張圖畫的是整個調查點的合計占比：兩種路口視角的總計相同；主工具列選了尖峰時段時，這裡一律以「整個調查點同一時段」挑那一小時（不依各方向各自認定）；而且它本來就同時給輛數與百分比，不隨「顯示數值」變。",
                   )}
+                  {/* ⚠️ B2：歸類在這張圖的期間內不一致時要明白標出來（畫布外，圖檔不受影響）。 */}
+                  <ClassificationChangeBanner
+                    lines={chartClassificationLines}
+                    chartId="composition"
+                  />
                   <div className="panel-title composition-heading">
                     <div>
                       <span>車種組成</span>
@@ -19011,6 +19874,13 @@ export default function DashboardClient({ user }: { user: User }) {
                         請在上方的「路段／路口」只選那一個。
                       </p>
                     )}
+                    {/* ⚠️ B2：歸類在這段期間內不一致時要明白標出來。
+                        歷季趨勢是整個 B2 最危險的那一張圖——歸類換了，
+                        線會動，而車流一輛都沒變。放在畫布**上方**、畫布外面。 */}
+                    <ClassificationChangeBanner
+                      lines={chartClassificationLines}
+                      chartId="trend"
+                    />
                     <ProfessionalLineChart
                       rows={trendRows}
                       /* 這張圖畫的是 trendRows（依 trendMode），單位要跟著它。 */
@@ -20767,13 +21637,70 @@ export default function DashboardClient({ user }: { user: User }) {
                   id="quality-thresholds"
                 >
                   <h3>異常提醒門檻</h3>
+                  {/*
+                   * ── B1：門檻可以依「季別×路段」覆寫（使用者 2026-09-30 裁示）──
+                   *
+                   * ⚠️ 預設停在「全季別 × 全路段」＝改版前的行為；
+                   *   使用者不碰這兩個下拉，這個功能對他完全不存在。
+                   * ⚠️ 與 PCU 那一組用**同一個元件與同一份選單來源**。
+                   */}
+                  <div
+                    className="factor-scope-picker"
+                    data-testid="threshold-scope"
+                  >
+                    <label>
+                      套用季別
+                      <select
+                        value={thresholdScopeQuarter}
+                        onChange={(event) =>
+                          setThresholdScopeQuarter(event.target.value)
+                        }
+                        disabled={!activeProject}
+                      >
+                        <option value={SCOPE_ANY}>全季別</option>
+                        {scopeQuarterOptions.map((quarter) => (
+                          <option key={quarter} value={quarter}>
+                            {quarterLabel(quarter)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      套用路段
+                      <select
+                        value={thresholdScopeRoadId}
+                        onChange={(event) =>
+                          setThresholdScopeRoadId(event.target.value)
+                        }
+                        disabled={!activeProject}
+                      >
+                        <option value={SCOPE_ANY}>全路段</option>
+                        {scopeRoadOptions.map((road) => (
+                          <option key={road.roadId} value={road.roadId}>
+                            {road.roadName || road.roadId}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p
+                      className="factor-scope-state"
+                      data-testid="threshold-scope-state"
+                    >
+                      {thresholdScopeQuarter === SCOPE_ANY &&
+                      thresholdScopeRoadId === SCOPE_ANY
+                        ? "目前編輯的是全計畫預設門檻：所有季別、所有路段都套用這一組。"
+                        : ownThresholdScope
+                          ? `「${pcuScopeLabel(quarterLabel(thresholdScopeQuarter), thresholdScopeRoadId, roadNameOf(thresholdScopeRoadId))}」有自己的專屬門檻，與其他範圍不同。`
+                          : `「${pcuScopeLabel(quarterLabel(thresholdScopeQuarter), thresholdScopeRoadId, roadNameOf(thresholdScopeRoadId))}」目前沿用上層門檻；下面顯示的是它現在生效的值，輸入有效數值就會建立這一格的專屬設定並自動保存。`}
+                    </p>
+                  </div>
                   <p
                     className="chart-inapplicable"
                     data-testid="chart-inapplicable"
                     data-inapplicable="all"
                     data-inapplicable-always="1"
                   >
-                    這一塊不受主工具列條件影響：門檻是整個計畫共用的設定，不屬於某一季或某一個調查點。
+                    這一塊不受主工具列條件影響：要改哪一格的門檻，請用這一塊自己的「套用季別」與「套用路段」指定，不是跟著主工具列走。預設是全計畫共用一組；指定了季別或路段之後，那一格才會有自己的門檻。
                   </p>
                   <p className="help">
                     改了門檻之後要重新按一次「執行資料異常檢查」，檢查結果才會跟著換。
@@ -20781,32 +21708,65 @@ export default function DashboardClient({ user }: { user: User }) {
                   <div className="threshold-grid">
                     {(
                       [
-                        ["全日量變動警示（%）", "dailyChangePct", "any"],
-                        ["PCU變動警示（%）", "pcuChangePct", "any"],
-                        ["車種占比變動（百分點）", "vehicleShareChangePct", "any"],
-                        ["尖峰位移（小時）", "peakShiftHours", "any"],
-                        ["零流量時段上限", "zeroHourLimit", "1"],
+                        ["dailyChangePct", "any"],
+                        ["pcuChangePct", "any"],
+                        ["vehicleShareChangePct", "any"],
+                        ["peakShiftHours", "any"],
+                        ["zeroHourLimit", "1"],
                       ] as const
-                    ).map(([label, key, step]) => (
+                    ).map(([key, step]) => (
                       <label key={key}>
-                        {label}
+                        {THRESHOLD_LABELS[key]}
                         {/* ⚠️ 受控數字框一律走 NumberField，理由見 app/number-field.tsx。 */}
                         <NumberField
                           step={step}
-                          value={workflow.thresholds[key]}
-                          onCommit={(next) =>
-                            setWorkflow((previous) => ({
-                              ...previous,
-                              thresholds: {
-                                ...previous.thresholds,
-                                [key]: next,
-                              },
-                            }))
-                          }
+                          value={effectiveThresholds[key]}
+                          onCommit={(next) => changeThreshold(key, next)}
                         />
                       </label>
                     ))}
                   </div>
+                  {ownThresholdScope && (
+                    <div className="factor-actions">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        data-testid="threshold-scope-remove"
+                        onClick={removeThresholdScope}
+                      >
+                        移除這一格的專屬門檻
+                      </button>
+                    </div>
+                  )}
+                  {thresholdScopes.length > 0 && (
+                    <div className="factor-scope-summary">
+                      <strong>目前有專屬門檻的範圍</strong>
+                      <ul>
+                        {thresholdScopes.map((scope) => (
+                          <li key={`${scope.quarter}|${scope.roadId}`}>
+                            <span>
+                              {pcuScopeLabel(
+                                quarterLabel(scope.quarter),
+                                scope.roadId,
+                                roadNameOf(scope.roadId),
+                              )}
+                            </span>
+                            <small>
+                              {THRESHOLD_KEYS.filter(
+                                (key) =>
+                                  scope.factors[key] !== workflow.thresholds[key],
+                              )
+                                .map(
+                                  (key) =>
+                                    `${THRESHOLD_LABELS[key]} ${scope.factors[key]}`,
+                                )
+                                .join("、") || "與計畫預設相同"}
+                            </small>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </section>
                 <section
                   className={focusClass("quality-reasons", "panel")}
@@ -21575,6 +22535,28 @@ export default function DashboardClient({ user }: { user: User }) {
               </p>
             </section>
             {/*
+             * ⚠️ 超過 1 小時的時間格：**擋下整批匯入**（使用者 2026-09-30 裁示）。
+             *   與混批用同一種呈現（紅底說明 ＋ 確認鈕停用），
+             *   使用者已經認得那個樣子，不要再發明第二種。
+             *
+             * ⚠️ 位置很重要：這一塊必須**獨立**於調查日期那一段。
+             *   第一版我把它塞進「調查日期對不上」的條件裡面，結果只有
+             *   日期也對不上時才會顯示——實測畫面上確認鈕停用了、
+             *   卻**沒有任何一句話說明為什麼**。停用而不說原因，
+             *   使用者只會以為程式壞了。（截圖看過才發現的。）
+             */}
+            {longIntervalMessage && (
+              <section
+                className="workflow-warning period-date-alert-bad"
+                data-testid="long-interval-block"
+              >
+                <strong>⚠️ 本程式不支援超過 1 小時的時段</strong>
+                {longIntervalMessage.split("\n").map((line, index) =>
+                  line.trim() ? <p key={index}>{line}</p> : null,
+                )}
+              </section>
+            )}
+            {/*
               調查日期 × 期別。對不起來用紅底，按「確認匯入」時還會再問一次；
               讀不到日期只提醒，不阻擋。
             */}
@@ -21605,10 +22587,44 @@ export default function DashboardClient({ user }: { user: User }) {
                           </small>
                         </p>
                       ))}
-                    <small>
-                      按「確認匯入」時會再問一次；確認無誤才會以你選的季度寫入。
-                    </small>
-                    {importDateSuggestedQuarter && (
+                    {/*
+                     * ⚠️ 混批與「單純對不上」是**兩種不同的結局**，
+                     *   說明文字不可以共用一句。
+                     *   單純對不上 → 二次確認，使用者有一個對的選擇可以做。
+                     *   混批 → **沒有任何一個對的選擇**，確認鈕直接停用。
+                     *   舊版兩種都印「會再問一次」，對混批來說那句是錯的：
+                     *   它會把人帶去按一顆已經停用的按鈕。
+                     */}
+                    {mixedPeriodMessage ? (
+                      <p
+                        className="period-date-mixed"
+                        data-testid="period-date-mixed"
+                      >
+                        <b>
+                          這一批檔案的調查日期指向{" "}
+                          {
+                            new Set(
+                              livePeriodChecks
+                                .filter(
+                                  (item) =>
+                                    item.dateLabel &&
+                                    (item.status === "match" ||
+                                      item.status === "mismatch"),
+                                )
+                                .map((item) => item.dateLabel),
+                            ).size
+                          }{" "}
+                          個不同的期別，「確認{pendingImport.report.mode}
+                          」已停用。
+                        </b>
+                        無論寫進哪一個期別，都一定有一批是錯的，所以這裡沒有「確認無誤」這個選項。請按「取消，資料不變」，把它們分成各自的期別分批匯入。
+                      </p>
+                    ) : (
+                      <small>
+                        按「確認匯入」時會再問一次；確認無誤才會以你選的季度寫入。
+                      </small>
+                    )}
+                    {!mixedPeriodMessage && importDateSuggestedQuarter && (
                       <button
                         className="link-button"
                         data-testid="use-file-quarter"
@@ -21686,6 +22702,19 @@ export default function DashboardClient({ user }: { user: User }) {
                  */}
                 <ImportWarningList items={pendingImport.report.warningItems} />
               </section>
+            ) : longIntervalMessage ? (
+              /*
+               * ⚠️ 這一批正在被擋下來的時候，**不可以**印「未發現異常」。
+               *   截圖看過才發現：紅底寫著「已經擋下來，一筆都沒有寫進去」，
+               *   它下面卻接著一句綠色的「未發現異常……都沒有問題」——
+               *   同一個畫面自己跟自己矛盾，使用者不知道該信哪一句。
+               *   那句話本來的意思是「**其他**檢查沒問題」，所以照實這樣寫。
+               */
+              <p className="workflow-ok" id="importWarnings">
+                <strong>其他檢查沒有問題：</strong>
+                空白、非數字、負值、重複鍵值與24小時缺漏都檢查過了。
+                但這一批因為上面那一項被擋下來，不會寫入。
+              </p>
             ) : (
               <p className="workflow-ok" id="importWarnings">
                 <strong>未發現異常：</strong>
@@ -21721,8 +22750,24 @@ export default function DashboardClient({ user }: { user: User }) {
               >
                 取消，資料不變
               </button>
+              {/*
+               * ⚠️ 混批時這顆鈕要**停用**，不是按下去才擋。
+               *   只擋在寫入路徑的話，使用者要按下去才知道不行——
+               *   而畫面上那顆按鈕看起來是可以按的。
+               *   與路口轉向一致：真的混批 → 按鈕停用 ＋ 紅底說明。
+               *
+               * ⚠️ title 要說得出原因。停用而不說原因，使用者只會以為程式壞了。
+               */}
               <button
                 className="button primary"
+                disabled={Boolean(mixedPeriodMessage) || Boolean(longIntervalMessage)}
+                title={
+                  mixedPeriodMessage
+                    ? "這一批檔案的調查日期指向兩個以上的期別，無論寫進哪一個都一定有一批是錯的。請分成各自的期別分批匯入。"
+                    : longIntervalMessage
+                      ? "這一批有超過 1 小時的時間格，本程式不支援"
+                      : undefined
+                }
                 onClick={() => {
                   void confirmPendingImport();
                 }}
@@ -22828,6 +23873,72 @@ export default function DashboardClient({ user }: { user: User }) {
               0.42，兩邊永遠是同一個數字。要改這幾列請回到外面的 PCU
               當量係數區塊。
             </p>
+            {/*
+             * ── 車種歸類的「套用範圍」（B2，使用者 2026-09-30 裁示）──────────
+             *
+             * ⚠️ 預設停在「全季別 × 全路段」＝改版前的行為。
+             *   使用者不碰這兩個下拉，這個功能對他完全不存在
+             *  （他自己的話：「車種歸類沒使用上時 就照原本正常功能去走」）。
+             *
+             * ⚠️ 與 PCU 係數那一組用**同一個**元件樣式與同一份選單來源，
+             *   兩處長得不一樣的話，使用者會以為是兩種不同的功能。
+             */}
+            <div className="factor-scope-picker" data-testid="vehicle-class-scope">
+              <label>
+                套用季別
+                <select
+                  value={vehicleScopeQuarter}
+                  onChange={(event) =>
+                    changeVehicleScope(event.target.value, vehicleScopeRoadId)
+                  }
+                >
+                  <option value={SCOPE_ANY}>全季別</option>
+                  {scopeQuarterOptions.map((quarter) => (
+                    <option key={quarter} value={quarter}>
+                      {/* ⚠️ 一定要走 quarterLabel()：使用者可以把年份切成西元年。 */}
+                      {quarterLabel(quarter)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                套用路段
+                <select
+                  value={vehicleScopeRoadId}
+                  onChange={(event) =>
+                    changeVehicleScope(vehicleScopeQuarter, event.target.value)
+                  }
+                >
+                  <option value={SCOPE_ANY}>全路段</option>
+                  {scopeRoadOptions.map((road) => (
+                    <option key={road.roadId} value={road.roadId}>
+                      {road.roadName || road.roadId}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="factor-scope-state" data-testid="vehicle-class-scope-state">
+                {vehicleScopeQuarter === SCOPE_ANY &&
+                vehicleScopeRoadId === SCOPE_ANY
+                  ? "目前編輯的是全計畫預設的歸類：所有季別、所有路段都套用這一份。"
+                  : vehicleScopeOwnCount > 0
+                    ? `「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」有 ${vehicleScopeOwnCount} 個車種是自己的專屬歸類，與其他範圍不同。`
+                    : `「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」目前沿用上層的歸類；下面顯示的是它現在生效的內容，改完按套用才會變成這一格的專屬設定（沒改的項目不會被寫成專屬設定）。`}
+              </p>
+              {vehicleScopeChangeLines.length > 0 && (
+                <div
+                  className="vehicle-class-change-warn"
+                  data-testid="vehicle-class-change-warn"
+                >
+                  <b>⚠️ 這個計畫目前的歸類在不同範圍之間不一致：</b>
+                  <ul>
+                    {vehicleScopeChangeLines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
             <div className="vehicle-class-table table-wrap">
               <table>
                 <thead>

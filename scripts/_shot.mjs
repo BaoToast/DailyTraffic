@@ -49,8 +49,16 @@ if(await c.count()){await c.first().click();await page.waitForTimeout(2500);}
 for(let i=0;i<5&&(await page.locator(".modal-backdrop").count());i++){const x=page.locator('.modal-backdrop button:has-text("關閉"), .modal-backdrop button:has-text("取消"), .modal-backdrop button:has-text("套用車種設定")').first();if(!(await x.count()))break;await x.click();await page.waitForTimeout(500);}
 await page.locator(".pcu-settings").scrollIntoViewIfNeeded();
 await page.locator(".pcu-settings").screenshot({path:"/tmp/pcu.png"});
-await page.locator(".panel.road-chart").scrollIntoViewIfNeeded();
-await page.waitForTimeout(400);
-await page.locator(".panel.road-chart").screenshot({path:"/tmp/block.png"});
+/*
+ * ⚠️ 2026-09-30 移除：原本這裡還會截 `.panel.road-chart` 到 /tmp/block.png，
+ *   但那個元素**早就不存在了**（`DashboardClient.tsx` 0 處），版面改版之後
+ *   「路段圖」不再是一個獨立的 .panel.road-chart 區塊。
+ *
+ *   留著的後果不是報錯，是 **scrollIntoViewIfNeeded() 一路等到逾時**——
+ *   跑這一支的人只會看到它卡住，不會知道是選擇器過期了。
+ *   這正是「探針指向不存在的東西」那一類問題：它不會變紅，只會安靜地壞掉。
+ *
+ *   `e2e-period.mjs:397` 的註解也記著同一件事（那邊已經先停用了）。
+ */
 await b.close();server.close();
 console.log("ok");

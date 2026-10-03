@@ -12,7 +12,19 @@
  * 複雜度去換一個他還沒要用的彈性。
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
+
+const workflowSource = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "app", "final-workflow.ts"),
+  "utf8",
+);
+const dashboardSource = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "app", "DashboardClient.tsx"),
+  "utf8",
+);
 import {
   ANY,
   conflictsIn,
@@ -24,6 +36,7 @@ import {
   resolveFactorsWithTier,
   scopeLabel,
   upsertScope,
+  newConflictsAfter,
 } from "../app/factor-scope.ts";
 
 /* 用可辨識的假係數，看得出到底命中了哪一組。 */
@@ -271,4 +284,163 @@ test("F1 範圍標籤要看得懂，而且全系統只有一種寫法", () => {
   assert.equal(scopeLabel("115Q2", ANY), "115Q2 × 全路段");
   assert.equal(scopeLabel(ANY, "R-01"), "全季別 × R-01");
   assert.equal(scopeLabel("115Q2", "R-01", "示範一路口"), "115Q2 × 示範一路口");
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  B3：衝突要在「設定的當下」就問——而且只問**新增的**那幾筆
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-30：「覆寫衝突請改成當下跳確認視窗。」
+ */
+
+test("B3-1 新設定造成新的重疊時，回報那幾筆", () => {
+  const scopes = [
+    { quarter: ANY, roadId: "R1", factors: { core: { car: 1 } } },
+  ];
+  const added = newConflictsAfter(scopes, {
+    quarter: "115Q2",
+    roadId: ANY,
+    factors: { core: { car: 2 } },
+  });
+  assert.equal(added.length, 1);
+  assert.equal(added[0].quarter, "115Q2");
+  assert.equal(added[0].roadId, "R1");
+});
+
+test("B3-2 ★反面：已經存在的舊重疊**不可以**再問一次", () => {
+  /*
+   * ⚠️ 這一條是這個功能最重要的一塊。
+   *   拿「現在一共有幾個重疊」去問的話，使用者每改一次設定
+   *   都會被同一個舊重疊問一次——問到最後一定變成無腦按確定，
+   *   那比不問更糟。
+   */
+  const scopes = [
+    { quarter: ANY, roadId: "R1", factors: { core: { car: 1 } } },
+    { quarter: "115Q2", roadId: ANY, factors: { core: { car: 2 } } },
+  ];
+  /* 這一筆和 R1 無關，不該把舊的 (115Q2, R1) 重疊再報一次 */
+  const added = newConflictsAfter(scopes, {
+    quarter: "115Q3",
+    roadId: "R9",
+    factors: { core: { car: 3 } },
+  });
+  assert.deepEqual(added, [], "把已經存在的舊重疊又報了一次");
+});
+
+test("B3-3 沒有造成重疊時回空陣列（呼叫端不必問）", () => {
+  const added = newConflictsAfter([], {
+    quarter: "115Q2",
+    roadId: "R1",
+    factors: { core: { car: 1 } },
+  });
+  assert.deepEqual(added, []);
+});
+
+test("B3-4 那一格已經有明確設定時不算重疊", () => {
+  /*
+   * (115Q2, R1) 自己有設定 → 使用者已經講清楚了，沒有「不知道用哪一組」的問題。
+   */
+  const scopes = [
+    { quarter: ANY, roadId: "R1", factors: { core: { car: 1 } } },
+    { quarter: "115Q2", roadId: "R1", factors: { core: { car: 9 } } },
+  ];
+  const added = newConflictsAfter(scopes, {
+    quarter: "115Q2",
+    roadId: ANY,
+    factors: { core: { car: 2 } },
+  });
+  assert.deepEqual(added, [], "那一格已經有明確設定，不該算成重疊");
+});
+
+test("B3-5 摘要那一段**不可以**被移除（兩者用途不同）", () => {
+  /*
+   * 確認視窗管「你正在做的這一步」，摘要管「目前整體長什麼樣」。
+   * 拿掉摘要的話，使用者按過確定之後就再也看不到自己有哪些重疊。
+   */
+  assert.match(
+    dashboardSource,
+    /factor-scope-conflict/,
+    "「當下跳確認視窗」不是用來取代摘要的——摘要被拿掉了",
+  );
+  assert.match(
+    dashboardSource,
+    /scopeConflicts\.length \? \(/,
+    "摘要的條件渲染不見了",
+  );
+});
+
+test("B3-6 確認視窗要擋在真的寫入之前", () => {
+  const at = dashboardSource.indexOf("const newConflicts = newScopeConflictsAfter(");
+  const writeAt = dashboardSource.indexOf("const nextScopes = upsertPcuScope(pendingScope");
+  const writeAt2 = dashboardSource.indexOf("const nextScopes = upsertPcuScope(pcuScopes, pendingScope)");
+  assert.ok(at > 0, "前置：找不到新增衝突的判斷");
+  const write = writeAt > 0 ? writeAt : writeAt2;
+  assert.ok(write > at, "確認視窗被排到寫入之後了——那時候已經存進去了");
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  B1：異常門檻的「季別 × 路段」覆寫
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-30 的界線：「可以做，但要記得**不要影響到數值正確性、
+ * 各項功能正常的使用**。」
+ *
+ * 所以這一段**一半是反面**：證明沒有設覆寫時，行為與改版前一模一樣。
+ */
+
+test("B1-1 ★不變量：沒有設覆寫時，門檻物件是**同一個參考**", () => {
+  /*
+   * ⚠️ 這是使用者那句話的機械化版本。回傳同一個參考，
+   *   代表下游的每一個比較都是逐位元相同的——不是「值一樣」，是「就是它」。
+   *   改成回傳複製品的話這一條紅，而且畫面會開始說「這一季有專屬門檻」。
+   */
+  const defaults = { dailyChangePct: 20, pcuChangePct: 20 };
+  assert.equal(resolveFactors(undefined, defaults, "115Q2", "R1"), defaults);
+  assert.equal(resolveFactors(null, defaults, "115Q2", "R1"), defaults);
+  assert.equal(resolveFactors([], defaults, "115Q2", "R1"), defaults);
+});
+
+test("B1-2 設了某一季某一路段，只有那一格變", () => {
+  const defaults = { dailyChangePct: 20 };
+  const loose = { dailyChangePct: 60 };
+  const scopes = [{ quarter: "115Q2", roadId: "R1", factors: loose }];
+  assert.equal(resolveFactors(scopes, defaults, "115Q2", "R1"), loose);
+  /* 其他三格一律回原本那個參考 */
+  assert.equal(resolveFactors(scopes, defaults, "115Q2", "R9"), defaults);
+  assert.equal(resolveFactors(scopes, defaults, "115Q3", "R1"), defaults);
+  assert.equal(resolveFactors(scopes, defaults, "115Q3", "R9"), defaults);
+});
+
+test("B1-3 detectAnomalies 的新參數是**可選、放在最後**", () => {
+  /*
+   * ⚠️ 既有呼叫端一個字都不用改——這一條守的就是那件事。
+   *   把它改成必填、或插在中間，所有呼叫端都要跟著改，
+   *   而漏改的那幾個會拿到錯位的引數（labels 被當成 scopes）。
+   */
+  const at = workflowSource.indexOf("export function detectAnomalies(");
+  assert.ok(at > 0, "前置：找不到 detectAnomalies");
+  const sig = workflowSource.slice(at, workflowSource.indexOf("): AnomalyAlert[] {", at));
+  assert.match(sig, /thresholdScopes\?:/, "新參數不是可選的");
+  assert.ok(
+    sig.lastIndexOf("thresholdScopes") > sig.lastIndexOf("labels:"),
+    "新參數沒有放在最後——插在中間會讓既有呼叫端錯位",
+  );
+});
+
+test("B1-4 ★零流量那一條要用**它自己那一季**的門檻", () => {
+  /*
+   * ⚠️ 零流量的判斷在比較迴圈**外面**（它看的是最後一季自己，不是兩季相比）。
+   *   沿用迴圈裡最後一次的 limits 是錯的——那是「最後一次比較」那一季的，
+   *   不見得等於 latest 那一季。這種錯不會報錯，只會在某些季別用錯門檻。
+   */
+  assert.match(
+    workflowSource,
+    /const latestLimits = latest\s*\?\s*resolveFactors\(/,
+    "零流量那一條沒有自己解析門檻",
+  );
+  assert.doesNotMatch(
+    workflowSource,
+    /latest\.zeros > limits\.zeroHourLimit/,
+    "零流量還在沿用迴圈裡的 limits",
+  );
 });

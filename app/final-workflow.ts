@@ -4,6 +4,7 @@ import {
   parseTimeRange,
 } from "./partial-day.ts";
 import { coverageKeyOf } from "./period-analysis.ts";
+import { resolveFactors, type FactorScope } from "./factor-scope.ts";
 
 export type ReviewStatus = "草稿" | "待確認" | "已確認" | "定稿";
 
@@ -886,7 +887,7 @@ export const ANOMALY_RESOLUTIONS: Record<AnomalyType, AnomalyResolution> = {
    */
   調查格距異常: {
     kind: "人工確認",
-    text: "這一張表的時間格長度超過 1 小時。交通量調查以 1 小時一格為主，細一點是 15、20、30 分鐘一格（2022 年臺灣公路容量手冊 4.5.1.3 還特別建議評估現況根據尖峰 15 分鐘的需求流率；那是建議，不是規定），「不會有 2 小時以上一格的調查」——所以這多半是原始檔的時間欄位誤植，例如把「07:00～08:00」打成「07:00～09:00」。請開原始檔核對那幾格的起訖時間：確實打錯的話更正後重新匯入該季；如果這份資料真的是那樣調查的（例如把兩小時併成一格交上來），按下「已人工確認」即可，下次檢查不再提醒。這一項不阻擋匯入。⚠️ 但「時段車種分析」的尖峰三格（上午／下午／全調查時段尖峰）會寫「資料不足」——2 小時的量不是一小時的流率，系統不會拿它冒充。「全調查時段」那一格是累計量，照樣寫出來，欄名也照實際格距標示。",
+    text: "這一張表的時間格長度超過 1 小時。交通量調查以 1 小時一格為主，細一點是 15、20、30 分鐘一格（2022 年臺灣公路容量手冊 4.5.1.3 還特別建議評估現況根據尖峰 15 分鐘的需求流率；那是建議，不是規定），「不會有 2 小時以上一格的調查」——所以這多半是原始檔的時間欄位誤植，例如把「07:00～08:00」打成「07:00～09:00」。請開原始檔核對那幾格的起訖時間，更正後重新匯入該季。⚠️ 自 v20.94 起，「匯入時就會擋下超過 1 小時的時間格」（本程式不支援超過 1 小時的時段），所以這一項只會出現在「更早以前匯入」的資料上；要清掉它請更正原始檔後重新匯入該季。⚠️ 但「時段車種分析」的尖峰三格（上午／下午／全調查時段尖峰）會寫「資料不足」——2 小時的量不是一小時的流率，系統不會拿它冒充。「全調查時段」那一格是累計量，照樣寫出來，欄名也照實際格距標示。",
     anchor: "block-detail",
     anchorLabel: "可追溯明細",
   },
@@ -1442,6 +1443,24 @@ export function detectAnomalies(
    */
   hasAnyVehiclePcu: (record: TraceableTrafficRecord) => boolean,
   labels: AnomalyLabels = {},
+  /*
+   * ── B1：異常門檻的「季別 × 路段」覆寫（使用者 2026-09-30 裁示）────
+   *
+   * 使用者的界線：「可以做，但要記得**不要影響到數值正確性、
+   * 各項功能正常的使用**。」
+   *
+   * ⚠️ 兩道自保：
+   *   ① **可選參數、放在最後**——所有既有呼叫端一個字都不用改。
+   *   ② 沒有覆寫時 `resolveFactors()` 回傳的是**原本那個 thresholds 物件
+   *      本身**（同一個參考，不是複製品），所以判斷式逐位元不變。
+   *      `tests/factor-scope.test.mjs` 的 A 段守的就是這一條。
+   *
+   * ⚠️ 用哪一季去解析：用 **current.quarter**（被標成異常的那一季），
+   *   不是 previous。理由：門檻是「這一季可以接受多大的變動」，
+   *   而使用者會為了某一季的特殊情況（施工、改道）去放寬它。
+   *   用 previous 的話，放寬 115Q2 反而會影響 115Q3 的判斷。
+   */
+  thresholdScopes?: FactorScope<AnomalyThresholds>[] | null,
 ): AnomalyAlert[] {
   const alerts: AnomalyAlert[] = [];
   const quarters = [...new Set(records.map((record) => record.quarter))].sort(
@@ -1541,17 +1560,27 @@ export function detectAnomalies(
     for (let index = 1; index < byQuarter.length; index += 1) {
       const previous = byQuarter[index - 1],
         current = byQuarter[index];
+      /*
+       * B1：這一季 × 這一路段有專屬門檻就用它，否則用計畫預設。
+       * ⚠️ 沒有任何覆寫時，這一行回傳的就是外面那個 thresholds 物件本身。
+       */
+      const limits = resolveFactors(
+        thresholdScopes,
+        thresholds,
+        current.quarter,
+        groupRoadId,
+      );
       const actualChange = previous.actual
         ? Math.abs(current.actual / previous.actual - 1) * 100
         : 0;
       const pcuChange = previous.pcu
         ? Math.abs(current.pcu / previous.pcu - 1) * 100
         : 0;
-      if (actualChange > thresholds.dailyChangePct)
+      if (actualChange > limits.dailyChangePct)
         alerts.push(
           alert(group, "全日量變動", previous.quarter, current.quarter, actualChange, "%"),
         );
-      if (pcuChange > thresholds.pcuChangePct)
+      if (pcuChange > limits.pcuChangePct)
         alerts.push(
           alert(group, "PCU變動", previous.quarter, current.quarter, pcuChange, "%"),
         );
@@ -1562,7 +1591,7 @@ export function detectAnomalies(
       if (
         current.peak !== null &&
         previous.peak !== null &&
-        hourDistance(current.peak, previous.peak) > thresholds.peakShiftHours
+        hourDistance(current.peak, previous.peak) > limits.peakShiftHours
       )
         alerts.push(
           alert(
@@ -1583,7 +1612,7 @@ export function detectAnomalies(
         const change = Math.abs(
           (current.shares[vehicle] ?? 0) - (previous.shares[vehicle] ?? 0),
         );
-        if (change > thresholds.vehicleShareChangePct)
+        if (change > limits.vehicleShareChangePct)
           alerts.push(
             alert(
               group,
@@ -1598,7 +1627,15 @@ export function detectAnomalies(
       });
     }
     const latest = byQuarter.at(-1);
-    if (latest && latest.zeros > thresholds.zeroHourLimit)
+    /*
+     * ⚠️ 這一條在比較迴圈**外面**（它看的是最後一季自己，不是兩季相比），
+     *   所以要自己解析一次，不可以沿用迴圈裡的 limits——
+     *   那個 limits 是「最後一次比較」那一季的，不見得是 latest 那一季。
+     */
+    const latestLimits = latest
+      ? resolveFactors(thresholdScopes, thresholds, latest.quarter, groupRoadId)
+      : thresholds;
+    if (latest && latest.zeros > latestLimits.zeroHourLimit)
       alerts.push(
         alert(group, "零流量時段", latest.quarter, latest.quarter, latest.zeros, "個"),
       );

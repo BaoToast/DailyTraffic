@@ -29,7 +29,10 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readdirSync, existsSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import * as XLSX from "xlsx";
 
 import {
   roadNameFromFileName,
@@ -37,6 +40,40 @@ import {
   surveyRoadIdFromFileName,
   isFallbackRoadName,
 } from "../app/road-identity.ts";
+
+/**
+ * 從檔案**內容**讀「測站名稱：…」，讀不到回空字串。
+ *
+ * ⚠️ 判斷「兩份檔案是不是同一個測站」只能靠這個，不能靠檔名——
+ *   檔名正是被測的那個東西，拿它當答案是循環論證。
+ * ⚠️ 只掃前幾十列：測站名稱在表頭，掃全表對這件事沒有幫助而且很慢。
+ * ⚠️ 讀不起來一律回空字串，讓呼叫端自己決定要不要退回別的判準
+ *   （而且要把退回這件事印出來，不可以安靜放寬）。
+ */
+function stationNameFromContent(fileName) {
+  const path = REAL_PATHS.get(fileName) || fileName;
+  let book;
+  try {
+    book = XLSX.read(readFileSync(path), { type: "buffer" });
+  } catch {
+    return "";
+  }
+  for (const sheetName of book.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json(book.Sheets[sheetName], {
+      header: 1,
+      blankrows: false,
+      defval: "",
+      range: 0,
+    });
+    for (const row of rows.slice(0, 30))
+      for (const cell of row) {
+        const text = String(cell ?? "");
+        const hit = text.match(/測\s*站\s*名\s*稱\s*[：:]\s*(.+)$/);
+        if (hit && hit[1].trim()) return hit[1].trim();
+      }
+  }
+  return "";
+}
 
 test("無分隔符的檔名要切得出乾淨的路段名稱", () => {
   assert.equal(
@@ -158,8 +195,35 @@ function spreadsheetsUnder(dir) {
   return out;
 }
 
-const REAL_ROOT = new URL("../../realdata", import.meta.url).pathname;
+const REAL_ROOT = fileURLToPath(new URL("../../realdata", import.meta.url));
+test("真實附件目錄使用原生路徑，不可因 Windows file URL 而錯誤略過", () => {
+  assert.equal(REAL_ROOT, resolve(dirname(fileURLToPath(import.meta.url)), "../../realdata"));
+});
 const REAL_FILES = spreadsheetsUnder(REAL_ROOT);
+/*
+ * 檔名 → 實際路徑。
+ *
+ * ⚠️ `spreadsheetsUnder()` 回的是**檔名**（`entry.name`），不是路徑——
+ *   `roadNameFromFileName()` 要的就是檔名。但要讀**內容**就得有路徑，
+ *   所以另外建一份對照，不去動上面那一支的回傳值
+ *  （動它會牽連每一個拿檔名去比對的地方）。
+ * ⚠️ 我 2026-09-29 第一版直接把檔名丟去 readFileSync，於是每一份都「讀不到
+ *   測站名稱」而安靜退回舊判準——測起來像是新判準沒生效。
+ */
+const REAL_PATHS = (() => {
+  const map = new Map();
+  const walk = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(full);
+      else if (/\.xlsx?$/i.test(entry.name) && !entry.name.startsWith("~$"))
+        map.set(entry.name, full);
+    }
+  };
+  walk(REAL_ROOT);
+  return map;
+})();
 
 test(
   "全部真實檔名：名稱剝得乾淨、不空白、不互撞、跨季全部對得上",
@@ -181,7 +245,7 @@ test(
    *   原始碼或測試輸出裡（見 tests/dependency-manifest.test.mjs 的守門）。
    *   只報份數就夠了——0 份會走上面的 skip，不會靜靜變綠。
    */
-  console.log(`  ↳ 這台機器上找到 ${files.length} 份真實調查檔，全部納入檢查`);
+  console.error(`  ↳ 這台機器上找到 ${files.length} 份真實調查檔，全部納入檢查`);
 
   /*
    * ══════════════════════════════════════════════════════════════════
@@ -216,6 +280,12 @@ test(
   const seen = new Map();
   const points = new Set();
   let crossRoundPairs = 0;
+  /** 名稱撞在一起、而序號在不同輪次之間被重新編號過的對數。 */
+  let renumbered = 0;
+  /** 讀不到測站名稱、退回序號判準的那幾份（一定要印出來）。 */
+  const fellBack = [];
+  /** 退回序號判準之後判定為「過度剝除」的那幾組（最後一起斷言）。 */
+  const overStripped = [];
   for (const file of files) {
     const name = roadNameFromFileName(file);
     assert.ok(name.trim(), `「${file}」切出空白名稱`);
@@ -228,13 +298,54 @@ test(
     points.add(point);
     const previous = seen.get(key);
     if (previous) {
-      assert.equal(
-        point,
-        previous.point,
-        `「${file}」與「${previous.file}」是**不同的調查點**`
-          + `（${point} 與 ${previous.point}），`
-          + `名稱卻都收斂成同一個「${key}」——兩個點的資料會混進同一條趨勢線`,
-      );
+      /*
+       * ⚠️ 2026-09-29 改判準：**以檔案裡的「測站名稱」為準，不以序號為準。**
+       *
+       *   舊寫法用 `surveyRoadIdFromFileName()`（＝案號＋**序號**）當「是不是
+       *   同一個調查點」的依據，前提是「序號在不同輪次之間是穩定的」。
+       *   拿到真實檔之後**那個前提不成立**：同一條路段在不同輪次會被
+       *   **重新編號**（實測有一對的序號從 11 變成 06，而兩份檔案裡的
+       *   「測站名稱：」完全相同、計畫編號也相同，只是監測日期差了兩年）。
+       *   於是這一條在**正確的程式**上變紅——那是假的紅。
+       *
+       *   ⚠️ 程式的行為是對的：`resolveImportedRoad()` 以**名稱**比對
+       *   （`nameMatches.length === 1` 就併到既有路段），所以同一條路的兩輪
+       *   會落在同一條趨勢線上——那正是要的結果。
+       *
+       *   ⚠️ 真正要抓的還是**過度剝除**：兩個**真的不同**的測站被收斂成同一個
+       *   名稱。判斷「真的不同」的依據只能是**檔案內容裡的測站名稱**，
+       *   不能是檔名（檔名正是被測的那個東西，拿它當答案是循環論證）。
+       *
+       *   ⚠️ 讀不到測站名稱時**退回舊的序號判準，而且把退回這件事印出來**——
+       *   安靜退回就等於這一條在那幾份檔案上偷偷變寬了。
+       */
+      const here = stationNameFromContent(file);
+      const there = stationNameFromContent(previous.file);
+      if (here && there) {
+        assert.equal(
+          roadNameMatchKey(here),
+          roadNameMatchKey(there),
+          `「${file}」與「${previous.file}」的名稱都收斂成「${key}」，`
+            + `但檔案裡的測站名稱不同（「${here}」與「${there}」）`
+            + "——兩個不同的測站被併成一個，資料會混進同一條趨勢線",
+        );
+        if (surveyRoadIdFromFileName(file) !== previous.point) renumbered += 1;
+      } else {
+        /*
+         * ⚠️ 讀不到測站名稱時退回舊的序號判準，但**先記下來、最後才一起斷言**。
+         *   我第一版是當場 assert，於是「退回了哪幾份」那段 console.log
+         *   永遠印不出來（斷言先丟出去了）——等於退回這件事是隱形的。
+         */
+        fellBack.push(
+          `${file}（測站名稱讀不到：本檔「${here || "—"}」、對照「${there || "—"}」）`,
+        );
+        if (point !== previous.point)
+          overStripped.push(
+            `「${file}」與「${previous.file}」是不同的調查點`
+              + `（${point} 與 ${previous.point}），名稱卻都收斂成同一個「${key}」`
+              + "——兩個點的資料會混進同一條趨勢線（此組是退回序號判準判定的）",
+          );
+      }
       crossRoundPairs += 1;
       continue;
     }
@@ -245,19 +356,56 @@ test(
     `這 ${files.length} 份真實檔只算出 ${points.size} 個調查點 id——`
       + "surveyRoadIdFromFileName() 壞了，撞名判準會變成恆真",
   );
-  console.log(
-    `  ↳ 共 ${points.size} 個調查點；其中 ${crossRoundPairs} 組是`
-      + "「同一個調查點的不同輪次共用名稱」（這是歷季串接要的，放行）",
+  console.error(
+    `  ↳ 共 ${points.size} 個調查點；其中 ${crossRoundPairs} 組名稱相同`
+      + `（判準是檔案裡的「測站名稱」；其中 ${renumbered} 組的序號在不同輪次`
+      + "之間被重新編號過——那是廠商會做的事，不是缺陷）",
   );
+  /*
+   * ⚠️ 退回舊判準的那幾份一定要印出來。安靜退回就等於這一條在那幾份檔案上
+   *   偷偷變寬了，而沒有人看得出來。
+   */
+  if (fellBack.length)
+    console.error(
+      `  ⚠️ 有 ${fellBack.length} 組讀不到測站名稱，退回「序號」判準：\n`
+        + fellBack.map((x) => `     - ${x}`).join("\n"),
+    );
+  assert.deepEqual(
+    overStripped,
+    [],
+    "以下是退回序號判準之後判定的過度剝除：\n- " + overStripped.join("\n- "),
+  );
+  /*
+   * ⚠️ 前置：**不可以整批都退回**。全部退回代表讀內容那一段壞了
+   *   （例如檔名對照沒建起來），而這一條會安靜地變回舊判準。
+   */
+  if (crossRoundPairs > 0)
+    assert.ok(
+      fellBack.length < crossRoundPairs,
+      `${crossRoundPairs} 組撞名全部退回序號判準——讀「測站名稱」那一段壞了嗎？`,
+    );
 
-  /* 模擬下一季：場次號 +1（後兩碼為點位，與路口轉向 stationFromFilename 同慣例） */
+  /*
+   * 模擬下一季：場次號 +1。
+   *
+   * ⚠️ 檔名有**兩種**寫法，這一支要兩種都吃：
+   *   ・黏在一起：`案號T801` → 後兩碼是點位，前面是場次（→ `案號T901`）
+   *   ・用分隔符隔開：`案號T8-06` → 場次就是 T 後面那幾位，點位在分隔符後面
+   *
+   * ⚠️ 2026-09-29 修：舊寫法在「一位數場次 ＋ 分隔符」的檔名上會產生
+   *   `案號T2undefined`——因為它假設點位一定黏在場次後面，於是
+   *   `digits[1]` 是 undefined。拿到真實檔（`案號T1-01` 這種寫法）當場紅。
+   *   ⚠️ 那次紅**紅得對**：它是這支測試助手自己的缺陷，不是程式的。
+   *   分隔符那一種只把場次 +1，**後面原樣留著**。
+   */
   const nextQuarter = (fileName) =>
     fileName.replace(/^(\d{4,}TS?)(\d+)/i, (_, prefix, digits) => {
-      const [run, point] =
-        digits.length >= 3
-          ? [digits.slice(0, -2), digits.slice(-2)]
-          : [digits[0], digits[1]];
-      return `${prefix}${Number(run) + 1}${point}`;
+      if (digits.length >= 3) {
+        const run = digits.slice(0, -2);
+        const point = digits.slice(-2);
+        return `${prefix}${Number(run) + 1}${point}`;
+      }
+      return `${prefix}${Number(digits) + 1}`;
     });
   for (const file of files) {
     const next = nextQuarter(file);

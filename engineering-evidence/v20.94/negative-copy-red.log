@@ -1,0 +1,277 @@
+TAP version 13
+# Subtest: classification coefficient warning must not claim negative PCU is zeroed
+not ok 1 - classification coefficient warning must not claim negative PCU is zeroed
+  ---
+  duration_ms: 1.2224
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\scoped-settings-dataflow.test.mjs:26:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input was expected to not match the regular expression /該車種在 PCU 相關分析中會被歸零/. Input:
+    
+    'function saveVehicleClassSettings(e: React.FormEvent) {\n' +
+      '    e.preventDefault();\n' +
+      '    const invalid = vehicleClassDraft.find(\n' +
+      '      (setting) =>\n' +
+      '        !CORE_VEHICLE_KEYS.includes(setting.targetKey as CoreVehicleKey) &&\n' +
+      '        (!Number.isFinite(setting.roadPcu) ||\n' +
+      '          Object.values(setting.turnPcu).some(\n' +
+      '            (value) => !Number.isFinite(value),\n' +
+      '          )),\n' +
+      '    );\n' +
+      '    if (invalid)\n' +
+      '      return setToast(\n' +
+      '        `「${invalid.sourceLabel}」保留為獨立車種時，4 個PCU係數都必須是有效數字`,\n' +
+      '      );\n' +
+      '    // 係數不設下限（依需求由使用者自訂），但 0 或負數會讓該車種在 PCU 相關\n' +
+      '    // 分析中被歸零，這種情況多半是打錯，存檔後主動提醒一次。\n' +
+      '    const zeroFactors = vehicleClassDraft.filter(\n' +
+      '      (setting) =>\n' +
+      '        !CORE_VEHICLE_KEYS.includes(setting.targetKey as CoreVehicleKey) &&\n' +
+      '        (setting.roadPcu <= 0 ||\n' +
+      '          Object.values(setting.turnPcu).some((value) => value <= 0)),\n' +
+      '    );\n' +
+      '    // 本計畫在其他季度才會出現的車種，不能因為目前季度沒看到就把設定清掉。\n' +
+      '    const draftKeys = new Set(\n' +
+      '      vehicleClassDraft.map((setting) => setting.sourceKey),\n' +
+      '    );\n' +
+      '    const editQuarter = scopeValue(vehicleScopeQuarter);\n' +
+      '    const editRoadId = scopeValue(vehicleScopeRoadId);\n' +
+      '    const editingDefault = !editQuarter && !editRoadId;\n' +
+      '    /*\n' +
+      '     * 先把「這一次要重寫的那幾列」拿掉，其餘原封不動。\n' +
+      '     *\n' +
+      '     * ⚠️ 只拿掉**同一個範圍**的列。編輯 115Q2 專屬設定時去動到計畫預設，\n' +
+      '     *   等於使用者設定某一季卻改掉了全部季別——那是 B2 最容易犯的錯，\n' +
+      '     *   而且他要到下一季匯入才會發現。\n' +
+      '     */\n' +
+      '    const kept = vehicleClassSettings.filter(\n' +
+      '      (setting) =>\n' +
+      '        setting.projectId !== activeProject ||\n' +
+      '        !draftKeys.has(setting.sourceKey) ||\n' +
+      '        !isOwnScope(setting, editQuarter, editRoadId),\n' +
+      '    );\n' +
+      '    /*\n' +
+      '     * ⚠️ 編輯某個範圍時，**只寫真的與繼承值不一樣的那幾列**。\n' +
+      '     *\n' +
+      '     *   使用者 2026-09-30：「車種歸類沒使用上時 就照原本正常功能去走」。\n' +
+      '     *   如果把整份草稿都寫成「115Q2 專屬」，那麼他只是打開看一下，\n' +
+      '     *   115Q2 的歸類就被**凍結**了：之後改計畫預設，115Q2 不會跟著動，\n' +
+      '     *   而畫面上完全看不出為什麼。\n' +
+      '     *\n' +
+      '     *   計畫預設那一層（全季別×全路段）不套這條規則——那一層本來就是\n' +
+      '     *   「一定要有一份」，行為與改版前完全相同。\n' +
+      '     */\n' +
+      '    const rowsToWrite = editingDefault\n' +
+      '      ? vehicleClassDraft\n' +
+      '      : vehicleClassDraft.filter((setting) => {\n' +
+      '          const inherited = vehicleSettingFor(\n' +
+      '            {\n' +
+      '              projectId: activeProject,\n' +
+      '              quarter: editQuarter,\n' +
+      '              roadId: editRoadId,\n' +
+      '              motorcycle: 0,\n' +
+      '              small: 0,\n' +
+      '              large: 0,\n' +
+      '              special: 0,\n' +
+      '            },\n' +
+      '            setting.sourceKey,\n' +
+      '            kept,\n' +
+      '          );\n' +
+      '          if (!inherited) return true;\n' +
+      '          return (\n' +
+      '            inherited.targetKey !== setting.targetKey ||\n' +
+      '            inherited.targetLabel !== setting.targetLabel ||\n' +
+      '            inherited.roadPcu !== setting.roadPcu ||\n' +
+      '            (["left", "through", "right"] as TurnKey[]).some(\n' +
+      '              (turn) => inherited.turnPcu?.[turn] !== setting.turnPcu?.[turn],\n' +
+      '            )\n' +
+      '          );\n' +
+      '        });\n' +
+      '    const next = syncCoreVehicleSettings(\n' +
+      '      [...kept, ...rowsToWrite],\n' +
+      '      pcuFactors,\n' +
+      '      turnPcuFactors,\n' +
+      '    );\n' +
+      '    setVehicleClassSettings(next);\n' +
+      '    /* 走 safeWrite：寫入失敗時要說出來，不能讓例外從事件處理逃出去。 */\n' +
+      '    if (!safeWrite("traffic-vehicle-class-settings-v1", next))\n' +
+      '      setToast(\n' +
+      '        "車種分類設定沒有存進瀏覽器（空間可能已滿），重新整理後會回到舊值",\n' +
+      '      );\n' +
+      '    // 套用之後也要走同一條關閉路徑，接著開路口幾何視窗。\n' +
+      '    closeVehicleManager();\n' +
+      '    /*\n' +
+      '     * ⚠️ 套用到哪裡一定要說出來。編輯的是某一季／某一條的專屬歸類時，\n' +
+      '     *   訊息還寫「已套用至全部分析」的話，使用者會以為全部季別都改了。\n' +
+      '     */\n' +
+      '    const scopeNote = editingDefault\n' +
+      '      ? "已套用至全部分析及匯出檔"\n' +
+      '      : rowsToWrite.length\n' +
+      '        ? `已套用到「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」，其他季別與路段不受影響`\n' +
+      '        : `「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」沒有任何一項與上層不同，所以沒有建立專屬設定（它會繼續跟著上層走）`;\n' +
+      '    setToast(\n' +
+      '      zeroFactors.length\n' +
+      '        ? `車種歸類與獨立當量${scopeNote}；請注意「${zeroFactors.map((setting) => setting.sourceLabel).join("、")}」有 0 或負數的 PCU 係數，該車種在 PCU 相關分析中會被歸零`\n' +
+      '        : `車種歸類與獨立當量${scopeNote}`,\n' +
+      '    );\n' +
+      '  }'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    function saveVehicleClassSettings(e: React.FormEvent) {
+        e.preventDefault();
+        const invalid = vehicleClassDraft.find(
+          (setting) =>
+            !CORE_VEHICLE_KEYS.includes(setting.targetKey as CoreVehicleKey) &&
+            (!Number.isFinite(setting.roadPcu) ||
+              Object.values(setting.turnPcu).some(
+                (value) => !Number.isFinite(value),
+              )),
+        );
+        if (invalid)
+          return setToast(
+            `「${invalid.sourceLabel}」保留為獨立車種時，4 個PCU係數都必須是有效數字`,
+          );
+        // 係數不設下限（依需求由使用者自訂），但 0 或負數會讓該車種在 PCU 相關
+        // 分析中被歸零，這種情況多半是打錯，存檔後主動提醒一次。
+        const zeroFactors = vehicleClassDraft.filter(
+          (setting) =>
+            !CORE_VEHICLE_KEYS.includes(setting.targetKey as CoreVehicleKey) &&
+            (setting.roadPcu <= 0 ||
+              Object.values(setting.turnPcu).some((value) => value <= 0)),
+        );
+        // 本計畫在其他季度才會出現的車種，不能因為目前季度沒看到就把設定清掉。
+        const draftKeys = new Set(
+          vehicleClassDraft.map((setting) => setting.sourceKey),
+        );
+        const editQuarter = scopeValue(vehicleScopeQuarter);
+        const editRoadId = scopeValue(vehicleScopeRoadId);
+        const editingDefault = !editQuarter && !editRoadId;
+        /*
+         * 先把「這一次要重寫的那幾列」拿掉，其餘原封不動。
+         *
+         * ⚠️ 只拿掉**同一個範圍**的列。編輯 115Q2 專屬設定時去動到計畫預設，
+         *   等於使用者設定某一季卻改掉了全部季別——那是 B2 最容易犯的錯，
+         *   而且他要到下一季匯入才會發現。
+         */
+        const kept = vehicleClassSettings.filter(
+          (setting) =>
+            setting.projectId !== activeProject ||
+            !draftKeys.has(setting.sourceKey) ||
+            !isOwnScope(setting, editQuarter, editRoadId),
+        );
+        /*
+         * ⚠️ 編輯某個範圍時，**只寫真的與繼承值不一樣的那幾列**。
+         *
+         *   使用者 2026-09-30：「車種歸類沒使用上時 就照原本正常功能去走」。
+         *   如果把整份草稿都寫成「115Q2 專屬」，那麼他只是打開看一下，
+         *   115Q2 的歸類就被**凍結**了：之後改計畫預設，115Q2 不會跟著動，
+         *   而畫面上完全看不出為什麼。
+         *
+         *   計畫預設那一層（全季別×全路段）不套這條規則——那一層本來就是
+         *   「一定要有一份」，行為與改版前完全相同。
+         */
+        const rowsToWrite = editingDefault
+          ? vehicleClassDraft
+          : vehicleClassDraft.filter((setting) => {
+              const inherited = vehicleSettingFor(
+                {
+                  projectId: activeProject,
+                  quarter: editQuarter,
+                  roadId: editRoadId,
+                  motorcycle: 0,
+                  small: 0,
+                  large: 0,
+                  special: 0,
+                },
+                setting.sourceKey,
+                kept,
+              );
+              if (!inherited) return true;
+              return (
+                inherited.targetKey !== setting.targetKey ||
+                inherited.targetLabel !== setting.targetLabel ||
+                inherited.roadPcu !== setting.roadPcu ||
+                (["left", "through", "right"] as TurnKey[]).some(
+                  (turn) => inherited.turnPcu?.[turn] !== setting.turnPcu?.[turn],
+                )
+              );
+            });
+        const next = syncCoreVehicleSettings(
+          [...kept, ...rowsToWrite],
+          pcuFactors,
+          turnPcuFactors,
+        );
+        setVehicleClassSettings(next);
+        /* 走 safeWrite：寫入失敗時要說出來，不能讓例外從事件處理逃出去。 */
+        if (!safeWrite("traffic-vehicle-class-settings-v1", next))
+          setToast(
+            "車種分類設定沒有存進瀏覽器（空間可能已滿），重新整理後會回到舊值",
+          );
+        // 套用之後也要走同一條關閉路徑，接著開路口幾何視窗。
+        closeVehicleManager();
+        /*
+         * ⚠️ 套用到哪裡一定要說出來。編輯的是某一季／某一條的專屬歸類時，
+         *   訊息還寫「已套用至全部分析」的話，使用者會以為全部季別都改了。
+         */
+        const scopeNote = editingDefault
+          ? "已套用至全部分析及匯出檔"
+          : rowsToWrite.length
+            ? `已套用到「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」，其他季別與路段不受影響`
+            : `「${pcuScopeLabel(quarterLabel(vehicleScopeQuarter), vehicleScopeRoadId, roadNameOf(vehicleScopeRoadId))}」沒有任何一項與上層不同，所以沒有建立專屬設定（它會繼續跟著上層走）`;
+        setToast(
+          zeroFactors.length
+            ? `車種歸類與獨立當量${scopeNote}；請注意「${zeroFactors.map((setting) => setting.sourceLabel).join("、")}」有 0 或負數的 PCU 係數，該車種在 PCU 相關分析中會被歸零`
+            : `車種歸類與獨立當量${scopeNote}`,
+        );
+      }
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/scoped-settings-dataflow.test.mjs:27:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: threshold scopes travel in both single and all-project backup exports
+ok 2 - threshold scopes travel in both single and all-project backup exports
+  ---
+  duration_ms: 0.1388
+  type: 'test'
+  ...
+# Subtest: both restore routes validate and restore threshold scopes to the destination
+ok 3 - both restore routes validate and restore threshold scopes to the destination
+  ---
+  duration_ms: 0.1527
+  type: 'test'
+  ...
+# Subtest: formal xlsx exports classification warnings and the scoped mapping table
+ok 4 - formal xlsx exports classification warnings and the scoped mapping table
+  ---
+  duration_ms: 0.1435
+  type: 'test'
+  ...
+# Subtest: long intervals are blocked before confirmations or writes
+ok 5 - long intervals are blocked before confirmations or writes
+  ---
+  duration_ms: 0.0833
+  type: 'test'
+  ...
+# Subtest: the import report uses the same long-interval rule as the write guard
+ok 6 - the import report uses the same long-interval rule as the write guard
+  ---
+  duration_ms: 0.0778
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 5
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 501.6276

@@ -271,3 +271,44 @@ export function pickProjects<TFactors>(
   for (const id of projectIds) if (source[id]) out[id] = source[id];
   return out;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+ *  B3：衝突要在「設定的當下」就問，不是事後列在摘要裡
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * 使用者 2026-09-30：「覆寫衝突請改成當下跳確認視窗，你建議的很好。」
+ *
+ * 舊行為：`conflictsIn()` 把重疊的格子挑出來，畫面在「當量係數設定」
+ * 底下列成一段警告。問題是——**使用者設定完就走了**，
+ * 那段警告要捲到下面才看得到，很可能等到數字出來才發現。
+ *
+ * 新行為：**按下「套用」的當下**，如果這一筆新設定會造成新的重疊，
+ * 就先把話講清楚再問要不要繼續。
+ *
+ * ⚠️ 判準是「**新增的**衝突」，不是「現在有幾個衝突」。
+ *   拿總數去問的話，使用者每改一次都會被同一個舊衝突問一次——
+ *   問到最後一定變成無腦按確定，那比不問更糟。
+ * ⚠️ 摘要那一段**不移除**。兩者的用途不同：確認視窗管「你正在做的這一步」，
+ *   摘要管「目前整體長什麼樣」。拿掉摘要的話，
+ *   使用者按過確定之後就再也看不到自己有哪些重疊。
+ */
+
+/** 一筆衝突的比較鍵（用來比「設定前後多了哪些」）。 */
+function conflictKey(conflict: ScopeConflict): string {
+  return `${conflict.quarter}\u0000${conflict.roadId}`;
+}
+
+/**
+ * 把這一筆設定寫進去之後，會**新增**哪些衝突？
+ *
+ * @returns 只回傳新增的那幾筆；沒有新增就是空陣列（呼叫端不必問）
+ */
+export function newConflictsAfter<TFactors>(
+  scopes: FactorScope<TFactors>[] | null | undefined,
+  next: FactorScope<TFactors>,
+): ScopeConflict[] {
+  const before = new Set(conflictsIn(scopes).map(conflictKey));
+  return conflictsIn(upsertScope(scopes, next)).filter(function (conflict) {
+    return !before.has(conflictKey(conflict));
+  });
+}

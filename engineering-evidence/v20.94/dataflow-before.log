@@ -1,0 +1,2961 @@
+TAP version 13
+# Subtest: threshold scopes travel in both single and all-project backup exports
+not ok 1 - threshold scopes travel in both single and all-project backup exports
+  ---
+  duration_ms: 281.5766
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\scoped-settings-dataflow.test.mjs:26:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /thresholdScopes: input\.thresholdScopes/. Input:
+    
+    'function buildBackupPayload(input: {\n' +
+      '    project: { name: string; code?: string; clientName?: string };\n' +
+      '    projectId: string;\n' +
+      '    records: TrafficRecord[];\n' +
+      '    pcuScopes: PcuScopes;\n' +
+      '    pcuFactors: PcuFactors;\n' +
+      '    turnPcuFactors: TurnPcuFactors;\n' +
+      '    roadAliases: RoadAlias[];\n' +
+      '    workflow: WorkflowState;\n' +
+      '  }) {\n' +
+      '    return {\n' +
+      '      format: "traffic-analysis-backup",\n' +
+      '      version: 5,\n' +
+      '      exportedAt: new Date().toISOString(),\n' +
+      '      project: {\n' +
+      '        name: input.project.name,\n' +
+      '        code: input.project.code ?? "",\n' +
+      '        clientName: input.project.clientName ?? "",\n' +
+      '      },\n' +
+      '      pcuFactors: input.pcuFactors,\n' +
+      '      turnPcuFactors: input.turnPcuFactors,\n' +
+      '      /*\n' +
+      '       * ── 依季別／路段的係數覆寫 ──────────────────────────\n' +
+      '       *\n' +
+      '       * 使用者 2026-09-10：「**這份設定要能被存檔匯出和匯入**」\n' +
+      '       * 「計畫和計畫之間不能彼此干擾」。\n' +
+      '       *\n' +
+      '       * ⚠️ 這裡只帶**目前這個計畫**的覆寫（pcuScopes 本來就只有它的）。\n' +
+      '       *   帶整份對照表出去的話，還原到另一台電腦會把別的計畫的係數\n' +
+      '       *   一起塞進去——而那台電腦上的計畫代碼可能剛好撞名。\n' +
+      '       *\n' +
+      '       * ⚠️ 上面的 pcuFactors／turnPcuFactors **照舊原樣寫出**。\n' +
+      '       *   那兩個欄位就是「全季別 × 全路段」那一組，舊版程式讀得到，\n' +
+      '       *   讀到的就是預設係數——不會因為新增了覆寫而讀出奇怪的值。\n' +
+      '       */\n' +
+      '      pcuScopes: input.pcuScopes,\n' +
+      '      vehicleClassSettings: vehicleClassSettings\n' +
+      '        .filter((setting) => setting.projectId === input.projectId)\n' +
+      '        .map(({ projectId: _projectId, ...setting }) => setting),\n' +
+      '      roadAliases: input.roadAliases,\n' +
+      '      intersectionSettings: intersectionSettings\n' +
+      '        .filter((setting) => setting.projectId === input.projectId)\n' +
+      '        .map(({ projectId: _projectId, ...setting }) => setting),\n' +
+      '      workflow: input.workflow,\n' +
+      '      /*\n' +
+      '       * 結論草稿的「條件範本」也要跟著備份走。\n' +
+      '       *\n' +
+      '       * 它存在 localStorage 的 traffic-conclusion-templates-v1（依計畫分開），\n' +
+      '       * 而備份原本沒有收——使用者在 A 電腦存好幾組常用條件，匯出備份帶到\n' +
+      '       * B 電腦還原之後，範本一個都不在，而畫面只會說「還原完成」。\n' +
+      '       * 那些條件是使用者自己一項一項勾出來的，重建很花時間。\n' +
+      '       */\n' +
+      '      conclusionTemplates: readConclusionTemplates(input.projectId),\n' +
+      '      records: input.records.map(\n' +
+      '        ({ projectId: _projectId, ...record }) => record,\n' +
+      '      ),\n' +
+      '    };\n' +
+      '  }'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    function buildBackupPayload(input: {
+        project: { name: string; code?: string; clientName?: string };
+        projectId: string;
+        records: TrafficRecord[];
+        pcuScopes: PcuScopes;
+        pcuFactors: PcuFactors;
+        turnPcuFactors: TurnPcuFactors;
+        roadAliases: RoadAlias[];
+        workflow: WorkflowState;
+      }) {
+        return {
+          format: "traffic-analysis-backup",
+          version: 5,
+          exportedAt: new Date().toISOString(),
+          project: {
+            name: input.project.name,
+            code: input.project.code ?? "",
+            clientName: input.project.clientName ?? "",
+          },
+          pcuFactors: input.pcuFactors,
+          turnPcuFactors: input.turnPcuFactors,
+          /*
+           * ── 依季別／路段的係數覆寫 ──────────────────────────
+           *
+           * 使用者 2026-09-10：「**這份設定要能被存檔匯出和匯入**」
+           * 「計畫和計畫之間不能彼此干擾」。
+           *
+           * ⚠️ 這裡只帶**目前這個計畫**的覆寫（pcuScopes 本來就只有它的）。
+           *   帶整份對照表出去的話，還原到另一台電腦會把別的計畫的係數
+           *   一起塞進去——而那台電腦上的計畫代碼可能剛好撞名。
+           *
+           * ⚠️ 上面的 pcuFactors／turnPcuFactors **照舊原樣寫出**。
+           *   那兩個欄位就是「全季別 × 全路段」那一組，舊版程式讀得到，
+           *   讀到的就是預設係數——不會因為新增了覆寫而讀出奇怪的值。
+           */
+          pcuScopes: input.pcuScopes,
+          vehicleClassSettings: vehicleClassSettings
+            .filter((setting) => setting.projectId === input.projectId)
+            .map(({ projectId: _projectId, ...setting }) => setting),
+          roadAliases: input.roadAliases,
+          intersectionSettings: intersectionSettings
+            .filter((setting) => setting.projectId === input.projectId)
+            .map(({ projectId: _projectId, ...setting }) => setting),
+          workflow: input.workflow,
+          /*
+           * 結論草稿的「條件範本」也要跟著備份走。
+           *
+           * 它存在 localStorage 的 traffic-conclusion-templates-v1（依計畫分開），
+           * 而備份原本沒有收——使用者在 A 電腦存好幾組常用條件，匯出備份帶到
+           * B 電腦還原之後，範本一個都不在，而畫面只會說「還原完成」。
+           * 那些條件是使用者自己一項一項勾出來的，重建很花時間。
+           */
+          conclusionTemplates: readConclusionTemplates(input.projectId),
+          records: input.records.map(
+            ({ projectId: _projectId, ...record }) => record,
+          ),
+        };
+      }
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/scoped-settings-dataflow.test.mjs:27:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: both restore routes validate and restore threshold scopes to the destination
+not ok 2 - both restore routes validate and restore threshold scopes to the destination
+  ---
+  duration_ms: 0.8126
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\scoped-settings-dataflow.test.mjs:32:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /writeProjectThresholdScopes\(newId,/. Input:
+    
+    'async function restoreAllProjects(bundles: unknown[]) {\n' +
+      '    const allRestoreWarnings: string[] = [];\n' +
+      '    const existingNames = new Set(projects.map((p) => p.name.trim()));\n' +
+      '    let restoredCount = 0;\n' +
+      '    /*\n' +
+      '     * ⚠️ 這兩個累加器**一定要放在迴圈外面**，而且中途不可以讀\n' +
+      '     *   vehicleClassSettings／intersectionSettings 這兩個 state 變數。\n' +
+      '     *\n' +
+      '     * 第一版是在迴圈裡寫 `[...vehicleClassSettings, ...新的]` 再\n' +
+      '     * safeWrite——但 vehicleClassSettings 是這個 async 函式一開始就\n' +
+      '     * 被閉包鎖住的舊值，setState 之後它不會變。於是還原第二個計畫時，\n' +
+      '     * 又從「原始那一份」接一次，把第一個計畫剛加進去的設定整組蓋掉。\n' +
+      '     *\n' +
+      '     * 實測（e2e-backup-restore.mjs 第 ⑥ 段）：還原兩個計畫後，\n' +
+      '     * 先還原的那一個 vehicleClassSettings 變成 []，後還原的正常——\n' +
+      '     * 而筆數、季度、PCU 係數全部正確，只有車種分類默默不見了。\n' +
+      '     * 這種錯不會報任何訊息，要到使用者發現車種歸類跑掉才會知道。\n' +
+      '     */\n' +
+      '    let nextVehicleClass = vehicleClassSettings;\n' +
+      '    let nextIntersection = intersectionSettings;\n' +
+      '    for (const raw of bundles) {\n' +
+      '      const bundle = raw as {\n' +
+      '        project?: { name?: string; code?: string; clientName?: string };\n' +
+      '        records?: unknown;\n' +
+      '        pcuFactors?: PcuFactors;\n' +
+      '        turnPcuFactors?: TurnPcuFactors;\n' +
+      '        pcuScopes?: unknown;\n' +
+      '        vehicleClassSettings?: Omit<VehicleClassSetting, "projectId">[];\n' +
+      '        roadAliases?: RoadAlias[];\n' +
+      '        intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];\n' +
+      '        workflow?: WorkflowState;\n' +
+      '        conclusionTemplates?: ConclusionTemplate[];\n' +
+      '    /*\n' +
+      '     * K45：只有「全部計畫」的備份會帶這個欄位（個人偏好跟人走）。\n' +
+      '     * 單一計畫備份**不可以**有——那份是給別人的。\n' +
+      '     */\n' +
+      '    showSurveyDate?: boolean;\n' +
+      '      };\n' +
+      '      const baseName = (bundle.project?.name || "").trim() || "還原的計畫";\n' +
+      '      /*\n' +
+      '       * 同名時加上還原日期，不要蓋掉也不要靜靜地合併。\n' +
+      '       * 使用者一眼就能看出哪一個是剛還原進來的。\n' +
+      '       */\n' +
+      '      let name = baseName;\n' +
+      '      if (existingNames.has(name)) name = `${baseName}（還原 ${today()}）`;\n' +
+      '      let suffix = 2;\n' +
+      '      while (existingNames.has(name)) {\n' +
+      '        name = `${baseName}（還原 ${today()}-${suffix}）`;\n' +
+      '        suffix += 1;\n' +
+      '      }\n' +
+      '      existingNames.add(name);\n' +
+      '      const rows = validateBackupRecords(\n' +
+      '        bundle.records,\n' +
+      '        `備份檔中的計畫「${baseName}」`,\n' +
+      '      );\n' +
+      '      const created = await appFetch("/api/projects", {\n' +
+      '        method: "POST",\n' +
+      '        headers: { "content-type": "application/json" },\n' +
+      '        body: JSON.stringify({\n' +
+      '          name,\n' +
+      '          code: (bundle.project?.code || "").trim(),\n' +
+      '          clientName: (bundle.project?.clientName || "").trim(),\n' +
+      '        }),\n' +
+      '      });\n' +
+      '      const createdData = await created.json();\n' +
+      '      if (!created.ok)\n' +
+      '        throw new Error(createdData.error || `建立計畫「${name}」失敗`);\n' +
+      '      const newId: string = createdData.project.id;\n' +
+      '      for (const quarter of [...new Set(rows.map((r) => r.quarter))]) {\n' +
+      '        const response = await appFetch("/api/import", {\n' +
+      '          method: "POST",\n' +
+      '          headers: { "content-type": "application/json" },\n' +
+      '          body: JSON.stringify({\n' +
+      '            projectId: newId,\n' +
+      '            quarter,\n' +
+      '            sourceObjectKeys: [],\n' +
+      '            records: rows\n' +
+      '              .filter((r) => r.quarter === quarter)\n' +
+      '              .map((r) => ({ ...r, projectId: newId })),\n' +
+      '          }),\n' +
+      '        });\n' +
+      '        if (!response.ok)\n' +
+      '          throw new Error(\n' +
+      '            (await response.json()).error || `計畫「${name}」的 ${quarter} 還原失敗`,\n' +
+      '          );\n' +
+      '      }\n' +
+      '      for (const alias of bundle.roadAliases ?? []) {\n' +
+      '        await appFetch("/api/roads", {\n' +
+      '          method: "POST",\n' +
+      '          headers: { "content-type": "application/json" },\n' +
+      '          body: JSON.stringify({\n' +
+      '            action: "alias",\n' +
+      '            projectId: newId,\n' +
+      '            roadId: alias.roadId,\n' +
+      '            aliasName: alias.aliasName,\n' +
+      '          }),\n' +
+      '        });\n' +
+      '      }\n' +
+      '      /*\n' +
+      '       * ══════════════════════════════════════════════════════════════\n' +
+      '       *  ⚠️ 2026-09-25 修正：這一條路原本對 PCU 係數**一個檢查都沒有**\n' +
+      '       * ══════════════════════════════════════════════════════════════\n' +
+      '       *\n' +
+      '       * 舊寫法是 `if (bundle.pcuFactors) writeProjectPcuFactors(...)`——\n' +
+      '       * 直接把備份裡的內容寫進 localStorage。下次載入時 isValidPcu()\n' +
+      '       * 會拒絕它、靜靜退回系統預設 0.5/1/1.5/2.5，使用者備份裡自訂的係數\n' +
+      '       * **全部消失且無提示**；而同一段的 pcuScopes 明明就有 filter(isValidScope)。\n' +
+      '       *\n' +
+      '       * validateBackupRecords 上面的註解自己寫著：\n' +
+      '       *   「單一計畫與全部計畫兩條還原路徑一定要共用這一份……\n' +
+      '       *     兩邊各寫一份檢查，遲早會有一條路的檢查比較鬆」\n' +
+      '       * ——而這一條連一份都沒有。現在兩條路都走同一個 isValidPcu／isValidTurnPcu。\n' +
+      '       */\n' +
+      '      if (bundle.pcuFactors) {\n' +
+      '        if (isValidPcu(bundle.pcuFactors))\n' +
+      '          writeProjectPcuFactors(newId, bundle.pcuFactors);\n' +
+      '        else\n' +
+      '          allRestoreWarnings.push(\n' +
+      '            `「${bundle.project?.name || newId}」的路段PCU係數不是合法的數字，已略過（沿用系統預設值）`,\n' +
+      '          );\n' +
+      '      }\n' +
+      '      if (bundle.turnPcuFactors) {\n' +
+      '        if (isValidTurnPcu(bundle.turnPcuFactors))\n' +
+      '          writeProjectTurnPcuFactors(newId, bundle.turnPcuFactors);\n' +
+      '        else\n' +
+      '          allRestoreWarnings.push(\n' +
+      '            `「${bundle.project?.name || newId}」的轉向PCU係數不完整或不是合法的數字，已略過（沿用系統預設值）`,\n' +
+      '          );\n' +
+      '      }\n' +
+      '      writeProjectPcuScopes(\n' +
+      '        newId,\n' +
+      '        Array.isArray(bundle.pcuScopes)\n' +
+      '          ? ((bundle.pcuScopes as unknown[]).filter(isValidScope) as PcuScopes)\n' +
+      '          : [],\n' +
+      '      );\n' +
+      '      if (bundle.conclusionTemplates?.length)\n' +
+      '        writeConclusionTemplates(newId, bundle.conclusionTemplates);\n' +
+      '      if (bundle.workflow) await saveWorkflow(newId, bundle.workflow);\n' +
+      '      /*\n' +
+      '       * 車種設定與路口幾何是「全部計畫共用一份陣列、各自帶 projectId」，\n' +
+      '       * 所以是**接上去**而不是取代——取代會把這台電腦上其他計畫的設定清掉。\n' +
+      '       */\n' +
+      '      if (bundle.vehicleClassSettings?.length)\n' +
+      '        nextVehicleClass = [\n' +
+      '          ...nextVehicleClass,\n' +
+      '          ...bundle.vehicleClassSettings.map((setting) => ({\n' +
+      '            ...setting,\n' +
+      '            projectId: newId,\n' +
+      '          })),\n' +
+      '        ];\n' +
+      '      if (bundle.intersectionSettings?.length)\n' +
+      '        nextIntersection = [\n' +
+      '          ...nextIntersection,\n' +
+      '          ...bundle.intersectionSettings.map((setting) => ({\n' +
+      '            ...setting,\n' +
+      '            projectId: newId,\n' +
+      '          })),\n' +
+      '        ];\n' +
+      '      restoredCount += 1;\n' +
+      '    }\n' +
+      '    /* 全部計畫都處理完之後才寫一次，累加的結果才不會互相覆蓋。 */\n' +
+      '    if (nextVehicleClass !== vehicleClassSettings) {\n' +
+      '      setVehicleClassSettings(nextVehicleClass);\n' +
+      '      safeWrite("traffic-vehicle-class-settings-v1", nextVehicleClass);\n' +
+      '    }\n' +
+      '    if (nextIntersection !== intersectionSettings) {\n' +
+      '      setIntersectionSettings(nextIntersection);\n' +
+      '      safeWrite("traffic-intersection-settings-v1", nextIntersection);\n' +
+      '    }\n' +
+      '    return { count: restoredCount, warnings: allRestoreWarnings };\n' +
+      '  }'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    async function restoreAllProjects(bundles: unknown[]) {
+        const allRestoreWarnings: string[] = [];
+        const existingNames = new Set(projects.map((p) => p.name.trim()));
+        let restoredCount = 0;
+        /*
+         * ⚠️ 這兩個累加器**一定要放在迴圈外面**，而且中途不可以讀
+         *   vehicleClassSettings／intersectionSettings 這兩個 state 變數。
+         *
+         * 第一版是在迴圈裡寫 `[...vehicleClassSettings, ...新的]` 再
+         * safeWrite——但 vehicleClassSettings 是這個 async 函式一開始就
+         * 被閉包鎖住的舊值，setState 之後它不會變。於是還原第二個計畫時，
+         * 又從「原始那一份」接一次，把第一個計畫剛加進去的設定整組蓋掉。
+         *
+         * 實測（e2e-backup-restore.mjs 第 ⑥ 段）：還原兩個計畫後，
+         * 先還原的那一個 vehicleClassSettings 變成 []，後還原的正常——
+         * 而筆數、季度、PCU 係數全部正確，只有車種分類默默不見了。
+         * 這種錯不會報任何訊息，要到使用者發現車種歸類跑掉才會知道。
+         */
+        let nextVehicleClass = vehicleClassSettings;
+        let nextIntersection = intersectionSettings;
+        for (const raw of bundles) {
+          const bundle = raw as {
+            project?: { name?: string; code?: string; clientName?: string };
+            records?: unknown;
+            pcuFactors?: PcuFactors;
+            turnPcuFactors?: TurnPcuFactors;
+            pcuScopes?: unknown;
+            vehicleClassSettings?: Omit<VehicleClassSetting, "projectId">[];
+            roadAliases?: RoadAlias[];
+            intersectionSettings?: Omit<IntersectionArmSetting, "projectId">[];
+            workflow?: WorkflowState;
+            conclusionTemplates?: ConclusionTemplate[];
+        /*
+         * K45：只有「全部計畫」的備份會帶這個欄位（個人偏好跟人走）。
+         * 單一計畫備份**不可以**有——那份是給別人的。
+         */
+        showSurveyDate?: boolean;
+          };
+          const baseName = (bundle.project?.name || "").trim() || "還原的計畫";
+          /*
+           * 同名時加上還原日期，不要蓋掉也不要靜靜地合併。
+           * 使用者一眼就能看出哪一個是剛還原進來的。
+           */
+          let name = baseName;
+          if (existingNames.has(name)) name = `${baseName}（還原 ${today()}）`;
+          let suffix = 2;
+          while (existingNames.has(name)) {
+            name = `${baseName}（還原 ${today()}-${suffix}）`;
+            suffix += 1;
+          }
+          existingNames.add(name);
+          const rows = validateBackupRecords(
+            bundle.records,
+            `備份檔中的計畫「${baseName}」`,
+          );
+          const created = await appFetch("/api/projects", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              name,
+              code: (bundle.project?.code || "").trim(),
+              clientName: (bundle.project?.clientName || "").trim(),
+            }),
+          });
+          const createdData = await created.json();
+          if (!created.ok)
+            throw new Error(createdData.error || `建立計畫「${name}」失敗`);
+          const newId: string = createdData.project.id;
+          for (const quarter of [...new Set(rows.map((r) => r.quarter))]) {
+            const response = await appFetch("/api/import", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                projectId: newId,
+                quarter,
+                sourceObjectKeys: [],
+                records: rows
+                  .filter((r) => r.quarter === quarter)
+                  .map((r) => ({ ...r, projectId: newId })),
+              }),
+            });
+            if (!response.ok)
+              throw new Error(
+                (await response.json()).error || `計畫「${name}」的 ${quarter} 還原失敗`,
+              );
+          }
+          for (const alias of bundle.roadAliases ?? []) {
+            await appFetch("/api/roads", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                action: "alias",
+                projectId: newId,
+                roadId: alias.roadId,
+                aliasName: alias.aliasName,
+              }),
+            });
+          }
+          /*
+           * ══════════════════════════════════════════════════════════════
+           *  ⚠️ 2026-09-25 修正：這一條路原本對 PCU 係數**一個檢查都沒有**
+           * ══════════════════════════════════════════════════════════════
+           *
+           * 舊寫法是 `if (bundle.pcuFactors) writeProjectPcuFactors(...)`——
+           * 直接把備份裡的內容寫進 localStorage。下次載入時 isValidPcu()
+           * 會拒絕它、靜靜退回系統預設 0.5/1/1.5/2.5，使用者備份裡自訂的係數
+           * **全部消失且無提示**；而同一段的 pcuScopes 明明就有 filter(isValidScope)。
+           *
+           * validateBackupRecords 上面的註解自己寫著：
+           *   「單一計畫與全部計畫兩條還原路徑一定要共用這一份……
+           *     兩邊各寫一份檢查，遲早會有一條路的檢查比較鬆」
+           * ——而這一條連一份都沒有。現在兩條路都走同一個 isValidPcu／isValidTurnPcu。
+           */
+          if (bundle.pcuFactors) {
+            if (isValidPcu(bundle.pcuFactors))
+              writeProjectPcuFactors(newId, bundle.pcuFactors);
+            else
+              allRestoreWarnings.push(
+                `「${bundle.project?.name || newId}」的路段PCU係數不是合法的數字，已略過（沿用系統預設值）`,
+              );
+          }
+          if (bundle.turnPcuFactors) {
+            if (isValidTurnPcu(bundle.turnPcuFactors))
+              writeProjectTurnPcuFactors(newId, bundle.turnPcuFactors);
+            else
+              allRestoreWarnings.push(
+                `「${bundle.project?.name || newId}」的轉向PCU係數不完整或不是合法的數字，已略過（沿用系統預設值）`,
+              );
+          }
+          writeProjectPcuScopes(
+            newId,
+            Array.isArray(bundle.pcuScopes)
+              ? ((bundle.pcuScopes as unknown[]).filter(isValidScope) as PcuScopes)
+              : [],
+          );
+          if (bundle.conclusionTemplates?.length)
+            writeConclusionTemplates(newId, bundle.conclusionTemplates);
+          if (bundle.workflow) await saveWorkflow(newId, bundle.workflow);
+          /*
+           * 車種設定與路口幾何是「全部計畫共用一份陣列、各自帶 projectId」，
+           * 所以是**接上去**而不是取代——取代會把這台電腦上其他計畫的設定清掉。
+           */
+          if (bundle.vehicleClassSettings?.length)
+            nextVehicleClass = [
+              ...nextVehicleClass,
+              ...bundle.vehicleClassSettings.map((setting) => ({
+                ...setting,
+                projectId: newId,
+              })),
+            ];
+          if (bundle.intersectionSettings?.length)
+            nextIntersection = [
+              ...nextIntersection,
+              ...bundle.intersectionSettings.map((setting) => ({
+                ...setting,
+                projectId: newId,
+              })),
+            ];
+          restoredCount += 1;
+        }
+        /* 全部計畫都處理完之後才寫一次，累加的結果才不會互相覆蓋。 */
+        if (nextVehicleClass !== vehicleClassSettings) {
+          setVehicleClassSettings(nextVehicleClass);
+          safeWrite("traffic-vehicle-class-settings-v1", nextVehicleClass);
+        }
+        if (nextIntersection !== intersectionSettings) {
+          setIntersectionSettings(nextIntersection);
+          safeWrite("traffic-intersection-settings-v1", nextIntersection);
+        }
+        return { count: restoredCount, warnings: allRestoreWarnings };
+      }
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/scoped-settings-dataflow.test.mjs:33:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: formal xlsx exports classification warnings and the scoped mapping table
+not ok 3 - formal xlsx exports classification warnings and the scoped mapping table
+  ---
+  duration_ms: 1.0671
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\scoped-settings-dataflow.test.mjs:40:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /車種歸類提醒/. Input:
+    
+    'async function exportWorkbook() {\n' +
+      '    // 面板上的「下載此圖 Excel」不會經過批次輸出中心的按鈕停用條件，\n' +
+      '    // 所以守門條件要放在函式裡，避免產生一張工作表都沒有的壞檔。\n' +
+      '    const hasSection = Object.values(exportSections).some(Boolean);\n' +
+      '    const hasPeriod =\n' +
+      '      periodExport.enabled &&\n' +
+      '      periodExport.periods.length > 0 &&\n' +
+      '      periodExport.metrics.length > 0;\n' +
+      '    if (!hasSection && !hasPeriod)\n' +
+      '      return setToast("匯出項目全部取消勾選了，請至少保留一項再匯出");\n' +
+      '    setBusy(true);\n' +
+      '    try {\n' +
+      '      /*\n' +
+      '       * 部分時段調查（例如只做 07:00–09:00＋17:00–19:00）的合計**不是全日量**，\n' +
+      '       * 標成「輛/日」「24小時PCU」會讓人直接拿去和完整 24 小時的季度相比，\n' +
+      '       * 也會讓 4 小時的量被當成一整天。舊版 .xls 匯出（exportLegacy）早就依\n' +
+      '       * surveyScope.partial 切過單位了，主要交付用的 .xlsx 這一支漏掉。\n' +
+      '       */\n' +
+      '      /* 與 .xls 匯出共用同一套單位判斷，理由見 exportActualUnit 的說明。 */\n' +
+      '      /*\n' +
+      '       * ⚠️ 同上：不可以在這裡遮蔽外層的 showQuarter。\n' +
+      '       *   外層那一個會同時套上年份與期別兩層，和畫面是同一份。\n' +
+      '       */\n' +
+      '      /*\n' +
+      '       * ── K42：涵蓋不一致時改用中性單位，並逐列附上自己的調查涵蓋 ──\n' +
+      '       *\n' +
+      '       * 同一季裡各列涵蓋不同時（平日完整 24 小時、假日只測 6 小時），\n' +
+      '       * **任何單一單位都會誤標其中一列**。涵蓋一致時完全走原本的路徑，\n' +
+      '       * 匯出的檔案一個字都不會變（使用者手上的 5 份真實檔平假日都是 24 小時）。\n' +
+      '       * 這個情況本身已經列進資料異常檢查（「平假日涵蓋不一致」）。\n' +
+      '       */\n' +
+      '      const sheetActualUnit = coverageMismatch\n' +
+      '        ? "輛"\n' +
+      '        : exportActualUnit(surveyScope.partial);\n' +
+      '      const sheetPcuUnit = coverageMismatch\n' +
+      '        ? "PCU"\n' +
+      '        : exportPcuUnit(surveyScope.partial);\n' +
+      '      const coverageByRow = new Map<string, string[]>();\n' +
+      '      for (const record of filtered) {\n' +
+      '        const key = `${record.dayType}|${record.roadId}`;\n' +
+      '        const list = coverageByRow.get(key) ?? [];\n' +
+      '        list.push(record.hour ?? "");\n' +
+      '        coverageByRow.set(key, list);\n' +
+      '      }\n' +
+      '      const rowCoverageLabel = (dayTypeOfRow: string, roadId: string) => {\n' +
+      '        const hours = coverageByRow.get(`${dayTypeOfRow}|${roadId}`);\n' +
+      '        if (!hours?.length) return "無法判斷";\n' +
+      '        return coverageLabelOf(surveyCoverage(hours));\n' +
+      '      };\n' +
+      '      /*\n' +
+      '       * 「平日＋假日」已經改成每個調查點出兩列（各自是單日的量），\n' +
+      '       * 所以不再有「平假日合計」這種欄位；欄名只需要看調查涵蓋是否滿 24 小時。\n' +
+      '       */\n' +
+      '      const pcu24Label = surveyScope.partial\n' +
+      '        ? `調查時段PCU（${sheetPcuUnit}）`\n' +
+      '        : `24小時PCU（${sheetPcuUnit}）`;\n' +
+      '      const totalLabel = surveyScope.partial\n' +
+      '        ? `調查時段實際交通量（${sheetActualUnit}）`\n' +
+      '        : `全日實際交通量（${sheetActualUnit}）`;\n' +
+      '      const ExcelJS = (await import("exceljs")).default;\n' +
+      '      /*\n' +
+      '       * exceljs 是動態載入的，型別要在這裡就地宣告；只寫這裡真的會用到的\n' +
+      '       * 那幾個樣式欄位，比 any 精確，也不必為了型別把整包 exceljs 靜態載進來。\n' +
+      '       */\n' +
+      '      type ExcelJsCell = {\n' +
+      '        fill: unknown;\n' +
+      '        font: unknown;\n' +
+      '        alignment: unknown;\n' +
+      '      };\n' +
+      '      type ExcelJsRow = {\n' +
+      '        eachCell: (visit: (cell: ExcelJsCell) => void) => void;\n' +
+      '      };\n' +
+      '      const wb = new ExcelJS.Workbook();\n' +
+      '      wb.creator = "全日交通量及車種組成";\n' +
+      '      wb.calcProperties.fullCalcOnLoad = true;\n' +
+      '      const header = (row: ExcelJsRow) =>\n' +
+      '        row.eachCell((cell: ExcelJsCell) => {\n' +
+      '          cell.fill = {\n' +
+      '            type: "pattern",\n' +
+      '            pattern: "solid",\n' +
+      '            fgColor: { argb: "FF148C8C" },\n' +
+      '          };\n' +
+      '          cell.font = { bold: true, color: { argb: "FFFFFFFF" } };\n' +
+      '          cell.alignment = {\n' +
+      '            vertical: "middle",\n' +
+      '            horizontal: "center",\n' +
+      '            wrapText: true,\n' +
+      '          };\n' +
+      '        });\n' +
+      '      const data = wb.addWorksheet("本季交通量及PCU", {\n' +
+      '        views: [{ state: "frozen", ySplit: 1 }],\n' +
+      '      });\n' +
+      '      const dataBaseHeaders = [\n' +
+      '        "季度",\n' +
+      '        "日別",\n' +
+      '        "路段編號",\n' +
+      '        "路段名稱",\n' +
+      '        `方向A實際量（${sheetActualUnit}）`,\n' +
+      '        `方向B實際量（${sheetActualUnit}）`,\n' +
+      '        `方向A（${sheetPcuUnit}）`,\n' +
+      '        `方向B（${sheetPcuUnit}）`,\n' +
+      '        totalLabel,\n' +
+      '        pcu24Label,\n' +
+      '        `雙向合計尖峰（${peakColumnUnit}）`,\n' +
+      '        "雙向尖峰時段",\n' +
+      '        `方向A尖峰（${peakColumnUnit}）`,\n' +
+      '        "方向A尖峰時段",\n' +
+      '        `方向B尖峰（${peakColumnUnit}）`,\n' +
+      '        "方向B尖峰時段",\n' +
+      '        /*\n' +
+      '         * K42：涵蓋不一致時才多這一欄。放在最後而不是插在「路段名稱」後面，\n' +
+      '         * 是為了不動到下面 numFmt 與 autoFilter 寫死的欄位序號——\n' +
+      '         * 插在中間會讓那些序號在「一致／不一致」兩種情況下不同，\n' +
+      '         * 那種條件式的欄位序號是很容易寫錯而且不會有症狀的東西。\n' +
+      '         */\n' +
+      '        ...(coverageMismatch ? ["調查涵蓋（本列自己的）"] : []),\n' +
+      '      ];\n' +
+      '      data.addRow([\n' +
+      '        ...dataBaseHeaders,\n' +
+      '        ...analysisVehicleCatalog.map(\n' +
+      '          (vehicle) => `${vehicle.label}（${sheetActualUnit}）`,\n' +
+      '        ),\n' +
+      '        ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}比例（%）`),\n' +
+      '      ]);\n' +
+      '      roadOnlyRows.forEach((r) =>\n' +
+      '        data.addRow([\n' +
+      '          showQuarter(quarter),\n' +
+      '          r.dayType,\n' +
+      '          r.roadId,\n' +
+      '          dayQualifiedLabel(r.roadName, r.dayType, dayType),\n' +
+      '          r.a,\n' +
+      '          r.b,\n' +
+      '          r.aPcu,\n' +
+      '          r.bPcu,\n' +
+      '          r.total,\n' +
+      '          r.pcu24,\n' +
+      '          r.peakPcu,\n' +
+      '          r.peakHour,\n' +
+      '          r.aPeakPcu,\n' +
+      '          r.aPeakHour,\n' +
+      '          r.bPeakPcu,\n' +
+      '          r.bPeakHour,\n' +
+      '          ...analysisVehicleCatalog.map(\n' +
+      '            (vehicle) => r.vehicles[vehicle.key] ?? 0,\n' +
+      '          ),\n' +
+      '          ...analysisVehicleCatalog.map((vehicle) =>\n' +
+      '            r.total ? (r.vehicles[vehicle.key] ?? 0) / r.total : 0,\n' +
+      '          ),\n' +
+      '          ...(coverageMismatch\n' +
+      '            ? [rowCoverageLabel(r.dayType, r.roadId)]\n' +
+      '            : []),\n' +
+      '        ]),\n' +
+      '      );\n' +
+      '      if (!roadOnlyRows.length)\n' +
+      '        /* 只有真的會產生那張工作表時才叫使用者去看它（產生條件見下方的\n' +
+      '           if (intersectionOnlyRows.length)）。舊版無條件寫這句，\n' +
+      '           一個路口資料也沒有時，會指向一張根本不在檔案裡的工作表。 */\n' +
+      '        data.addRow([\n' +
+      '          showQuarter(quarter),\n' +
+      '          dayType,\n' +
+      '          "",\n' +
+      '          intersectionOnlyRows.length\n' +
+      '            ? `本季無路段格式資料；請查看「路口${intersectionFlowLabel}交通量」工作表`\n' +
+      '            : "本季這個日別與篩選條件下沒有任何調查資料；請確認上方的季度、日別與調查點篩選。",\n' +
+      '        ]);\n' +
+      '      data.columns = [\n' +
+      '        ...[12, 10, 16, 34, 20, 20, 17, 17, 23, 20, 23, 18, 21, 18, 21, 18],\n' +
+      '        ...analysisVehicleCatalog.map(() => 17),\n' +
+      '        ...analysisVehicleCatalog.map(() => 15),\n' +
+      '      ].map((width) => ({ width }));\n' +
+      '      header(data.getRow(1));\n' +
+      '      [7, 8, 10, 11, 13, 15].forEach(\n' +
+      '        (c) => (data.getColumn(c).numFmt = "#,##0.0"),\n' +
+      '      );\n' +
+      '      analysisVehicleCatalog.forEach(\n' +
+      '        (_, index) =>\n' +
+      '          (data.getColumn(17 + analysisVehicleCatalog.length + index).numFmt =\n' +
+      '            "0.0%"),\n' +
+      '      );\n' +
+      '      data.autoFilter = {\n' +
+      '        from: "A1",\n' +
+      '        to: `${colName(dataBaseHeaders.length + analysisVehicleCatalog.length * 2)}${roadOnlyRows.length + 1}`,\n' +
+      '      };\n' +
+      '      if (intersectionOnlyRows.length) {\n' +
+      '        const intersectionData = wb.addWorksheet(\n' +
+      '          `路口${intersectionFlowLabel}交通量`,\n' +
+      '          { views: [{ state: "frozen", ySplit: 1 }] },\n' +
+      '        );\n' +
+      '        intersectionData.addRow([\n' +
+      '          "季度",\n' +
+      '          "日別",\n' +
+      '          "流量視角",\n' +
+      '          "路口編號",\n' +
+      '          "路口名稱",\n' +
+      '          `${intersectionFlowLabel}支線`,\n' +
+      '          `${intersectionFlowLabel}交通量（${sheetActualUnit}）`,\n' +
+      '          `${intersectionFlowLabel}交通量（${sheetPcuUnit}）`,\n' +
+      '          `${intersectionFlowLabel}尖峰（${peakColumnUnit}）`,\n' +
+      '          "尖峰時段",\n' +
+      '          totalLabel,\n' +
+      '          pcu24Label,\n' +
+      '        ]);\n' +
+      '        intersectionOnlyRows.forEach((r) =>\n' +
+      '          r.directions.forEach((d) =>\n' +
+      '            intersectionData.addRow([\n' +
+      '              showQuarter(quarter),\n' +
+      '              r.dayType,\n' +
+      '              intersectionFlowLabel,\n' +
+      '              r.roadId,\n' +
+      '              r.roadName,\n' +
+      '              dayQualifiedLabel(`${r.roadName}－${d.name}`, r.dayType, dayType),\n' +
+      '              d.actual,\n' +
+      '              d.pcu,\n' +
+      '              d.peakPcu,\n' +
+      '              d.peakHour,\n' +
+      '              r.total,\n' +
+      '              r.pcu24,\n' +
+      '            ]),\n' +
+      '          ),\n' +
+      '        );\n' +
+      '        intersectionData.columns = [\n' +
+      '          12, 12, 12, 18, 36, 22, 24, 24, 26, 20, 26, 22,\n' +
+      '        ].map((width) => ({ width }));\n' +
+      '        header(intersectionData.getRow(1));\n' +
+      '        [8, 9, 12].forEach(\n' +
+      '          (column) => (intersectionData.getColumn(column).numFmt = "#,##0.0"),\n' +
+      '        );\n' +
+      '      }\n' +
+      '      const turnFactorSheet = wb.addWorksheet("路口轉向PCU係數");\n' +
+      '      turnFactorSheet.addRow([\n' +
+      '        "原始車種",\n' +
+      '        "分析歸類",\n' +
+      '        "一般PCU",\n' +
+      '        "直行",\n' +
+      '        "右轉",\n' +
+      '        "左轉",\n' +
+      '      ]);\n' +
+      '      CORE_VEHICLE_KEYS.forEach((key) =>\n' +
+      '        turnFactorSheet.addRow([\n' +
+      '          coreVehicleLabels[key],\n' +
+      '          coreVehicleLabels[key],\n' +
+      '          pcuFactors[key],\n' +
+      '          turnPcuFactors[key].through,\n' +
+      '          turnPcuFactors[key].right,\n' +
+      '          turnPcuFactors[key].left,\n' +
+      '        ]),\n' +
+      '      );\n' +
+      '      vehicleClassSettings\n' +
+      '        .filter(\n' +
+      '          (setting) =>\n' +
+      '            setting.projectId === activeProject &&\n' +
+      '            !CORE_VEHICLE_KEYS.includes(setting.sourceKey as CoreVehicleKey),\n' +
+      '        )\n' +
+      '        .forEach((setting) =>\n' +
+      '          turnFactorSheet.addRow([\n' +
+      '            setting.sourceLabel,\n' +
+      '            setting.targetLabel,\n' +
+      '            setting.targetKey === setting.sourceKey\n' +
+      '              ? setting.roadPcu\n' +
+      '              : `使用${setting.targetLabel}係數`,\n' +
+      '            setting.targetKey === setting.sourceKey\n' +
+      '              ? setting.turnPcu.through\n' +
+      '              : `使用${setting.targetLabel}係數`,\n' +
+      '            setting.targetKey === setting.sourceKey\n' +
+      '              ? setting.turnPcu.right\n' +
+      '              : `使用${setting.targetLabel}係數`,\n' +
+      '            setting.targetKey === setting.sourceKey\n' +
+      '              ? setting.turnPcu.left\n' +
+      '              : `使用${setting.targetLabel}係數`,\n' +
+      '          ]),\n' +
+      '        );\n' +
+      '      turnFactorSheet.columns = [18, 20, 18, 15, 15, 15].map((width) => ({\n' +
+      '        width,\n' +
+      '      }));\n' +
+      '      header(turnFactorSheet.getRow(1));\n' +
+      '      if (effectiveIntersectionSettings.length) {\n' +
+      '        const flowSettings = wb.addWorksheet("路口駛出對應", {\n' +
+      '          views: [{ state: "frozen", ySplit: 1 }],\n' +
+      '        });\n' +
+      '        flowSettings.addRow([\n' +
+      '          "路口編號",\n' +
+      '          "來源支線",\n' +
+      '          "支線名稱",\n' +
+      '          "角度（°）",\n' +
+      '          "左轉駛出",\n' +
+      '          "直行駛出",\n' +
+      '          "右轉駛出",\n' +
+      '        ]);\n' +
+      '        effectiveIntersectionSettings.forEach((setting) =>\n' +
+      '          flowSettings.addRow([\n' +
+      '            setting.roadId,\n' +
+      '            `路口${setting.directionCode}`,\n' +
+      '            setting.name,\n' +
+      '            normalizeAngle(setting.angle),\n' +
+      '            turnTargetLabel(setting, effectiveIntersectionSettings, "left"),\n' +
+      '            turnTargetLabel(setting, effectiveIntersectionSettings, "through"),\n' +
+      '            turnTargetLabel(setting, effectiveIntersectionSettings, "right"),\n' +
+      '          ]),\n' +
+      '        );\n' +
+      '        flowSettings.columns = [18, 16, 28, 14, 18, 18, 18].map((width) => ({\n' +
+      '         '... 41306 more characters
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    async function exportWorkbook() {
+        // 面板上的「下載此圖 Excel」不會經過批次輸出中心的按鈕停用條件，
+        // 所以守門條件要放在函式裡，避免產生一張工作表都沒有的壞檔。
+        const hasSection = Object.values(exportSections).some(Boolean);
+        const hasPeriod =
+          periodExport.enabled &&
+          periodExport.periods.length > 0 &&
+          periodExport.metrics.length > 0;
+        if (!hasSection && !hasPeriod)
+          return setToast("匯出項目全部取消勾選了，請至少保留一項再匯出");
+        setBusy(true);
+        try {
+          /*
+           * 部分時段調查（例如只做 07:00–09:00＋17:00–19:00）的合計**不是全日量**，
+           * 標成「輛/日」「24小時PCU」會讓人直接拿去和完整 24 小時的季度相比，
+           * 也會讓 4 小時的量被當成一整天。舊版 .xls 匯出（exportLegacy）早就依
+           * surveyScope.partial 切過單位了，主要交付用的 .xlsx 這一支漏掉。
+           */
+          /* 與 .xls 匯出共用同一套單位判斷，理由見 exportActualUnit 的說明。 */
+          /*
+           * ⚠️ 同上：不可以在這裡遮蔽外層的 showQuarter。
+           *   外層那一個會同時套上年份與期別兩層，和畫面是同一份。
+           */
+          /*
+           * ── K42：涵蓋不一致時改用中性單位，並逐列附上自己的調查涵蓋 ──
+           *
+           * 同一季裡各列涵蓋不同時（平日完整 24 小時、假日只測 6 小時），
+           * **任何單一單位都會誤標其中一列**。涵蓋一致時完全走原本的路徑，
+           * 匯出的檔案一個字都不會變（使用者手上的 5 份真實檔平假日都是 24 小時）。
+           * 這個情況本身已經列進資料異常檢查（「平假日涵蓋不一致」）。
+           */
+          const sheetActualUnit = coverageMismatch
+            ? "輛"
+            : exportActualUnit(surveyScope.partial);
+          const sheetPcuUnit = coverageMismatch
+            ? "PCU"
+            : exportPcuUnit(surveyScope.partial);
+          const coverageByRow = new Map<string, string[]>();
+          for (const record of filtered) {
+            const key = `${record.dayType}|${record.roadId}`;
+            const list = coverageByRow.get(key) ?? [];
+            list.push(record.hour ?? "");
+            coverageByRow.set(key, list);
+          }
+          const rowCoverageLabel = (dayTypeOfRow: string, roadId: string) => {
+            const hours = coverageByRow.get(`${dayTypeOfRow}|${roadId}`);
+            if (!hours?.length) return "無法判斷";
+            return coverageLabelOf(surveyCoverage(hours));
+          };
+          /*
+           * 「平日＋假日」已經改成每個調查點出兩列（各自是單日的量），
+           * 所以不再有「平假日合計」這種欄位；欄名只需要看調查涵蓋是否滿 24 小時。
+           */
+          const pcu24Label = surveyScope.partial
+            ? `調查時段PCU（${sheetPcuUnit}）`
+            : `24小時PCU（${sheetPcuUnit}）`;
+          const totalLabel = surveyScope.partial
+            ? `調查時段實際交通量（${sheetActualUnit}）`
+            : `全日實際交通量（${sheetActualUnit}）`;
+          const ExcelJS = (await import("exceljs")).default;
+          /*
+           * exceljs 是動態載入的，型別要在這裡就地宣告；只寫這裡真的會用到的
+           * 那幾個樣式欄位，比 any 精確，也不必為了型別把整包 exceljs 靜態載進來。
+           */
+          type ExcelJsCell = {
+            fill: unknown;
+            font: unknown;
+            alignment: unknown;
+          };
+          type ExcelJsRow = {
+            eachCell: (visit: (cell: ExcelJsCell) => void) => void;
+          };
+          const wb = new ExcelJS.Workbook();
+          wb.creator = "全日交通量及車種組成";
+          wb.calcProperties.fullCalcOnLoad = true;
+          const header = (row: ExcelJsRow) =>
+            row.eachCell((cell: ExcelJsCell) => {
+              cell.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FF148C8C" },
+              };
+              cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+              cell.alignment = {
+                vertical: "middle",
+                horizontal: "center",
+                wrapText: true,
+              };
+            });
+          const data = wb.addWorksheet("本季交通量及PCU", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          const dataBaseHeaders = [
+            "季度",
+            "日別",
+            "路段編號",
+            "路段名稱",
+            `方向A實際量（${sheetActualUnit}）`,
+            `方向B實際量（${sheetActualUnit}）`,
+            `方向A（${sheetPcuUnit}）`,
+            `方向B（${sheetPcuUnit}）`,
+            totalLabel,
+            pcu24Label,
+            `雙向合計尖峰（${peakColumnUnit}）`,
+            "雙向尖峰時段",
+            `方向A尖峰（${peakColumnUnit}）`,
+            "方向A尖峰時段",
+            `方向B尖峰（${peakColumnUnit}）`,
+            "方向B尖峰時段",
+            /*
+             * K42：涵蓋不一致時才多這一欄。放在最後而不是插在「路段名稱」後面，
+             * 是為了不動到下面 numFmt 與 autoFilter 寫死的欄位序號——
+             * 插在中間會讓那些序號在「一致／不一致」兩種情況下不同，
+             * 那種條件式的欄位序號是很容易寫錯而且不會有症狀的東西。
+             */
+            ...(coverageMismatch ? ["調查涵蓋（本列自己的）"] : []),
+          ];
+          data.addRow([
+            ...dataBaseHeaders,
+            ...analysisVehicleCatalog.map(
+              (vehicle) => `${vehicle.label}（${sheetActualUnit}）`,
+            ),
+            ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}比例（%）`),
+          ]);
+          roadOnlyRows.forEach((r) =>
+            data.addRow([
+              showQuarter(quarter),
+              r.dayType,
+              r.roadId,
+              dayQualifiedLabel(r.roadName, r.dayType, dayType),
+              r.a,
+              r.b,
+              r.aPcu,
+              r.bPcu,
+              r.total,
+              r.pcu24,
+              r.peakPcu,
+              r.peakHour,
+              r.aPeakPcu,
+              r.aPeakHour,
+              r.bPeakPcu,
+              r.bPeakHour,
+              ...analysisVehicleCatalog.map(
+                (vehicle) => r.vehicles[vehicle.key] ?? 0,
+              ),
+              ...analysisVehicleCatalog.map((vehicle) =>
+                r.total ? (r.vehicles[vehicle.key] ?? 0) / r.total : 0,
+              ),
+              ...(coverageMismatch
+                ? [rowCoverageLabel(r.dayType, r.roadId)]
+                : []),
+            ]),
+          );
+          if (!roadOnlyRows.length)
+            /* 只有真的會產生那張工作表時才叫使用者去看它（產生條件見下方的
+               if (intersectionOnlyRows.length)）。舊版無條件寫這句，
+               一個路口資料也沒有時，會指向一張根本不在檔案裡的工作表。 */
+            data.addRow([
+              showQuarter(quarter),
+              dayType,
+              "",
+              intersectionOnlyRows.length
+                ? `本季無路段格式資料；請查看「路口${intersectionFlowLabel}交通量」工作表`
+                : "本季這個日別與篩選條件下沒有任何調查資料；請確認上方的季度、日別與調查點篩選。",
+            ]);
+          data.columns = [
+            ...[12, 10, 16, 34, 20, 20, 17, 17, 23, 20, 23, 18, 21, 18, 21, 18],
+            ...analysisVehicleCatalog.map(() => 17),
+            ...analysisVehicleCatalog.map(() => 15),
+          ].map((width) => ({ width }));
+          header(data.getRow(1));
+          [7, 8, 10, 11, 13, 15].forEach(
+            (c) => (data.getColumn(c).numFmt = "#,##0.0"),
+          );
+          analysisVehicleCatalog.forEach(
+            (_, index) =>
+              (data.getColumn(17 + analysisVehicleCatalog.length + index).numFmt =
+                "0.0%"),
+          );
+          data.autoFilter = {
+            from: "A1",
+            to: `${colName(dataBaseHeaders.length + analysisVehicleCatalog.length * 2)}${roadOnlyRows.length + 1}`,
+          };
+          if (intersectionOnlyRows.length) {
+            const intersectionData = wb.addWorksheet(
+              `路口${intersectionFlowLabel}交通量`,
+              { views: [{ state: "frozen", ySplit: 1 }] },
+            );
+            intersectionData.addRow([
+              "季度",
+              "日別",
+              "流量視角",
+              "路口編號",
+              "路口名稱",
+              `${intersectionFlowLabel}支線`,
+              `${intersectionFlowLabel}交通量（${sheetActualUnit}）`,
+              `${intersectionFlowLabel}交通量（${sheetPcuUnit}）`,
+              `${intersectionFlowLabel}尖峰（${peakColumnUnit}）`,
+              "尖峰時段",
+              totalLabel,
+              pcu24Label,
+            ]);
+            intersectionOnlyRows.forEach((r) =>
+              r.directions.forEach((d) =>
+                intersectionData.addRow([
+                  showQuarter(quarter),
+                  r.dayType,
+                  intersectionFlowLabel,
+                  r.roadId,
+                  r.roadName,
+                  dayQualifiedLabel(`${r.roadName}－${d.name}`, r.dayType, dayType),
+                  d.actual,
+                  d.pcu,
+                  d.peakPcu,
+                  d.peakHour,
+                  r.total,
+                  r.pcu24,
+                ]),
+              ),
+            );
+            intersectionData.columns = [
+              12, 12, 12, 18, 36, 22, 24, 24, 26, 20, 26, 22,
+            ].map((width) => ({ width }));
+            header(intersectionData.getRow(1));
+            [8, 9, 12].forEach(
+              (column) => (intersectionData.getColumn(column).numFmt = "#,##0.0"),
+            );
+          }
+          const turnFactorSheet = wb.addWorksheet("路口轉向PCU係數");
+          turnFactorSheet.addRow([
+            "原始車種",
+            "分析歸類",
+            "一般PCU",
+            "直行",
+            "右轉",
+            "左轉",
+          ]);
+          CORE_VEHICLE_KEYS.forEach((key) =>
+            turnFactorSheet.addRow([
+              coreVehicleLabels[key],
+              coreVehicleLabels[key],
+              pcuFactors[key],
+              turnPcuFactors[key].through,
+              turnPcuFactors[key].right,
+              turnPcuFactors[key].left,
+            ]),
+          );
+          vehicleClassSettings
+            .filter(
+              (setting) =>
+                setting.projectId === activeProject &&
+                !CORE_VEHICLE_KEYS.includes(setting.sourceKey as CoreVehicleKey),
+            )
+            .forEach((setting) =>
+              turnFactorSheet.addRow([
+                setting.sourceLabel,
+                setting.targetLabel,
+                setting.targetKey === setting.sourceKey
+                  ? setting.roadPcu
+                  : `使用${setting.targetLabel}係數`,
+                setting.targetKey === setting.sourceKey
+                  ? setting.turnPcu.through
+                  : `使用${setting.targetLabel}係數`,
+                setting.targetKey === setting.sourceKey
+                  ? setting.turnPcu.right
+                  : `使用${setting.targetLabel}係數`,
+                setting.targetKey === setting.sourceKey
+                  ? setting.turnPcu.left
+                  : `使用${setting.targetLabel}係數`,
+              ]),
+            );
+          turnFactorSheet.columns = [18, 20, 18, 15, 15, 15].map((width) => ({
+            width,
+          }));
+          header(turnFactorSheet.getRow(1));
+          if (effectiveIntersectionSettings.length) {
+            const flowSettings = wb.addWorksheet("路口駛出對應", {
+              views: [{ state: "frozen", ySplit: 1 }],
+            });
+            flowSettings.addRow([
+              "路口編號",
+              "來源支線",
+              "支線名稱",
+              "角度（°）",
+              "左轉駛出",
+              "直行駛出",
+              "右轉駛出",
+            ]);
+            effectiveIntersectionSettings.forEach((setting) =>
+              flowSettings.addRow([
+                setting.roadId,
+                `路口${setting.directionCode}`,
+                setting.name,
+                normalizeAngle(setting.angle),
+                turnTargetLabel(setting, effectiveIntersectionSettings, "left"),
+                turnTargetLabel(setting, effectiveIntersectionSettings, "through"),
+                turnTargetLabel(setting, effectiveIntersectionSettings, "right"),
+              ]),
+            );
+            flowSettings.columns = [18, 16, 28, 14, 18, 18, 18].map((width) => ({
+              width,
+            }));
+            header(flowSettings.getRow(1));
+          }
+          const dc = wb.addWorksheet("平假日比較", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          dc.addRow([
+            "調查點編號",
+            "調查點名稱",
+            /* ⚠️ 稽核表 C：拉開區間時一季一列，沒有這一欄就分不出是哪一季。 */
+            "季別",
+            "平日實際量（輛）",
+            "假日實際量（輛）",
+            "平日PCU（PCU）",
+            "假日PCU（PCU）",
+            "平日調查涵蓋",
+            "假日調查涵蓋",
+            "平假日差（輛）",
+            "假日相較平日（%）",
+          ]);
+          /*
+           * 沒調查過的日別一律寫空白格，不是 0。
+           * 0 會被 Excel 的加總與平均吃進去，而「假日相較平日 -100%」
+           * 讀起來像那一季的假日流量真的歸零——實際上只是沒做假日調查。
+           * 歷季趨勢那張表早就是這樣處理的，這裡沿用同一個原則。
+           */
+          /* ⚠️ 匯出一律吃主工具列；圖的標題也是照主工具列的季別寫的。 */
+          dayComparisonsMain.forEach((r) =>
+            dc.addRow([
+              r.roadId,
+              /*
+               * ⚠️ 拆季之後名稱要帶季別：這一欄是原生圖表的類別軸（categories 指向 B 欄），
+               *   不帶的話同一條路段的兩季在圖上會是兩個一模一樣的標籤。
+               *   原始的編號與季別各自還有一欄，要拿來算的人不受影響。
+               */
+              r.quarter ? `${r.roadName}（${showQuarter(r.quarter)}）` : r.roadName,
+              /*
+               * ⚠️ 2026-09-18 大檢查 F-21：只看一季時列的 quarter 刻意是空字串
+               *   （那是分組鍵的設計，見 dayComparisonsFor），但匯出的「季別」欄
+               *   不可以因此整欄空白——讀的人會以為資料缺漏。單季時寫主工具列那一季。
+               */
+              showQuarter(r.quarter || mainFilters.quarterTo || quarter),
+              r.weekdaySurveyed ? r.weekdayActual : null,
+              r.holidaySurveyed ? r.holidayActual : null,
+              r.weekdaySurveyed ? r.weekdayPcu : null,
+              r.holidaySurveyed ? r.holidayPcu : null,
+              r.weekdaySurveyed ? coverageLabelOf(r.weekdayCoverage) : "本季未調查",
+              r.holidaySurveyed ? coverageLabelOf(r.holidayCoverage) : "本季未調查",
+              r.weekdaySurveyed && r.holidaySurveyed && r.coverageComparable
+                ? r.holidayActual - r.weekdayActual
+                : null,
+              r.weekdaySurveyed &&
+              r.holidaySurveyed &&
+              r.coverageComparable &&
+              r.weekdayActual
+                ? r.holidayActual / r.weekdayActual - 1
+                : null,
+            ]),
+          );
+          dc.columns = [16, 36, 14, 22, 22, 22, 22, 30, 30, 20, 20].map((width) => ({
+            width,
+          }));
+          header(dc.getRow(1));
+          /*
+           * ⚠️ 2026-09-18 大檢查 F-29：加了「季別」欄之後百分比格式沒有跟著往右移，
+           *   結果「平假日差（輛）」被套成 0.0%（-8216 輛顯示成 -821600.0%），
+           *   真正的「假日相較平日（%）」反而是 -0.235 的小數。
+           *   格式一律用欄名找，不寫死欄號，日後再插欄不會再錯位。
+           */
+          const dcPercentColumn =
+            (dc.getRow(1).values as (string | undefined)[]).indexOf(
+              "假日相較平日（%）",
+            );
+          dc.getColumn(dcPercentColumn).numFmt = "0.0%";
+          const tr = wb.addWorksheet("歷季趨勢", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          /*
+           * 歷季趨勢一樣是跨季度的表，標題不能帶「/日」或「/調查時段」——
+           * 那是依「目前季度」算出來的，對表裡其他季度可能是錯的。
+           * 單位改為中性的「輛」「PCU」，各季的平日／假日涵蓋分列於 D、E 欄。
+           * 折線圖只引用 A（類別）、B、C 三欄，新增說明欄不會影響圖表。
+           */
+          /*
+           * 這裡的單位刻意不帶「/日」或「/調查時段」（見上面說明），
+           * 但**必須跟著所選指標走**——舊版寫死只分 actual／pcu 兩種，
+           * v20.59 起指標有六個，佔比類的單位是 %。
+           */
+          const trendUnitLabel =
+            trendMetricDef.unit === "%"
+              ? "%"
+              : trendMetricDef.unit === "pcu"
+                ? "PCU"
+                : "輛";
+          /*
+           * ⚠️ 多個調查點時這張表也要**一個調查點一欄**，不可以只有平日／假日
+           *   兩欄。畫面上的圖已經逐點分列，匯出檔卻寫合計的話，
+           *   使用者抄進報告的是匯出檔裡那個不成立的數字，
+           *   而兩邊各自看都很合理——這種分岔沒有人會發現。
+           */
+          const trendExcelSeries = trendLines.length
+            ? trendLines.map((line) => ({
+                name: `${line.label} ${trendMetricName}（${trendUnitLabel}）`,
+                values: line.values,
+                color: line.color.replace(/^#/, ""),
+              }))
+            : [
+                {
+                  name: `平日 ${trendMetricName}（${trendUnitLabel}）`,
+                  values: trendRows.map((r) => r.weekday),
+                  color: "148C8C",
+                },
+                {
+                  name: `假日 ${trendMetricName}（${trendUnitLabel}）`,
+                  values: trendRows.map((r) => r.holiday),
+                  color: "E58A2B",
+                },
+              ];
+          tr.addRow([
+            "季度",
+            ...trendExcelSeries.map((series) => series.name),
+            "平日調查涵蓋",
+            "假日調查涵蓋",
+          ]);
+          /*
+           * 缺值（含被日別篩選掉的那一條）寫成空白格，不是 0——
+           * Excel 的折線圖會把 0 畫成一個真實的資料點，看起來像「那一季是 0」。
+           */
+          trendRows.forEach((r, index) =>
+            tr.addRow([
+              showQuarter(r.quarter),
+              ...trendExcelSeries.map((series) => series.values[index] ?? null),
+              trendCoverageByQuarter.get(r.quarter)?.weekday ?? "—",
+              trendCoverageByQuarter.get(r.quarter)?.holiday ?? "—",
+            ]),
+          );
+          tr.columns = [
+            16,
+            ...trendExcelSeries.map(() => 24),
+            30,
+            30,
+          ].map((width) => ({ width }));
+          header(tr.getRow(1));
+          /*
+           * 圖表說明放在**自己的工作表**，不印在圖上。
+           *
+           * 使用者的原話：「excel 裡面圖本身就是圖，文字說明可以放在 excel 其他
+           * 欄位」「那些文字是要由簡報者口述的，不該出現在圖下方」。
+           * 所以圖是乾淨的折線圖，話在這一張表裡，要用的人自己複製。
+           *
+           * ⚠️ 這幾句話與畫面上圖旁邊那一段是**同一份**（trendScriptSections），
+           * 不是另外寫一次——寫兩次遲早會分岔，而分岔的時候沒有人會發現。
+           */
+          const ts = wb.addWorksheet("圖表說明", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          ts.addRow(["段落", "內容"]);
+          ts.addRow([
+            "使用方式",
+            "以下文字是「歷季趨勢」那張圖代表的意義，供簡報時口述。刻意不印在圖上——圖給聽眾看，話由簡報者講。",
+          ]);
+          ts.addRow(["指標", `${trendMetricName}（${trendUnitLabel}）`]);
+          trendScriptSections.forEach((section) =>
+            section.lines.forEach((line) => ts.addRow([section.title, line])),
+          );
+          ts.columns = [18, 110].map((width) => ({ width }));
+          ts.getColumn(2).alignment = { wrapText: true, vertical: "top" };
+          header(ts.getRow(1));
+          const currentComp = wb.addWorksheet("目前車種組成", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          currentComp.addRow(["車種", "數量（輛）", "組成比例（%）"]);
+          /*
+           * ⚠️ 快取值要與同一張表上的 SUMIFS **算同一件事**。
+           *   F2／F3／F4 三格寫的是主工具列的條件，SUMIFS 也是照那三格篩，
+           *   所以快取一定要用主工具列那一份（compositionMainTotals）。
+           *   用畫面那一份（compositionTotals，走車種組成自己的條件）的話，
+           *   這一塊只要脫離過，檔案一打開數字就自己變了。
+           */
+          const compositionValues = analysisVehicleCatalog.map(
+            (vehicle) => compositionMainTotals.vehicles[vehicle.key] ?? 0,
+          );
+          const compositionSourceEnd = compositionExportRows.length + 1;
+          const compositionTotalEnd = 1 + analysisVehicleCatalog.length;
+          analysisVehicleCatalog.forEach((vehicle, i) => {
+            const sourceColumn = colName(11 + i);
+            const row = currentComp.addRow([vehicle.label]);
+            row.getCell(2).value = {
+              formula: `SUMIFS($${sourceColumn}$2:$${sourceColumn}$${compositionSourceEnd},$H$2:$H$${compositionSourceEnd},$F$2,$I$2:$I$${compositionSourceEnd},$F$3,$J$2:$J$${compositionSourceEnd},$F$4)`,
+              result: compositionValues[i],
+            };
+            row.getCell(3).value = {
+              formula: `IFERROR(B${i + 2}/SUM($B$2:$B$${compositionTotalEnd}),0)`,
+              result: compositionMainTotals.total
+                ? Number(compositionValues[i]) / compositionMainTotals.total
+                : 0,
+            };
+          });
+          currentComp.getCell("E1").value = "篩選條件";
+          currentComp.getCell("E2").value = "日別";
+          /*
+           * ⚠️ 2026-09-16 更正：車種組成那一塊**可以脫離**主工具列
+           *   （它掛著 renderBlockFilters 的日別／調查點／方向）。
+           *   匯出檔一律吃主工具列（使用者 2026-09-14 的規則），所以這三格
+           *   照主工具列寫是對的——但**數字也必須照主工具列算**，
+           *   見上面 compositionValues 的說明。舊註解寫「和畫面那張圓環同一份」
+           *   已經不成立，那正是這一輪修掉的錯。
+           */
+          /*
+           * ⚠️ 2026-09-18 使用者裁示（F-10／F-30）：F2～F4 的預設值＝
+           *   compositionMainSelection（一個調查點 × 一個日別），不再有
+           *   「全部路段／路口」「平日＋假日」這兩種合計選項；快取值與 SUMIFS 同源。
+           */
+          currentComp.getCell("F2").value = compositionMainSelection.day;
+          currentComp.getCell("E3").value = "路段";
+          currentComp.getCell("F3").value = compositionMainSelection.roadName;
+          currentComp.getCell("E4").value = "方向";
+          currentComp.getCell("F4").value = compositionMainSelection.directionName;
+          currentComp.getCell("E5").value = "路口流量視角";
+          currentComp.getCell("F5").value = intersectionFlowLabel;
+          currentComp.getCell("E6").value = "操作說明";
+          currentComp.getCell("F6").value =
+            `本檔依網站目前的「${intersectionFlowLabel}」視角匯出；請使用F2～F4下拉選單切換日別、路段／路口及車流方向，圓環圖會即時更新。` +
+            `一次只看一個調查點與一個日別：不同調查點的車輛數不可以相加，平日與假日也不相加（「平日＋假日」指的是並列顯示）。` +
+            (roadFilters.length !== 1
+              ? `網站目前範圍內有多個調查點，這裡預設顯示「${compositionMainSelection.roadName}」。`
+              : "") +
+            (dayType === "平日＋假日" ? "網站目前為「平日＋假日」，這裡預設顯示平日。" : "");
+          // 名稱可能含逗號／雙引號，或整串超過 Excel 的 255 字元上限；
+          // 無法安全表示時就不要放下拉（欄位仍可手動輸入），也不要寫出壞掉的清單。
+          const roadListFormula = excelListFormula([
+            ...roadOptions.map(
+              ([roadId, name]) => roadExportLabels.get(roadId) ?? name,
+            ),
+          ]);
+          const directionListFormula = excelListFormula([
+            "全部方向",
+            ...directionOptions.map(([, name]) => name),
+          ]);
+          currentComp.getCell("F2").dataValidation = {
+            type: "list",
+            allowBlank: false,
+            formulae: ['"平日,假日"'],
+          };
+          if (roadListFormula)
+            currentComp.getCell("F3").dataValidation = {
+              type: "list",
+              allowBlank: false,
+              formulae: [roadListFormula],
+            };
+          if (directionListFormula)
+            currentComp.getCell("F4").dataValidation = {
+              type: "list",
+              allowBlank: false,
+              formulae: [directionListFormula],
+            };
+          currentComp.getCell("H1").value = "日別";
+          currentComp.getCell("I1").value = "路段／路口";
+          currentComp.getCell("J1").value = "方向";
+          analysisVehicleCatalog.forEach(
+            (vehicle, index) =>
+              (currentComp.getCell(1, 11 + index).value = `${vehicle.label}（輛）`),
+          );
+          compositionExportRows.forEach((r, i) => {
+            const row = currentComp.getRow(i + 2);
+            row.getCell(8).value = r.dayType;
+            row.getCell(9).value = r.roadName;
+            row.getCell(10).value = r.directionName;
+            analysisVehicleCatalog.forEach((vehicle, index) => {
+              row.getCell(11 + index).value = r.vehicles[vehicle.key] ?? 0;
+            });
+          });
+          currentComp.columns = [
+            ...[
+              { width: 18 },
+              { width: 20 },
+              { width: 20 },
+              { width: 4 },
+              { width: 14 },
+              { width: 52 },
+              { width: 4 },
+              { width: 16 },
+              { width: 36 },
+              { width: 18 },
+            ],
+            ...analysisVehicleCatalog.map(() => ({ width: 16 })),
+          ];
+          header(currentComp.getRow(1));
+          currentComp.getColumn(2).numFmt = "#,##0";
+          currentComp.getColumn(3).numFmt = "0.0%";
+          currentComp.getCell("F2").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFFFF2CC" },
+          };
+          currentComp.getCell("F3").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFFFF2CC" },
+          };
+          currentComp.getCell("F4").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFFFF2CC" },
+          };
+          currentComp.getCell("F5").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFE7F3F3" },
+          };
+          currentComp.getCell("F2").font = {
+            bold: true,
+            color: { argb: "FF17324D" },
+          };
+          currentComp.getCell("F3").font = {
+            bold: true,
+            color: { argb: "FF17324D" },
+          };
+          currentComp.getCell("F4").font = {
+            bold: true,
+            color: { argb: "FF17324D" },
+          };
+          currentComp.getCell("F5").font = {
+            bold: true,
+            color: { argb: "FF17324D" },
+          };
+          currentComp.getCell("F6").alignment = { wrapText: true, vertical: "top" };
+          const hd = wb.addWorksheet("歷季全日交通量", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          /*
+           * 歷季各表跨季度，標題不能帶時間範圍（見 historicalDailyRows 的註解）。
+           * 這裡一律用中性單位「輛」「PCU」，改由第 5 欄「調查涵蓋」逐列說明；
+           * 該欄也在自動篩選範圍內，使用者可以直接把不足 24 小時的列篩出來。
+           */
+          hd.addRow([
+            "季度",
+            "日別",
+            "調查點編號",
+            "調查點名稱",
+            "調查涵蓋",
+            "方向A（輛・僅路段）",
+            "方向B（輛・僅路段）",
+            "合計（輛）",
+            "方向A（PCU・僅路段）",
+            "方向B（PCU・僅路段）",
+            "合計（PCU）",
+          ]);
+          historicalDailyRows.forEach((r) =>
+            hd.addRow([
+              showQuarter(r.quarter),
+              r.dayType,
+              r.roadId,
+              r.roadName,
+              r.coverageLabel,
+              r.isIntersection ? "" : r.a,
+              r.isIntersection ? "" : r.b,
+              r.total,
+              r.isIntersection ? "" : r.aPcu,
+              r.isIntersection ? "" : r.bPcu,
+              r.pcu24,
+            ]),
+          );
+          hd.columns = [12, 10, 16, 36, 26, 20, 20, 25, 20, 20, 22].map(
+            (width) => ({ width }),
+          );
+          header(hd.getRow(1));
+          [9, 10, 11].forEach((c) => (hd.getColumn(c).numFmt = "#,##0.0"));
+          hd.autoFilter = { from: "A1", to: `K${historicalDailyRows.length + 1}` };
+          const hc = wb.addWorksheet("歷季車種組成", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          /*
+           * 同「歷季全日交通量」：跨季度的表不能用當季單位，改中性的「輛」
+           * 並加上「調查涵蓋」欄。這一欄插在第 5 欄，因此下面的車種數量欄
+           * 從第 6 欄起算——LEAD_COLUMNS 就是為了讓欄位位置只有一個來源，
+           * 避免標題、公式、欄寬與 numFmt 四個地方各自寫死而失去同步。
+           */
+          const HC_LEAD_COLUMNS = 5;
+          hc.addRow([
+            "季度",
+            "日別",
+            "調查點編號",
+            "調查點名稱",
+            "調查涵蓋",
+            ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（輛）`),
+            ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（%）`),
+          ]);
+          historicalCompositionRows.forEach((r, i) => {
+            const row = hc.addRow([
+              showQuarter(r.quarter),
+              r.dayType,
+              r.roadId,
+              r.roadName,
+              r.coverageLabel,
+              ...analysisVehicleCatalog.map(
+                (vehicle) => r.vehicles[vehicle.key] ?? 0,
+              ),
+            ]);
+            const excelRow = i + 2,
+              countStart = HC_LEAD_COLUMNS + 1,
+              countEnd = HC_LEAD_COLUMNS + analysisVehicleCatalog.length,
+              percentStart = countEnd + 1;
+            analysisVehicleCatalog.forEach(
+              (vehicle, j) =>
+                (row.getCell(percentStart + j).value = {
+                  formula: `IFERROR(${colName(countStart + j)}${excelRow}/SUM($${colName(countStart)}${excelRow}:$${colName(countEnd)}${excelRow}),0)`,
+                  result: r.vehiclePct[vehicle.key] ?? 0,
+                }),
+            );
+          });
+          hc.columns = [
+            ...[12, 10, 16, 36, 26],
+            ...analysisVehicleCatalog.map(() => 17),
+            ...analysisVehicleCatalog.map(() => 14),
+          ].map((width) => ({ width }));
+          header(hc.getRow(1));
+          analysisVehicleCatalog.forEach(
+            (_, index) =>
+              (hc.getColumn(
+                HC_LEAD_COLUMNS + analysisVehicleCatalog.length + 1 + index,
+              ).numFmt = "0.0%"),
+          );
+          hc.autoFilter = {
+            from: "A1",
+            to: `${colName(HC_LEAD_COLUMNS + analysisVehicleCatalog.length * 2)}${historicalCompositionRows.length + 1}`,
+          };
+          const hct = wb.addWorksheet("歷季組成圖表資料", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          hct.addRow([
+            "期別標籤",
+            "季度",
+            "調查點編號",
+            "調查點",
+            "日別",
+            ...analysisVehicleCatalog.map((vehicle) => `${vehicle.label}（%）`),
+          ]);
+          compositionTrendRows.forEach((r) =>
+            hct.addRow([
+              `${showQuarter(r.quarter)}・${r.roadName}・${r.dayType}`,
+              showQuarter(r.quarter),
+              r.roadId,
+              r.roadName,
+              r.dayType,
+              ...analysisVehicleCatalog.map(
+                (vehicle) => r.vehicles[vehicle.key] ?? 0,
+              ),
+            ]),
+          );
+          hct.columns = [34, 16, 16, 22, 10, ...analysisVehicleCatalog.map(() => 16)].map(
+            (width) => ({ width }),
+          );
+          header(hct.getRow(1));
+          analysisVehicleCatalog.forEach(
+            (_, index) => (hct.getColumn(6 + index).numFmt = "0.0%"),
+          );
+          const hourlySheet = wb.addWorksheet("每小時趨勢", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          /*
+           * ⚠️ 稽核表 G：要有調查點欄。
+           *   舊版把全部調查點同一小時相加寫成一格，而表頭看不出來。
+           *   現在一列＝一個（調查點 × 日別 × 小時）。
+           *   原生折線圖的類別軸指向 A 欄，所以 A 欄得是能分辨得出來的標籤；
+           *   調查點另外一欄，要拿來算的人照樣篩得動。
+           */
+          const hourlyManyPoints =
+            new Set(hourlyExportRows.map((r) => r.point)).size > 1;
+          hourlySheet.addRow([
+            "時段",
+            "調查點",
+            "實際交通量（輛/小時）",
+            "當量交通量（PCU/小時）",
+          ]);
+          hourlyExportRows.forEach((r) =>
+            hourlySheet.addRow([
+              hourlyManyPoints && r.point ? `${r.point} ${r.hour}` : r.hour,
+              r.point,
+              r.actual,
+              r.pcu,
+            ]),
+          );
+          hourlySheet.columns = [
+            { width: 30 },
+            { width: 24 },
+            { width: 26 },
+            { width: 28 },
+          ];
+          header(hourlySheet.getRow(1));
+          hourlySheet.getColumn(4).numFmt = "#,##0.0";
+          const factors = wb.addWorksheet("PCU係數");
+          /*
+           * ══════════════════════════════════════════════════════════════
+           *  #24：這張表原本只印「計畫預設那一組」，沒有印季別×路段的覆寫
+           * ══════════════════════════════════════════════════════════════
+           *
+           * 使用者 2026-09-29 的判斷（原話）：「這問題是指如果使用者更動了係數，
+           * 但 excel 顯示的卻是預設係數嗎? 如果是這樣，請你修正，
+           * 不然使用者會以為這份 excel 是計算錯誤的」。
+           *
+           * ⚠️ 症狀正是這樣：表上的**數字**是拿覆寫算的（`pcuScopes` 有傳進計算），
+           *   但這張「PCU係數」表只印 `pcuFactors`（計畫預設），標題還寫
+           *   「**目前套用**一般PCU係數」。使用者拿這張表回推就是對不起來，
+           *   而他會得到一個錯的結論：**這份 Excel 算錯了**。
+           *   ——數字沒有錯，是「說明係數的那張表」不完整。
+           *
+           * ⚠️ 刻意**不改任何數值**，只把覆寫補印出來，並在有覆寫時把
+           *   「目前套用」這個說法改掉（有覆寫的時候，預設那一組就不是「目前套用」的）。
+           */
+          const exportedScopes = pcuScopes.filter(
+            (scope) => scope && scope.factors && scope.factors.core,
+          );
+          factors.addRow([
+            "原始車種",
+            "分析歸類",
+            exportedScopes.length ? "計畫預設一般PCU係數" : "目前套用一般PCU係數",
+            "說明",
+          ]);
+          if (exportedScopes.length)
+            factors.addRow([
+              "⚠️ 注意",
+              "",
+              "",
+              /*
+               * ⚠️ 這一格會原樣印進 Excel，不是網頁——
+               *   Markdown 的 ** 粗體會變成使用者看得到的星號
+               *   （tests/plaintext-markup.test.mjs 守這一條）。要強調用「」。
+               * ⚠️ 也不可以寫「下面」「本表最後」這種位置代稱：
+               *   欄位一改順序就變成錯的指路（tests/wording.test.mjs 守這一條）。
+               *   一律用那個段落自己的名字。
+               */
+              `本計畫另有 ${exportedScopes.length} 組「季別×路段」專屬覆寫。`
+                + "表中的數字是「依覆寫」算出來的；拿「計畫預設」那幾列回推會對不上，"
+                + "那不是計算錯誤。請對照本表的『季別×路段專屬覆寫』段落。",
+            ]);
+          CORE_VEHICLE_KEYS.forEach((key) =>
+            factors.addRow([
+              coreVehicleLabels[key],
+              coreVehicleLabels[key],
+              pcuFactors[key],
+              "原四大類",
+            ]),
+          );
+          vehicleClassSettings
+            .filter(
+              (setting) =>
+                setting.projectId === activeProject &&
+                !CORE_VEHICLE_KEYS.includes(setting.sourceKey as CoreVehicleKey),
+            )
+            .forEach((setting) =>
+              factors.addRow([
+                setting.sourceLabel,
+                setting.targetLabel,
+                setting.targetKey === setting.sourceKey
+                  ? setting.roadPcu
+                  : pcuFactors[setting.targetKey as CoreVehicleKey],
+                setting.targetKey === setting.sourceKey
+                  ? "獨立分析"
+                  : `合併至${setting.targetLabel}`,
+              ]),
+            );
+          /*
+           * ── 季別×路段專屬覆寫，逐組印出來 ─────────────────────────────
+           *
+           * ⚠️ 適用範圍要用**畫面上那個一模一樣的字**（`pcuScopeLabel`），
+           *   使用者才對得上他在「當量係數設定」看到的那一列。
+           *   自己再組一句「115Q2 的某路段」就是第二種寫法，兩邊一定會漂移。
+           * ⚠️ 覆寫只列**與預設不同**的車種，全部列出來反而看不出改了哪一個。
+           */
+          if (exportedScopes.length) {
+            factors.addRow(["", "", "", ""]);
+            factors.addRow([
+              "季別×路段專屬覆寫",
+              "",
+              "",
+              /* ⚠️ 不可以寫「上面的計畫預設」——用段落自己的名字，欄位換順序才不會說錯。 */
+              "這個段落列出的各組會蓋掉『計畫預設』那幾列。表中的數字就是依這些覆寫算出來的。",
+            ]);
+            for (const scope of exportedScopes) {
+              const label = pcuScopeLabel(
+                quarterLabel(scope.quarter),
+                scope.roadId,
+                roadNameOf(scope.roadId),
+              );
+              const changed = CORE_VEHICLE_KEYS.filter(
+                (key) => scope.factors.core[key] !== pcuFactors[key],
+              );
+              if (!changed.length) {
+                factors.addRow([
+                  label,
+                  "",
+                  "",
+                  "這一組的一般PCU係數與計畫預設相同（可能只改了轉向當量）。",
+                ]);
+                continue;
+              }
+              for (const key of changed)
+                factors.addRow([
+                  label,
+                  coreVehicleLabels[key],
+                  scope.factors.core[key],
+                  `覆寫（計畫預設是 ${pcuFactors[key]}）`,
+                ]);
+            }
+          }
+          factors.addRows([
+            [
+              "計算說明",
+              "",
+              "",
+              `${pcu24Label.replace(/（.*/, "")}＝各車種該時段數量×PCU係數後加總；尖峰PCU單位為${peakColumnUnit}。`,
+            ],
+            [
+              "相容性提示",
+              "",
+              "",
+              ".xls 為舊版Excel數值相容檔；如需可編輯原生數據圖，請使用Excel 2007以上版本開啟本.xlsx檔。",
+            ],
+          ]);
+          factors.columns = [
+            { width: 18 },
+            { width: 20 },
+            { width: 24 },
+            { width: 78 },
+          ];
+          header(factors.getRow(1));
+          const charts = wb.addWorksheet("可編輯圖表");
+          charts.getCell("A1").value =
+            `${selectedProject.name}｜歷季與車種組成分析圖表`;
+          charts.getCell("A1").font = {
+            bold: true,
+            size: 18,
+            color: { argb: "FF17324D" },
+          };
+          charts.getCell("A2").value =
+            "以下皆為 Excel 原生圖表。修改來源工作表的儲存格數值後，圖表會同步更新。";
+          charts.getCell("A2").font = { color: { argb: "FF5F7080" }, size: 11 };
+          charts.getCell("A3").value =
+            "相容性提示：若舊版 Excel 無法顯示圖表，請改用 Excel 2007 以上版本開啟；.xls 僅提供數值相容表。";
+          charts.getCell("A3").font = {
+            color: { argb: "FFE58A2B" },
+            bold: true,
+            size: 10,
+          };
+          charts.columns = Array.from({ length: 12 }, () => ({ width: 13 }));
+          charts.getColumn(26).width = 3;
+          charts.getColumn(27).width = 18;
+          charts.getColumn(28).width = 38;
+          charts.getColumn(29).width = 14;
+          charts.getCell("AA89").value = "車種組成互動篩選";
+          charts.getCell("AA89").font = {
+            bold: true,
+            size: 13,
+            color: { argb: "FF17324D" },
+          };
+          charts.getCell("AA90").value = "日別";
+          /* 條件一律取共同功能列，與畫面上那張圓環圖同一份（見 v20.68 說明）。 */
+          /* F-10／F-30：與「目前車種組成」同一組預設（一個調查點 × 一個日別）。 */
+          charts.getCell("AB90").value = compositionMainSelection.day;
+          charts.getCell("AA91").value = "路段";
+          charts.getCell("AB91").value = compositionMainSelection.roadName;
+          charts.getCell("AA92").value = "方向";
+          charts.getCell("AB92").value = compositionMainSelection.directionName;
+          charts.getCell("AB90").dataValidation = {
+            type: "list",
+            allowBlank: false,
+            formulae: ['"平日,假日"'],
+          };
+          if (roadListFormula)
+            charts.getCell("AB91").dataValidation = {
+              type: "list",
+              allowBlank: false,
+              formulae: [roadListFormula],
+            };
+          if (directionListFormula)
+            charts.getCell("AB92").dataValidation = {
+              type: "list",
+              allowBlank: false,
+              formulae: [directionListFormula],
+            };
+          ["AB90", "AB91", "AB92"].forEach((address) => {
+            const cell = charts.getCell(address);
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFFFF2CC" },
+            };
+            cell.font = { bold: true, color: { argb: "FF17324D" } };
+          });
+          charts.getCell("AA93").value = "車種";
+          charts.getCell("AB93").value = "數量（輛）";
+          charts.getCell("AC93").value = "比例";
+          ["AA93", "AB93", "AC93"].forEach((address) => {
+            const cell = charts.getCell(address);
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FF148C8C" },
+            };
+            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+          });
+          /*
+           * ⚠️ 這裡以前抄了一份和畫面一樣的顏色。改一邊忘了另一邊，
+           *   畫面與交出去的 Excel 就會用不同顏色代表同一個車種，
+           *   而且不會有任何錯誤訊息。現在共用 app/vehicle-colors.ts。
+           */
+          const compositionColors = VEHICLE_COLORS_ARGB;
+          const chartCompositionStart = 94,
+            chartCompositionEnd =
+              chartCompositionStart + analysisVehicleCatalog.length - 1;
+          analysisVehicleCatalog.forEach((vehicle, i) => {
+            const row = chartCompositionStart + i,
+              sourceColumn = colName(11 + i);
+            charts.getCell(`Z${row}`).fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: compositionColors[i % compositionColors.length] },
+            };
+            charts.getCell(`AA${row}`).value = vehicle.label;
+            // 只有在「目前車種組成」那張表會一起匯出時才用 SUMIFS 連動；
+            // 否則寫成靜態數值——否則公式會變成 #REF!，Excel 開檔就會跳修復提示。
+            charts.getCell(`AB${row}`).value = exportSections.composition
+              ? {
+                  formula: `SUMIFS('目前車種組成'!$${sourceColumn}$2:$${sourceColumn}$${compositionSourceEnd},'目前車種組成'!$H$2:$H$${compositionSourceEnd},$AB$90,'目前車種組成'!$I$2:$I$${compositionSourceEnd},$AB$91,'目前車種組成'!$J$2:$J$${compositionSourceEnd},$AB$92)`,
+                  result: compositionValues[i],
+                }
+              : Number(compositionValues[i]) || 0;
+            charts.getCell(`AB${row}`).numFmt = "#,##0";
+            charts.getCell(`AC${row}`).value = {
+              formula: `IFERROR(AB${row}/SUM($AB$${chartCompositionStart}:$AB$${chartCompositionEnd}),0)`,
+              result: compositionMainTotals.total
+                ? Number(compositionValues[i]) / compositionMainTotals.total
+                : 0,
+            };
+            charts.getCell(`AC${row}`).numFmt = "0.0%";
+          });
+          const chartCompositionTotalRow = chartCompositionEnd + 2;
+          charts.getCell(`AA${chartCompositionTotalRow}`).value = "合計";
+          charts.getCell(`AB${chartCompositionTotalRow}`).value = {
+            formula: `SUM($AB$${chartCompositionStart}:$AB$${chartCompositionEnd})`,
+            result: compositionMainTotals.total,
+          };
+          charts.getCell(`AB${chartCompositionTotalRow}`).numFmt = "#,##0";
+          charts.getCell(`AC${chartCompositionTotalRow}`).value = {
+            formula: `SUM($AC$${chartCompositionStart}:$AC$${chartCompositionEnd})`,
+            result: compositionMainTotals.total ? 1 : 0,
+          };
+          charts.getCell(`AC${chartCompositionTotalRow}`).numFmt = "0.0%";
+          [
+            `AA${chartCompositionTotalRow}`,
+            `AB${chartCompositionTotalRow}`,
+            `AC${chartCompositionTotalRow}`,
+          ].forEach((address) => {
+            const cell = charts.getCell(address);
+            cell.font = { bold: true, color: { argb: "FF17324D" } };
+            cell.border = { top: { style: "thin", color: { argb: "FFB9CBD8" } } };
+          });
+          const chartCompositionHelpRow = chartCompositionTotalRow + 2;
+          charts.getCell(`AA${chartCompositionHelpRow}`).value =
+            "操作：切換黃色儲存格的日別、路段／路口與方向，左側圓環圖及右側數量、比例會即時更新。";
+          charts.getCell(`AA${chartCompositionHelpRow}`).font = {
+            italic: true,
+            color: { argb: "FF5F7080" },
+            size: 10,
+          };
+          charts.mergeCells(
+            `AA${chartCompositionHelpRow}:AC${chartCompositionHelpRow + 1}`,
+          );
+          charts.getCell(`AA${chartCompositionHelpRow}`).alignment = {
+            wrapText: true,
+            vertical: "top",
+          };
+          const traceSheet = wb.addWorksheet("原始來源追溯", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          traceSheet.addRow([
+            "季度",
+            "日別",
+            "調查點編號",
+            "調查點名稱",
+            "方向／支線",
+            "時段",
+            "來源檔案",
+            "工作表",
+            "來源列",
+            "來源範圍",
+            "原始車種與數量",
+            "PCU計算結果",
+          ]);
+          activeRecords.forEach((record) =>
+            traceSheet.addRow([
+              record.quarter,
+              record.dayType,
+              record.roadId,
+              record.roadName,
+              record.directionName,
+              record.hour,
+              record.sourceFileName || "舊資料未記錄",
+              record.sourceSheetName || "—",
+              record.sourceRow || "—",
+              record.sourceRange || "—",
+              Object.entries(rawVehicleCounts(record))
+                .map(
+                  ([key, value]) =>
+                    `${rawVehicleLabels(record)[key] ?? key}=${value}`,
+                )
+                .join("；"),
+              sumPcu(
+                record,
+                pcuFactors,
+                turnPcuFactors,
+                vehicleClassSettings,
+                pcuScopes,
+              ),
+            ]),
+          );
+          traceSheet.columns = [12, 10, 18, 34, 22, 18, 42, 18, 10, 20, 60, 18].map(
+            (width) => ({ width }),
+          );
+          header(traceSheet.getRow(1));
+          traceSheet.getColumn(12).numFmt = "#,##0.0";
+          const historySheet = wb.addWorksheet("匯入與版本紀錄", {
+            views: [{ state: "frozen", ySplit: 1 }],
+          });
+          historySheet.addRow([
+            "匯入時間",
+            "操作人員",
+            "裝置",
+            "季度",
+            "來源檔案",
+            "匯入筆數",
+            "新增筆數",
+            "覆蓋筆數",
+            "調查點",
+            "車種",
+          ]);
+          workflow.history.forEach((entry) =>
+            historySheet.addRow([
+              new Date(entry.importedAt).toLocaleString("zh-TW"),
+              entry.operator,
+              entry.device,
+              entry.quarter,
+              entry.files.join("、"),
+              entry.rowCount,
+              entry.addedRows,
+              entry.replacedRows,
+              entry.roads.join("、"),
+              entry.vehicles.join("、"),
+            ]),
+          );
+          historySheet.columns = [22, 18, 34, 14, 48, 14, 14, 14, 52, 36].map(
+            (width) => ({ width }),
+          );
+          header(historySheet.getRow(1));
+          const qualitySheet = wb.addWorksheet("品質檢核");
+          qualitySheet.addRows([
+            ["項目", "結果"],
+            ["季度狀態", currentStatus],
+            ["調查點數", qualitySummary.roads],
+            ["平日調查點", qualitySummary.weekdayRoads],
+            ["假日調查點", qualitySummary.holidayRoads],
+            ["24小時完整組數", qualitySummary.completeGroups],
+            ["24小時不完整組數", qualitySummary.incompleteGroups],
+            ["偵測車種數", qualitySummary.vehicleTypes],
+            ["車種設定完整", qualitySummary.vehiclesConfigured ? "是" : "否"],
+            ["路口幾何完整", qualitySummary.geometryComplete ? "是" : "否"],
+            ["未指定駛入量（輛）", qualitySummary.unmapped],
+            ["人工檢核", qualitySummary.checked ? "已完成" : "待確認"],
+            // 匯出一律輸出「全部」提醒，不受畫面上的篩選影響——
+            // 篩選是給人看的工具，交付檔案不該因為畫面上剛好篩了什麼而少東西。
+            ["異常提醒", allAnomalyAlerts.map((item) => item.text).join("\n") || "無"],
+          ]);
+          qualitySheet.columns = [{ width: 28 }, { width: 90 }];
+          qualitySheet.getColumn(2).alignment = { wrapText: true, vertical: "top" };
+          header(qualitySheet.getRow(1));
+          // 時段車種分析：依使用者在匯出中心勾選的「時段×方向×指標」動態產生工作表。
+          // 勾了幾個時段就出幾張表（或合併成一張），沒勾的完全不會出現。
+          if (periodExport.enabled) {
+            const periodSheets = buildPeriodExportSheets(
+              periodExportRows,
+              analysisVehicleCatalog,
+              periodExport,
+              {
+                flowLabel: periodExportFlowLabel,
+                separateDays: dayType === "平日＋假日",
+                partial: surveyScope.partial,
+              },
+            );
+            for (const sheet of periodSheets) {
+              const ws = wb.addWorksheet(sheet.name.slice(0, 31));
+              ws.addRow(sheet.headers);
+              sheet.rows.forEach((row) => ws.addRow(row));
+              ws.columns = sheet.headers.map((title, index) => ({
+                width: index < 4 ? 20 : Math.max(12, String(title).length + 4),
+              }));
+              ws.views = [{ state: "frozen", ySplit: 1 }];
+              ws.autoFilter = {
+                from: { row: 1, column: 1 },
+                to: { row: sheet.rows.length + 1, column: sheet.headers.length },
+              };
+              header(ws.getRow(1));
+            }
+          }
+          // 使用者在匯出中心取消勾選的區塊一律移除。
+          // 舊版把這段整個包在 if (!exportSections.charts) 裡面，只要「原生圖表」是勾的
+          // （而它預設就是勾的），其他七個勾選就完全不會生效，等於每次都輸出全部工作表。
+          // 現在改成永遠依勾選裁切，再把引用到已移除工作表的圖表一併略過，
+          // 這樣「只匯出上午尖峰車輛數」這種需求才真的做得到。
+          const removedSheets = new Set<string>();
+          {
+            const groups: Record<keyof typeof exportSections, string[]> = {
+              current: [
+                "本季交通量及PCU",
+                `路口${intersectionFlowLabel}交通量`,
+                "平假日比較",
+              ],
+              /* v20.59 新增「圖表說明」：它是歷季趨勢那張圖的講稿，歸在同一組。 */
+              history: ["歷季趨勢", "圖表說明", "歷季全日交通量"],
+              composition: ["目前車種組成", "歷季車種組成", "歷季組成圖表資料"],
+              hourly: ["每小時趨勢"],
+              settings: ["路口轉向PCU係數", "路口駛出對應", "PCU係數"],
+              trace: ["原始來源追溯", "匯入與版本紀錄", "品質檢核"],
+              charts: ["可編輯圖表"],
+            };
+            (Object.keys(groups) as (keyof typeof exportSections)[]).forEach(
+              (group) => {
+                if (!exportSections[group])
+                  groups[group].forEach((name) => {
+                    const sheet = wb.getWorksheet(name);
+                    if (sheet) wb.removeWorksheet(sheet.id);
+                    removedSheets.add(name);
+                  });
+              },
+            );
+          }
+          // 註：取消勾選「車種組成」時不再連坐刪掉「可編輯圖表」。
+          // 那張表裡的車種組成格已改為靜態數值（見上方 exportSections.composition
+          // 判斷），不會產生 #REF!，7 張圖表因此都能保留。
+          if (!wb.worksheets.length)
+            throw new Error(
+              "勾選的匯出項目在目前條件下沒有任何資料，請至少保留一項",
+            );
+          /*
+           * ⚠️ 2026-09-18 大檢查 F-20：PCU 是「車輛數 × 一位小數係數」一路加總出來的，
+           *   二進位浮點會留下 12288.500000000002、456.99999999999994 這種尾巴；
+           *   畫面用 Intl 格式化看不見，Excel 儲存格卻原樣帶著，拿去做公式或匯到別處
+           *   就跟著跑。這裡在寫檔前把每一個純數值儲存格的浮點雜訊清掉
+           *   （取到小數第 10 位再轉回數字），只動雜訊、不動真正的小數
+           *   （0.25 這種自訂係數算出來的值不受影響，比例欄的有效位數也保留）。
+           *   公式格與文字格不碰。
+           */
+          wb.eachSheet((sheet) => {
+            sheet.eachRow((row) => {
+              row.eachCell((cell) => {
+                const value = cell.value;
+                if (
+                  typeof value === "number" &&
+                  Number.isFinite(value) &&
+                  !Number.isInteger(value)
+                ) {
+                  const tidy = Number(value.toFixed(10));
+                  if (tidy !== value) cell.value = tidy;
+                }
+              });
+            });
+          });
+          const raw = await wb.xlsx.writeBuffer();
+          const n = Math.max(2, roadOnlyRows.length + 1),
+            nd = dayComparisonsMain.length + 1,
+            nt = trendRows.length + 1,
+            nct = compositionTrendRows.length + 1,
+            nh = hourlyExportRows.length + 1;
+          /* ⚠️ 同上：原生圖的快取也要照主工具列，不可以用畫面那一份。 */
+          const compValues = analysisVehicleCatalog.map(
+            (vehicle) => compositionMainTotals.vehicles[vehicle.key] ?? 0,
+          );
+          const trendVehicleSeries = analysisVehicleCatalog.map(
+            (vehicle, index) => ({
+              name: vehicle.label,
+              formula: `'歷季組成圖表資料'!$${colName(6 + index)}$2:$${colName(6 + index)}$${nct}`,
+              color: compositionColors[index % compositionColors.length].replace(
+                /^FF/,
+                "",
+              ),
+              cache: compositionTrendRows.map((r) => r.vehicles[vehicle.key] ?? 0),
+            }),
+          );
+          /*
+           * 前兩張圖原本固定畫「本季交通量及PCU」工作表的路段資料。
+           * 若這一季全部都是路口格式（例如只調查了幾個路口），那張表只有一列
+           * 「本季無路段格式資料」的提示，圖就會是空的——有座標軸、有標題、
+           * 卻一根柱子都沒有。此時改畫「路口X交通量」工作表的各支線，
+           * 圖才會有內容；兩種都有資料時仍以路段為準（維持原本行為）。
+           */
+          const intersectionChartRows = intersectionOnlyRows.flatMap((row) =>
+            row.directions.map((direction) => ({
+              name: dayQualifiedLabel(
+                `${row.roadName}－${direction.name}`,
+                row.dayType,
+                dayType,
+              ),
+              actual: direction.actual,
+              pcu: direction.pcu,
+            })),
+          );
+          const volumeFromIntersection =
+            !roadOnlyRows.length && intersectionChartRows.length > 0;
+          const volumeSheet = volumeFromIntersection
+            ? `路口${intersectionFlowLabel}交通量`
+            : "本季交通量及PCU";
+          const volumeRowCount = volumeFromIntersection
+            ? intersectionChartRows.length + 1
+            : n;
+          // 路口表：F＝支線、G＝交通量(輛/日)、H＝交通量(PCU/日)
+          // 路段表：D＝路段名稱、I＝實際交通量、J＝24小時PCU
+          const volumeCategoryColumn = volumeFromIntersection ? "F" : "D";
+          const volumeActualColumn = volumeFromIntersection ? "G" : "I";
+          const volumePcuColumn = volumeFromIntersection ? "H" : "J";
+          const volumeUnitLabel = volumeFromIntersection ? "支線" : "路段";
+          const chartSpecs: Parameters<typeof addNativeCharts>[2] = [
+            {
+              title: `${dayType}各${volumeUnitLabel}全日實際交通量（${dailyActualUnit}）`,
+              categories: `'${volumeSheet}'!$${volumeCategoryColumn}$2:$${volumeCategoryColumn}$${volumeRowCount}`,
+              series: [
+                {
+                  name: `實際交通量（${sheetActualUnit}）`,
+                  formula: `'${volumeSheet}'!$${volumeActualColumn}$2:$${volumeActualColumn}$${volumeRowCount}`,
+                  color: "148C8C",
+                  cache: volumeFromIntersection
+                    ? intersectionChartRows.map((r) => r.actual)
+                    : roadOnlyRows.map((r) => r.total),
+                },
+              ],
+            },
+            {
+              title: `${dayType}各${volumeUnitLabel}${pcu24Label}`,
+              categories: `'${volumeSheet}'!$${volumeCategoryColumn}$2:$${volumeCategoryColumn}$${volumeRowCount}`,
+              series: [
+                {
+                  name: pcu24Label,
+                  formula: `'${volumeSheet}'!$${volumePcuColumn}$2:$${volumePcuColumn}$${volumeRowCount}`,
+                  color: "E58A2B",
+                  cache: volumeFromIntersection
+                    ? intersectionChartRows.map((r) => r.pcu)
+                    : roadOnlyRows.map((r) => r.pcu24),
+                },
+              ],
+            },
+            {
+              /*
+               * ⚠️ 拆季時標題不可以再寫單一季，否則圖上明明有兩季、
+               *   標題卻說只有一季——這是標題在說謊。
+               */
+              title: `${
+                dayComparisonsMain.some((r) => r.quarter)
+                  ? `${showQuarter(mainFilters.quarterFrom || quarter)}～${showQuarter(mainFilters.quarterTo || quarter)}（一季一列，不合計）`
+                  : showQuarter(quarter)
+              }平日與假日交通量比較（輛；調查涵蓋見資料表）`,
+              categories: `'平假日比較'!$B$2:$B$${nd}`,
+              series: [
+                {
+                  name: "平日",
+                  /* ⚠️ 稽核表 C 插入「季別」欄之後，平日量從 C 欄移到 D 欄。 */
+                  formula: `'平假日比較'!$D$2:$D$${nd}`,
+                  color: "148C8C",
+                  /*
+                   * 沒做這個日別的調查要寫 null，不能寫 0。
+                   * 資料表那一格已經是空白了（M4），但圖表的 numCache 若寫 0，
+                   * 不重算 cache 的檢視器就會畫出一根 0 的長條——同一份檔案裡
+                   * 表是空白、圖是 0，正是 M4 要消滅的那種讀法。
+                   * chartXml 本來就會把 null 略過成缺口。
+                   */
+                  cache: dayComparisonsMain.map((r) =>
+                    r.weekdaySurveyed ? r.weekdayActual : null,
+                  ),
+                },
+                {
+                  name: "假日",
+                  /* 同上：假日量從 D 欄移到 E 欄。 */
+                  formula: `'平假日比較'!$E$2:$E$${nd}`,
+                  color: "E58A2B",
+                  cache: dayComparisonsMain.map((r) =>
+                    r.holidaySurveyed ? r.holidayActual : null,
+                  ),
+                },
+              ],
+            },
+            {
+              title: `歷季全日交通量趨勢（${trendUnit}）`,
+              categories: `'歷季趨勢'!$A$2:$A$${nt}`,
+              type: "line",
+              /*
+               * ⚠️ 欄位位置要跟著「歷季趨勢」那張表**實際寫了幾欄**走。
+               *   寫死 B、C 兩欄的話，逐點分列時圖只會畫到前兩個調查點，
+               *   其餘的資料明明在表裡、圖上卻沒有——而圖看起來完全正常。
+               */
+              series: trendExcelSeries.map((line, index) => ({
+                name: line.name,
+                formula: `'歷季趨勢'!$${colName(2 + index)}$2:$${colName(2 + index)}$${nt}`,
+                color: line.color,
+                cache: line.values,
+              })),
+            },
+            {
+              title: "車種組成（使用右側選單切換）",
+              categories: `'可編輯圖表'!$AA$${chartCompositionStart}:$AA$${chartCompositionEnd}`,
+              type: "doughnut",
+              series: [
+                {
+                  name: "車種組成（輛）",
+                  formula: `'可編輯圖表'!$AB$${chartCompositionStart}:$AB$${chartCompositionEnd}`,
+                  color: "148C8C",
+                  cache: compValues,
+                },
+              ],
+            },
+            {
+              title: "歷季各調查點、各日別車種組成比例趨勢（%）",
+              categories: `'歷季組成圖表資料'!$A$2:$A$${nct}`,
+              type: "line",
+              series: trendVehicleSeries,
+            },
+            {
+              title: `每小時實際交通量與PCU（${dayType}）`,
+              categories: `'每小時趨勢'!$A$2:$A$${nh}`,
+              type: "line",
+              series: [
+                {
+                  name: "實際交通量（輛/小時）",
+                  /* ⚠️ 插入「調查點」欄之後，實際交通量從 B 欄移到 C 欄。 */
+                  formula: `'每小時趨勢'!$C$2:$C$${nh}`,
+                  color: "148C8C",
+                  cache: hourlyExportRows.map((r) => r.actual),
+                },
+                {
+                  name: "當量交通量（PCU/小時）",
+                  /* 同上：PCU 從 C 欄移到 D 欄。 */
+                  formula: `'每小時趨勢'!$D$2:$D$${nh}`,
+                  color: "E58A2B",
+                  cache: hourlyExportRows.map((r) => r.pcu),
+                },
+              ],
+            },
+          ];
+          // 圖表的公式指向工作表名稱，被裁掉的工作表對應的圖表要一起拿掉，
+          // 否則 Excel 開啟時會出現「無法讀取內容」的修復提示。
+          const usableCharts = chartSpecs.filter((spec) => {
+            const references = [
+              spec.categories,
+              ...spec.series.map((item) => item.formula),
+            ];
+            return !references.some((reference) =>
+              [...removedSheets].some((name) => reference.includes(`'${name}'!`)),
+            );
+          });
+          const chartHostId = wb.getWorksheet("可編輯圖表")?.id;
+          const finalBuffer =
+            exportSections.charts && usableCharts.length && chartHostId
+              ? await addNativeCharts(raw as ArrayBuffer, chartHostId, usableCharts)
+              : raw;
+          const blob = new Blob([finalBuffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+          const url = URL.createObjectURL(blob),
+            a = document.createElement("a");
+          a.href = url;
+          a.download = exportFileName(
+            projects.find((p) => p.id === activeProject)?.name ?? "",
+            quarter,
+            "xlsx",
+          );
+          a.click();
+          URL.revokeObjectURL(url);
+          setToast(
+            `已匯出 ${wb.worksheets.length} 張工作表` +
+              (exportSections.charts && usableCharts.length && chartHostId
+                ? `、${usableCharts.length} 張可編輯原生圖表`
+                : ""),
+          );
+        } catch (e) {
+          setToast(e instanceof Error ? e.message : "匯出失敗");
+        } finally {
+          setBusy(false);
+        }
+      }
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/scoped-settings-dataflow.test.mjs:42:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: long intervals are blocked before confirmations or writes
+not ok 4 - long intervals are blocked before confirmations or writes
+  ---
+  duration_ms: 0.246
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\scoped-settings-dataflow.test.mjs:49:1'
+  failureType: 'testCodeFailure'
+  error: 'disabled button alone does not guard the write function'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/scoped-settings-dataflow.test.mjs:52:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: the import report uses the same long-interval rule as the write guard
+not ok 5 - the import report uses the same long-interval rule as the write guard
+  ---
+  duration_ms: 0.9076
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\scoped-settings-dataflow.test.mjs:57:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /longIntervalBlock\(parsed\)/. Input:
+    
+    'async function importSelectedFiles(files: File[]) {\n' +
+      '    if (!files.length) return;\n' +
+      '    /*\n' +
+      '     * .xlsm（啟用巨集的活頁簿）也要收。三支系統以前不一致：路口轉向與\n' +
+      '     * 交通服務水準的檔案選取框都收 .xlsm、交通服務水準的說明文字還明寫\n' +
+      '     * 「支援 .xls、.xlsx、.xlsm」，只有本系統擋掉並回「不是支援的 Excel 檔案」。\n' +
+      '     * SheetJS 讀 .xlsm 與 .xlsx 走同一條路徑，沒有額外風險。\n' +
+      '     */\n' +
+      '    const invalid = files.find((file) => !/\\.(xlsx?|xlsm)$/i.test(file.name));\n' +
+      '    if (invalid) return setToast(`「${invalid.name}」不是支援的 Excel 檔案`);\n' +
+      '    if (!activeProject) {\n' +
+      '      setToast("請先建立並選擇計畫，再匯入季度資料");\n' +
+      '      return;\n' +
+      '    }\n' +
+      '    setBusy(true);\n' +
+      '    /*\n' +
+      '     * ⚠️ 每一次新的匯入都要把上一次殘留的併入紀錄清掉。\n' +
+      '     * 使用者上一次在檢核報告按了「取消」時，那一批併入不該留著——\n' +
+      '     * 不清的話，下一次匯入成功時會把**上一次取消掉的**併入一併記成別名。\n' +
+      '     */\n' +
+      '    pendingAliasRef.current = new Map();\n' +
+      '    try {\n' +
+      '      const {\n' +
+      '        records: parsedSource,\n' +
+      '        dateChecks,\n' +
+      '        fileNotes,\n' +
+      '      } = await parseFiles(files);\n' +
+      '      /*\n' +
+      '       * 說不出原因的錯誤訊息等於沒有訊息。\n' +
+      '       * 舊版只丟一句「找不到平日／假日交通量資料」：不指名哪個檔、不說為什麼\n' +
+      '       *（工作表沒有路口編號標記？表頭找不到車種欄？時段格式不合？）、\n' +
+      '       * 也不給補救方向，使用者只能瞎猜。\n' +
+      '       */\n' +
+      '      if (!parsedSource.length)\n' +
+      '        throw new Error(\n' +
+      '          "沒有讀到任何交通量資料：\\n" +\n' +
+      '            fileNotes\n' +
+      '              .map(\n' +
+      '                (note) =>\n' +
+      '                  `・${note.file}：讀出 0 列。` +\n' +
+      '                  (note.skipped.length\n' +
+      '                    ? `已略過的工作表：${note.skipped.join("、")}。`\n' +
+      '                    : "") +\n' +
+      '                  "請確認工作表名稱含「平日」或「假日」，或表頭有「路口編號」標記與逐時段的車種計數欄位。",\n' +
+      '              )\n' +
+      '              .join("\\n"),\n' +
+      '        );\n' +
+      '      /*\n' +
+      '       * 部分檔案讀出 0 列時也要指名。這種情況最危險：流程會照常成功，\n' +
+      '       * 使用者以為五個檔都進去了，實際只進了四個。\n' +
+      '       */\n' +
+      '      const emptyFiles = fileNotes.filter((note) => note.rows === 0);\n' +
+      '      const guessedDayFiles = fileNotes.filter(\n' +
+      '        (note) => note.rows > 0 && note.dayFromFileName,\n' +
+      '      );\n' +
+      '      const sourceCellWarnings = [\n' +
+      '        ...new Set(\n' +
+      '          parsedSource.flatMap((record) =>\n' +
+      '            (record.sourceWarnings ?? []).map(\n' +
+      '              (warning) =>\n' +
+      '                `「${record.sourceFileName ?? "未命名檔案"}」` +\n' +
+      '                `${record.sourceSheetName ? `【${record.sourceSheetName}】` : ""}${warning}`,\n' +
+      '            ),\n' +
+      '          ),\n' +
+      '        ),\n' +
+      '      ];\n' +
+      '      /*\n' +
+      '       * 支線數與「沒有這個轉向」的數量做算術核對。\n' +
+      '       *\n' +
+      '       * 一支支線只能去（支線數 − 1）個地方，調查表卻固定印同樣幾個轉向欄，\n' +
+      '       * 兩者的差就是應該畫橫線的數量：三岔每支剛好 1 個、四岔 0 個。\n' +
+      '       * 這是純算術，不依賴任何調查廠商的編號習慣（實測 37 份實檔完全符合）。\n' +
+      '       *\n' +
+      '       * 對不上通常是「該畫橫線的欄位被留成空白」或「表頭欄位被讀錯」。\n' +
+      '       * 以前這種檔案會安靜通過。這裡只示警，不改動任何數值。\n' +
+      '       */\n' +
+      '      const armAuditWarnings = [\n' +
+      '        ...new Set(\n' +
+      '          [\n' +
+      '            ...new Set(\n' +
+      '              parsedSource\n' +
+      '                .filter((record) => record.surveyType === "intersection")\n' +
+      '                .map((record) => record.roadId),\n' +
+      '            ),\n' +
+      '          ].flatMap((roadId) => {\n' +
+      '            const audits = auditArmTurns(parsedSource, roadId);\n' +
+      '            if (audits.length < 3) return [];\n' +
+      '            const mismatched = audits.filter(\n' +
+      '              (audit) => audit.absent.length !== audit.expectedAbsent,\n' +
+      '            );\n' +
+      '            if (!mismatched.length) return [];\n' +
+      '            const roadName =\n' +
+      '              parsedSource.find((record) => record.roadId === roadId)\n' +
+      '                ?.roadName ?? roadId;\n' +
+      '            const detail = mismatched\n' +
+      '              .map(\n' +
+      '                (audit) =>\n' +
+      '                  `路口${audit.directionCode}（應為 ${audit.expectedAbsent} 個，實際 ${audit.absent.length} 個${\n' +
+      '                    audit.absent.length\n' +
+      '                      ? "：" +\n' +
+      '                        audit.absent.map((turn) => TURN_LABELS[turn]).join("、")\n' +
+      '                      : ""\n' +
+      '                  }）`,\n' +
+      '              )\n' +
+      '              .join("；");\n' +
+      '            return [\n' +
+      '              `「${roadName}」是 ${audits.length} 岔路口，每一支支線只能去 ${audits[0].destinationCount} 個地方，` +\n' +
+      '                `所以每支應該剛好有 ${audits[0].expectedAbsent} 個轉向整欄畫橫線（「--」），但數量對不起來：${detail}。` +\n' +
+      '                "可能是該畫橫線的欄位被留成空白，也可能是表頭的「路口編號：」被讀錯而讓欄位算到隔壁支線，請核對原始檔。" +\n' +
+      '                "（這則只是提醒，不會改動任何數值。）",\n' +
+      '            ];\n' +
+      '          }),\n' +
+      '        ),\n' +
+      '      ];\n' +
+      '      /*\n' +
+      '       * 形狀檢查不夠：normalizeSurveyPeriod 只在民國 90～200 這個窗口內換算，\n' +
+      '       * 超出窗口的四碼年份會原樣通過（例如 2112Q3），於是同一季會存成兩個鍵。\n' +
+      '       * 改用共用的 checkSurveyPeriodInput()，並分開講「格式不對」與「超出範圍」。\n' +
+      '       */\n' +
+      '      const periodCheck = checkSurveyPeriodInput(importQuarter);\n' +
+      '      if (!periodCheck.ok)\n' +
+      '        throw new Error(surveyPeriodInputMessage(periodCheck.reason));\n' +
+      '      /*\n' +
+      '       * 這個計畫如果已經有「同一季、但用另一種寫法」的資料，要先擋下來。\n' +
+      '       *\n' +
+      '       * v20.39 以前季度是照使用者打的字原樣存的，而匯入框的預設值曾經是\n' +
+      '       * 西元寫法（2026Q3），所以既有資料裡可能已經有 2026Q3。現在一律存成\n' +
+      '       * 民國年，若不擋，同一季就會同時存在 2026Q3 與 115Q3 兩個鍵——\n' +
+      '       * 它們的排序鍵完全相同，會在季度清單裡相鄰出現，看起來只像\n' +
+      '       * 「同一季出現兩次」，歷季趨勢卻已經被拆成兩段而且永遠不會合併。\n' +
+      '       */\n' +
+      '      const clashing = quarters.find(\n' +
+      '        (q) =>\n' +
+      '          q !== importQuarterKey &&\n' +
+      '          normalizeSurveyPeriod(q) === importQuarterKey,\n' +
+      '      );\n' +
+      '      if (clashing)\n' +
+      '        throw new Error(\n' +
+      '          `這個計畫裡已經有「${clashing}」，和你要匯入的「${importQuarterKey}」是同一季，只是寫法不同（民國年與西元年）。` +\n' +
+      '            `本版起季度一律以民國年記錄，若直接寫入會變成兩個分開的季度，歷季趨勢也會被拆成兩段。` +\n' +
+      '            /* ⚠️ 2026-09-17 起側欄沒有「品質與定稿」了（整項移除），\n' +
+      '                指路要指到現在真的到得了的地方，否則使用者會找不到那一頁。 */\n' +
+      '            `請先到「資料產出與維護 → 刪除單一季度」把「${clashing}」整季刪除後重新匯入，或改匯入其他季度。`,\n' +
+      '        );\n' +
+      '      const targetProjectId = await ensurePersistentProject();\n' +
+      '      const parsed = parsedSource.map((r) => ({\n' +
+      '        ...r,\n' +
+      '        projectId: targetProjectId,\n' +
+      '      }));\n' +
+      '      const report = validateImport(parsed, activeRecords);\n' +
+      '      /*\n' +
+      '       * ══════════════════════════════════════════════════════════════\n' +
+      '       *  轉向判定衝突也要進「需注意」清單\n' +
+      '       * ══════════════════════════════════════════════════════════════\n' +
+      '       *\n' +
+      '       * 使用者 2026-09-13：「如果出現程式判讀有 2 支線落進同一個轉向，\n' +
+      '       *   一定是判讀失誤，可以用醒目顏色提醒，**或納入匯入異常事件給使用者看到**。」\n' +
+      '       *\n' +
+      '       * ⚠️ 不擋匯入：本系統是先匯入、才在「路口設定」調角度，\n' +
+      '       *   擋掉的話使用者連資料都看不到，反而更難修。\n' +
+      '       *   量會掛在「未指定駛入路口」，帳面上看得見，總量不變。\n' +
+      '       */\n' +
+      '      for (const conflict of intersectionTurnConflicts(\n' +
+      '        parsed,\n' +
+      '        targetProjectId,\n' +
+      '        intersectionSettings,\n' +
+      '      ))\n' +
+      '        report.warningItems.push({\n' +
+      '          type: "路口轉向判定",\n' +
+      '          text: describeTurnConflict(conflict),\n' +
+      '        });\n' +
+      '      if (!report.valid)\n' +
+      '        throw new Error(report.invalidRows[0] ?? "匯入資料檢核失敗");\n' +
+      '      /*\n' +
+      '       * 定稿的季度一律擋下，不管是覆蓋既有列還是只追加新列。\n' +
+      '       *\n' +
+      '       * 舊寫法只在 replacedRows > 0 時擋。把另一個調查點匯進同一個已定稿的\n' +
+      '       * 季度時 replacedRows 是 0，於是照樣寫進去，而下面又會無條件把狀態\n' +
+      '       * 改回「草稿」——定稿等於自己解除了，畫面上沒有任何提示。\n' +
+      '       */\n' +
+      '      if ((workflow.statuses[importQuarterKey] ?? "草稿") === "定稿")\n' +
+      '        throw new Error(\n' +
+      '          /* ⚠️ 同上：指到「資料產出與維護 → 資料異常檢查摘要」那一塊（狀態在那裡改）。 */\n' +
+      '          `${importQuarterKey} 已定稿，系統已阻擋${report.replacedRows ? "覆蓋" : "追加"}。請先在「資料產出與維護 → 資料異常檢查摘要」將狀態改回草稿或待確認。`,\n' +
+      '        );\n' +
+      '      // 檢核報告一跳出來就把「匯入季度資料」視窗收掉。\n' +
+      '      // 兩個視窗疊在一起時，後面的匯入視窗會蓋住檢核報告的按鈕，\n' +
+      '      // 使用者會以為匯入沒成功、又重選一次檔案。\n' +
+      '      /*\n' +
+      '       * 調查日期 × 期別檢查。判斷邏輯在 period-date.ts（三支程式同一份）。\n' +
+      '       * 這裡只算結果放進檢核報告，**不阻擋**——讀不到日期只是提醒，\n' +
+      '       * 對不起來才在按「確認匯入」時多問一次。\n' +
+      '       */\n' +
+      '      const periodChecks = dateChecks.map((item) =>\n' +
+      '        checkPeriodAgainstDate(\n' +
+      '          /* 用正規化後的值，訊息裡顯示的季度才會和實際寫入的一致。 */\n' +
+      '          importQuarterKey,\n' +
+      '          item.found,\n' +
+      '          item.sheet ? item.file + "【" + item.sheet.trim() + "】" : item.file,\n' +
+      '        ),\n' +
+      '      );\n' +
+      '      setShowImport(false);\n' +
+      '      setPendingImport({\n' +
+      '        files,\n' +
+      '        parsedQuarter: importQuarterKey,\n' +
+      '        dateChecks,\n' +
+      '        records: parsed,\n' +
+      '        report,\n' +
+      '        periodChecks,\n' +
+      '        fileWarnings: [\n' +
+      '          ...emptyFiles.map(\n' +
+      '            (note) =>\n' +
+      '              `「${note.file}」讀出 0 列，不會有任何資料寫入。` +\n' +
+      '              (note.skipped.length\n' +
+      '                ? `已略過的工作表：${note.skipped.join("、")}。`\n' +
+      '                : "") +\n' +
+      '              "請確認工作表名稱與表頭格式。",\n' +
+      '          ),\n' +
+      '          ...guessedDayFiles.map(\n' +
+      '            (note) =>\n' +
+      '              `「${note.file}」的表頭讀不到「日期：…(平日／假日)」，日別是依檔名判定為${\n' +
+      '                note.file.includes("假日") ? "假日" : "平日"\n' +
+      '              }。日別是資料的身分鍵之一，判錯會讓資料寫到另一個日別、甚至覆蓋既有資料，請確認無誤。`,\n' +
+      '          ),\n' +
+      '          /*\n' +
+      '           * ⚠️ 同一張工作表讀到兩個以上不同的調查日期：**提醒，不阻擋**\n' +
+      '           *   （使用者 2026-09-20 明確要求）。這裡把每一個候選連同\n' +
+      '           *   **出處（工作表!儲存格）與原文**一起寫出來——少了出處，\n' +
+      '           *   使用者無從判斷哪一個才是調查日期。\n' +
+      '           */\n' +
+      '          ...dateChecks\n' +
+      '            .filter((item) => item.candidates.length > 1)\n' +
+      '            .map(\n' +
+      '              (item) =>\n' +
+      '                `「${item.file}」${item.sheet ? `【${item.sheet.trim()}】` : ""}` +\n' +
+      '                `讀到 ${item.candidates.length} 個不同的日期：` +\n' +
+      '                item.candidates\n' +
+      '                  .map(\n' +
+      '                    (hit) =>\n' +
+      '                      `${readableDate(hit.iso)}（${surveyDateSourceLabel(hit)}：${hit.raw}）`,\n' +
+      '                  )\n' +
+      '                  .join("、") +\n' +
+      '                `。系統目前採用第一個（${readableDate(item.candidates[0].iso)}）。` +\n' +
+      '                `這不會阻擋匯入；匯入後到「資料維護 → 執行資料異常檢查」可以指定哪一個才是調查日期。`,\n' +
+      '            ),\n' +
+      '          /*\n' +
+      '           * ⚠️ 調查格距超過 1 小時：**擋下匯入**（使用者 2026-09-30 改的裁示）。\n' +
+      '           *\n' +
+      '           *   2026-09-24 的原話是「系統應該匯入時會提示，以及列入資料異常清單裡吧」\n' +
+      '           *   ——那一版做成「提醒、不阻擋」。\n' +
+      '           *   2026-09-30 她改了：「時間格超過 1 小時的異常，跳出視窗後，\n' +
+      '           *   **請直接阻止檔案匯入**，視窗告知**本程式不支援超過 1 小時的時段**」。\n' +
+      '           *\n' +
+      '           *   ⚠️ 真正的阻擋在 `longIntervalMessage`（確認鈕停用 ＋ 紅底說明）。\n' +
+      '           *   這一段只是檢核報告裡的逐檔說明，兩邊的判準共用\n' +
+      '           *   `longIntervalBlock()` 的同一條規則（> 60 分鐘）。\n' +
+      '           *\n' +
+      '           * ⚠️ 逐格看，不取眾數：48 格裡有 1 格誤植成 2 小時的話眾數仍然是\n' +
+      '           *   60，那一格會被蓋掉——而那正是最需要被抓出來的情形。\n' +
+      '           * ⚠️ 這裡看的是**已經解析成紀錄**的 `hour`，不掃原始檔文字：\n' +
+      '           *   姊妹專案交通服務水準的真實檔裡有「上午尖峰 (07:00～09:00)」\n' +
+      '           *   這種調查時段標示，掃文字會整批誤報。\n' +
+      '           */\n' +
+      '          ...(function () {\n' +
+      '            const byFile = new Map<string, Map<number, number>>();\n' +
+      '            for (const record of parsed) {\n' +
+      '              const range = parseTimeRange(String(record.hour ?? ""));\n' +
+      '              if (!range) continue;\n' +
+      '              const minutes = range.end - range.start;\n' +
+      '              if (minutes <= 60 || minutes > 24 * 60) continue;\n' +
+      '              const where =\n' +
+      '                (record.sourceFileName || "原始檔") +\n' +
+      '                (record.sourceSheetName ? `【${record.sourceSheetName}】` : "");\n' +
+      '              const bucket = byFile.get(where) ?? new Map<number, number>();\n' +
+      '              bucket.set(minutes, (bucket.get(minutes) ?? 0) + 1);\n' +
+      '              byFile.set(where, bucket);\n'... 1118 more characters
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    async function importSelectedFiles(files: File[]) {
+        if (!files.length) return;
+        /*
+         * .xlsm（啟用巨集的活頁簿）也要收。三支系統以前不一致：路口轉向與
+         * 交通服務水準的檔案選取框都收 .xlsm、交通服務水準的說明文字還明寫
+         * 「支援 .xls、.xlsx、.xlsm」，只有本系統擋掉並回「不是支援的 Excel 檔案」。
+         * SheetJS 讀 .xlsm 與 .xlsx 走同一條路徑，沒有額外風險。
+         */
+        const invalid = files.find((file) => !/\.(xlsx?|xlsm)$/i.test(file.name));
+        if (invalid) return setToast(`「${invalid.name}」不是支援的 Excel 檔案`);
+        if (!activeProject) {
+          setToast("請先建立並選擇計畫，再匯入季度資料");
+          return;
+        }
+        setBusy(true);
+        /*
+         * ⚠️ 每一次新的匯入都要把上一次殘留的併入紀錄清掉。
+         * 使用者上一次在檢核報告按了「取消」時，那一批併入不該留著——
+         * 不清的話，下一次匯入成功時會把**上一次取消掉的**併入一併記成別名。
+         */
+        pendingAliasRef.current = new Map();
+        try {
+          const {
+            records: parsedSource,
+            dateChecks,
+            fileNotes,
+          } = await parseFiles(files);
+          /*
+           * 說不出原因的錯誤訊息等於沒有訊息。
+           * 舊版只丟一句「找不到平日／假日交通量資料」：不指名哪個檔、不說為什麼
+           *（工作表沒有路口編號標記？表頭找不到車種欄？時段格式不合？）、
+           * 也不給補救方向，使用者只能瞎猜。
+           */
+          if (!parsedSource.length)
+            throw new Error(
+              "沒有讀到任何交通量資料：\n" +
+                fileNotes
+                  .map(
+                    (note) =>
+                      `・${note.file}：讀出 0 列。` +
+                      (note.skipped.length
+                        ? `已略過的工作表：${note.skipped.join("、")}。`
+                        : "") +
+                      "請確認工作表名稱含「平日」或「假日」，或表頭有「路口編號」標記與逐時段的車種計數欄位。",
+                  )
+                  .join("\n"),
+            );
+          /*
+           * 部分檔案讀出 0 列時也要指名。這種情況最危險：流程會照常成功，
+           * 使用者以為五個檔都進去了，實際只進了四個。
+           */
+          const emptyFiles = fileNotes.filter((note) => note.rows === 0);
+          const guessedDayFiles = fileNotes.filter(
+            (note) => note.rows > 0 && note.dayFromFileName,
+          );
+          const sourceCellWarnings = [
+            ...new Set(
+              parsedSource.flatMap((record) =>
+                (record.sourceWarnings ?? []).map(
+                  (warning) =>
+                    `「${record.sourceFileName ?? "未命名檔案"}」` +
+                    `${record.sourceSheetName ? `【${record.sourceSheetName}】` : ""}${warning}`,
+                ),
+              ),
+            ),
+          ];
+          /*
+           * 支線數與「沒有這個轉向」的數量做算術核對。
+           *
+           * 一支支線只能去（支線數 − 1）個地方，調查表卻固定印同樣幾個轉向欄，
+           * 兩者的差就是應該畫橫線的數量：三岔每支剛好 1 個、四岔 0 個。
+           * 這是純算術，不依賴任何調查廠商的編號習慣（實測 37 份實檔完全符合）。
+           *
+           * 對不上通常是「該畫橫線的欄位被留成空白」或「表頭欄位被讀錯」。
+           * 以前這種檔案會安靜通過。這裡只示警，不改動任何數值。
+           */
+          const armAuditWarnings = [
+            ...new Set(
+              [
+                ...new Set(
+                  parsedSource
+                    .filter((record) => record.surveyType === "intersection")
+                    .map((record) => record.roadId),
+                ),
+              ].flatMap((roadId) => {
+                const audits = auditArmTurns(parsedSource, roadId);
+                if (audits.length < 3) return [];
+                const mismatched = audits.filter(
+                  (audit) => audit.absent.length !== audit.expectedAbsent,
+                );
+                if (!mismatched.length) return [];
+                const roadName =
+                  parsedSource.find((record) => record.roadId === roadId)
+                    ?.roadName ?? roadId;
+                const detail = mismatched
+                  .map(
+                    (audit) =>
+                      `路口${audit.directionCode}（應為 ${audit.expectedAbsent} 個，實際 ${audit.absent.length} 個${
+                        audit.absent.length
+                          ? "：" +
+                            audit.absent.map((turn) => TURN_LABELS[turn]).join("、")
+                          : ""
+                      }）`,
+                  )
+                  .join("；");
+                return [
+                  `「${roadName}」是 ${audits.length} 岔路口，每一支支線只能去 ${audits[0].destinationCount} 個地方，` +
+                    `所以每支應該剛好有 ${audits[0].expectedAbsent} 個轉向整欄畫橫線（「--」），但數量對不起來：${detail}。` +
+                    "可能是該畫橫線的欄位被留成空白，也可能是表頭的「路口編號：」被讀錯而讓欄位算到隔壁支線，請核對原始檔。" +
+                    "（這則只是提醒，不會改動任何數值。）",
+                ];
+              }),
+            ),
+          ];
+          /*
+           * 形狀檢查不夠：normalizeSurveyPeriod 只在民國 90～200 這個窗口內換算，
+           * 超出窗口的四碼年份會原樣通過（例如 2112Q3），於是同一季會存成兩個鍵。
+           * 改用共用的 checkSurveyPeriodInput()，並分開講「格式不對」與「超出範圍」。
+           */
+          const periodCheck = checkSurveyPeriodInput(importQuarter);
+          if (!periodCheck.ok)
+            throw new Error(surveyPeriodInputMessage(periodCheck.reason));
+          /*
+           * 這個計畫如果已經有「同一季、但用另一種寫法」的資料，要先擋下來。
+           *
+           * v20.39 以前季度是照使用者打的字原樣存的，而匯入框的預設值曾經是
+           * 西元寫法（2026Q3），所以既有資料裡可能已經有 2026Q3。現在一律存成
+           * 民國年，若不擋，同一季就會同時存在 2026Q3 與 115Q3 兩個鍵——
+           * 它們的排序鍵完全相同，會在季度清單裡相鄰出現，看起來只像
+           * 「同一季出現兩次」，歷季趨勢卻已經被拆成兩段而且永遠不會合併。
+           */
+          const clashing = quarters.find(
+            (q) =>
+              q !== importQuarterKey &&
+              normalizeSurveyPeriod(q) === importQuarterKey,
+          );
+          if (clashing)
+            throw new Error(
+              `這個計畫裡已經有「${clashing}」，和你要匯入的「${importQuarterKey}」是同一季，只是寫法不同（民國年與西元年）。` +
+                `本版起季度一律以民國年記錄，若直接寫入會變成兩個分開的季度，歷季趨勢也會被拆成兩段。` +
+                /* ⚠️ 2026-09-17 起側欄沒有「品質與定稿」了（整項移除），
+                    指路要指到現在真的到得了的地方，否則使用者會找不到那一頁。 */
+                `請先到「資料產出與維護 → 刪除單一季度」把「${clashing}」整季刪除後重新匯入，或改匯入其他季度。`,
+            );
+          const targetProjectId = await ensurePersistentProject();
+          const parsed = parsedSource.map((r) => ({
+            ...r,
+            projectId: targetProjectId,
+          }));
+          const report = validateImport(parsed, activeRecords);
+          /*
+           * ══════════════════════════════════════════════════════════════
+           *  轉向判定衝突也要進「需注意」清單
+           * ══════════════════════════════════════════════════════════════
+           *
+           * 使用者 2026-09-13：「如果出現程式判讀有 2 支線落進同一個轉向，
+           *   一定是判讀失誤，可以用醒目顏色提醒，**或納入匯入異常事件給使用者看到**。」
+           *
+           * ⚠️ 不擋匯入：本系統是先匯入、才在「路口設定」調角度，
+           *   擋掉的話使用者連資料都看不到，反而更難修。
+           *   量會掛在「未指定駛入路口」，帳面上看得見，總量不變。
+           */
+          for (const conflict of intersectionTurnConflicts(
+            parsed,
+            targetProjectId,
+            intersectionSettings,
+          ))
+            report.warningItems.push({
+              type: "路口轉向判定",
+              text: describeTurnConflict(conflict),
+            });
+          if (!report.valid)
+            throw new Error(report.invalidRows[0] ?? "匯入資料檢核失敗");
+          /*
+           * 定稿的季度一律擋下，不管是覆蓋既有列還是只追加新列。
+           *
+           * 舊寫法只在 replacedRows > 0 時擋。把另一個調查點匯進同一個已定稿的
+           * 季度時 replacedRows 是 0，於是照樣寫進去，而下面又會無條件把狀態
+           * 改回「草稿」——定稿等於自己解除了，畫面上沒有任何提示。
+           */
+          if ((workflow.statuses[importQuarterKey] ?? "草稿") === "定稿")
+            throw new Error(
+              /* ⚠️ 同上：指到「資料產出與維護 → 資料異常檢查摘要」那一塊（狀態在那裡改）。 */
+              `${importQuarterKey} 已定稿，系統已阻擋${report.replacedRows ? "覆蓋" : "追加"}。請先在「資料產出與維護 → 資料異常檢查摘要」將狀態改回草稿或待確認。`,
+            );
+          // 檢核報告一跳出來就把「匯入季度資料」視窗收掉。
+          // 兩個視窗疊在一起時，後面的匯入視窗會蓋住檢核報告的按鈕，
+          // 使用者會以為匯入沒成功、又重選一次檔案。
+          /*
+           * 調查日期 × 期別檢查。判斷邏輯在 period-date.ts（三支程式同一份）。
+           * 這裡只算結果放進檢核報告，**不阻擋**——讀不到日期只是提醒，
+           * 對不起來才在按「確認匯入」時多問一次。
+           */
+          const periodChecks = dateChecks.map((item) =>
+            checkPeriodAgainstDate(
+              /* 用正規化後的值，訊息裡顯示的季度才會和實際寫入的一致。 */
+              importQuarterKey,
+              item.found,
+              item.sheet ? item.file + "【" + item.sheet.trim() + "】" : item.file,
+            ),
+          );
+          setShowImport(false);
+          setPendingImport({
+            files,
+            parsedQuarter: importQuarterKey,
+            dateChecks,
+            records: parsed,
+            report,
+            periodChecks,
+            fileWarnings: [
+              ...emptyFiles.map(
+                (note) =>
+                  `「${note.file}」讀出 0 列，不會有任何資料寫入。` +
+                  (note.skipped.length
+                    ? `已略過的工作表：${note.skipped.join("、")}。`
+                    : "") +
+                  "請確認工作表名稱與表頭格式。",
+              ),
+              ...guessedDayFiles.map(
+                (note) =>
+                  `「${note.file}」的表頭讀不到「日期：…(平日／假日)」，日別是依檔名判定為${
+                    note.file.includes("假日") ? "假日" : "平日"
+                  }。日別是資料的身分鍵之一，判錯會讓資料寫到另一個日別、甚至覆蓋既有資料，請確認無誤。`,
+              ),
+              /*
+               * ⚠️ 同一張工作表讀到兩個以上不同的調查日期：**提醒，不阻擋**
+               *   （使用者 2026-09-20 明確要求）。這裡把每一個候選連同
+               *   **出處（工作表!儲存格）與原文**一起寫出來——少了出處，
+               *   使用者無從判斷哪一個才是調查日期。
+               */
+              ...dateChecks
+                .filter((item) => item.candidates.length > 1)
+                .map(
+                  (item) =>
+                    `「${item.file}」${item.sheet ? `【${item.sheet.trim()}】` : ""}` +
+                    `讀到 ${item.candidates.length} 個不同的日期：` +
+                    item.candidates
+                      .map(
+                        (hit) =>
+                          `${readableDate(hit.iso)}（${surveyDateSourceLabel(hit)}：${hit.raw}）`,
+                      )
+                      .join("、") +
+                    `。系統目前採用第一個（${readableDate(item.candidates[0].iso)}）。` +
+                    `這不會阻擋匯入；匯入後到「資料維護 → 執行資料異常檢查」可以指定哪一個才是調查日期。`,
+                ),
+              /*
+               * ⚠️ 調查格距超過 1 小時：**擋下匯入**（使用者 2026-09-30 改的裁示）。
+               *
+               *   2026-09-24 的原話是「系統應該匯入時會提示，以及列入資料異常清單裡吧」
+               *   ——那一版做成「提醒、不阻擋」。
+               *   2026-09-30 她改了：「時間格超過 1 小時的異常，跳出視窗後，
+               *   **請直接阻止檔案匯入**，視窗告知**本程式不支援超過 1 小時的時段**」。
+               *
+               *   ⚠️ 真正的阻擋在 `longIntervalMessage`（確認鈕停用 ＋ 紅底說明）。
+               *   這一段只是檢核報告裡的逐檔說明，兩邊的判準共用
+               *   `longIntervalBlock()` 的同一條規則（> 60 分鐘）。
+               *
+               * ⚠️ 逐格看，不取眾數：48 格裡有 1 格誤植成 2 小時的話眾數仍然是
+               *   60，那一格會被蓋掉——而那正是最需要被抓出來的情形。
+               * ⚠️ 這裡看的是**已經解析成紀錄**的 `hour`，不掃原始檔文字：
+               *   姊妹專案交通服務水準的真實檔裡有「上午尖峰 (07:00～09:00)」
+               *   這種調查時段標示，掃文字會整批誤報。
+               */
+              ...(function () {
+                const byFile = new Map<string, Map<number, number>>();
+                for (const record of parsed) {
+                  const range = parseTimeRange(String(record.hour ?? ""));
+                  if (!range) continue;
+                  const minutes = range.end - range.start;
+                  if (minutes <= 60 || minutes > 24 * 60) continue;
+                  const where =
+                    (record.sourceFileName || "原始檔") +
+                    (record.sourceSheetName ? `【${record.sourceSheetName}】` : "");
+                  const bucket = byFile.get(where) ?? new Map<number, number>();
+                  bucket.set(minutes, (bucket.get(minutes) ?? 0) + 1);
+                  byFile.set(where, bucket);
+                }
+                return [...byFile.entries()].map(([where, lengths]) => {
+                  const parts = [...lengths.entries()]
+                    .sort((a, b) => b[0] - a[0])
+                    .map(([minutes, n]) =>
+                      Number.isInteger(minutes / 60)
+                        ? `${minutes / 60} 小時 × ${n} 格`
+                        : `${minutes} 分鐘 × ${n} 格`,
+                    );
+                  return (
+                    `「${where}」有時間格長度超過 1 小時（${parts.join("、")}）。` +
+                    "交通量調查以 1 小時一格為主、細一點是 15／20／30／45 分鐘，" +
+                    "不會有超過 1 小時一格的調查，這多半是時間欄位誤植——" +
+                    "例如把「07:00～08:00」打成「07:00～09:00」。" +
+                    "⚠️ 本程式「不支援」超過 1 小時的時段，這一批會被擋下來、" +
+                    "一筆都不會寫進去；請回原始檔把那幾格的時間改正，再重新匯入。"
+                  );
+                });
+              })(),
+              ...sourceCellWarnings,
+              ...armAuditWarnings,
+            ],
+          });
+          setBusy(false);
+          return;
+        } catch (e) {
+          setToast(e instanceof Error ? e.message : "匯入失敗");
+        } finally {
+          setBusy(false);
+          setBusyProgress("");
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+      }
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/scoped-settings-dataflow.test.mjs:59:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 0
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3966.4354

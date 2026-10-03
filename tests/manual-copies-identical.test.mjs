@@ -95,7 +95,7 @@ test("包裡每一份手冊副本都必須來自同一次產生", () => {
     );
   for (const dir of ["github-pages/dist", "dist/client"]) {
     if (!existsSync(join(ROOT, dir))) {
-      console.log(`（${dir}/ 不在這棵樹裡——那是建置產物，交付包刻意不含它，跳過）`);
+      console.error(`（${dir}/ 不在這棵樹裡——那是建置產物，交付包刻意不含它，跳過）`);
       continue;
     }
     assert.ok(

@@ -1,0 +1,54 @@
+TAP version 13
+# Subtest: native ratio trend uses percent axis and cache formats, without changing values
+ok 1 - native ratio trend uses percent axis and cache formats, without changing values
+  ---
+  duration_ms: 0.828
+  type: 'test'
+  ...
+# Subtest: native line charts have visible connecting strokes, retaining blank-point gaps
+ok 2 - native line charts have visible connecting strokes, retaining blank-point gaps
+  ---
+  duration_ms: 0.1876
+  type: 'test'
+  ...
+# Subtest: native count bars preserve count formatting and borderless design
+ok 3 - native count bars preserve count formatting and borderless design
+  ---
+  duration_ms: 0.1402
+  type: 'test'
+  ...
+# Subtest: native doughnut uses legend and data table without cache-dependent inline labels
+not ok 4 - native doughnut uses legend and data table without cache-dependent inline labels
+  ---
+  duration_ms: 0.5641
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2094-worktree-20261003\\tests\\native-chart-format.test.mjs:37:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /<c:showCatName val="0"/. Input:
+    
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:date1904 val="0"/><c:lang val="zh-TW"/><c:roundedCorners val="0"/><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1400" b="1"/></a:pPr><a:r><a:rPr lang="zh-TW"/><a:t>test</a:t></a:r></a:p></c:rich></c:tx><c:layout/><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/><c:plotArea><c:layout/><c:doughnutChart><c:varyColors val="1"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>test</c:v></c:tx><c:dPt><c:idx val="0"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="1"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="2"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="3"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="4"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="5"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:cat><c:strRef><c:f>'test'!$A$2:$A$7</c:f><c:strCache><c:ptCount val="6"/></c:strCache></c:strRef></c:cat><c:val><c:numRef><c:f>'test'!$B$2:$B$3</c:f><c:numCache><c:formatCode>#,##0.0</c:formatCode><c:ptCount val="6"/><c:pt idx="0"><c:v>52</c:v></c:pt><c:pt idx="1"><c:v>41</c:v></c:pt><c:pt idx="2"><c:v>4</c:v></c:pt><c:pt idx="3"><c:v>2</c:v></c:pt><c:pt idx="4"><c:v>1</c:v></c:pt><c:pt idx="5"><c:v>0</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser><c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="1"/><c:showSerName val="0"/><c:showPercent val="1"/><c:showBubbleSize val="0"/></c:dLbls><c:firstSliceAng val="270"/><c:holeSize val="58"/></c:doughnutChart></c:plotArea><c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:date1904 val="0"/><c:lang val="zh-TW"/><c:roundedCorners val="0"/><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1400" b="1"/></a:pPr><a:r><a:rPr lang="zh-TW"/><a:t>test</a:t></a:r></a:p></c:rich></c:tx><c:layout/><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/><c:plotArea><c:layout/><c:doughnutChart><c:varyColors val="1"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>test</c:v></c:tx><c:dPt><c:idx val="0"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="1"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="2"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="3"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="4"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:dPt><c:idx val="5"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="148C8C"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt><c:cat><c:strRef><c:f>'test'!$A$2:$A$7</c:f><c:strCache><c:ptCount val="6"/></c:strCache></c:strRef></c:cat><c:val><c:numRef><c:f>'test'!$B$2:$B$3</c:f><c:numCache><c:formatCode>#,##0.0</c:formatCode><c:ptCount val="6"/><c:pt idx="0"><c:v>52</c:v></c:pt><c:pt idx="1"><c:v>41</c:v></c:pt><c:pt idx="2"><c:v>4</c:v></c:pt><c:pt idx="3"><c:v>2</c:v></c:pt><c:pt idx="4"><c:v>1</c:v></c:pt><c:pt idx="5"><c:v>0</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser><c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="1"/><c:showSerName val="0"/><c:showPercent val="1"/><c:showBubbleSize val="0"/></c:dLbls><c:firstSliceAng val="270"/><c:holeSize val="58"/></c:doughnutChart></c:plotArea><c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2094-worktree-20261003/tests/native-chart-format.test.mjs:40:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 3
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 512.2462

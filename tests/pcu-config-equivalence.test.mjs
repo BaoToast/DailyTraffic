@@ -30,8 +30,29 @@ function record(hour, counts) {
   };
 }
 
-function factors(core, scopes = []) {
-  return { core, coreTurns: turnsFor(core), settings: [], scopes };
+/*
+ * ⚠️ 自訂車種的設定（2026-09-28 補）。
+ *   `factorFor()` 對**核心四車種**看的是 core[...]，對自訂車種看的是
+ *   `setting.roadPcu`——也就是說 `settings` 這個參數只有在有自訂車種時
+ *   才會影響答案。原本六個案例的 settings 全是 []，所以把
+ *   `vehiclePcuBreakdown()` 的 `factors.settings` 拿掉，這一支**還是綠的**
+ *  （實測：拿掉 scopes 會紅、拿掉 settings 不會）。
+ *   而 `app/period-analysis.ts` 開頭的註解正好寫著「只有自訂車種會不一樣，
+ *   最不容易被發現」——最難發現的那一種漂移，剛好是原本抓不到的那一種。
+ */
+const CUSTOM_KEY = "custom:示範自訂車種";
+const customSetting = (roadPcu) => [{
+  projectId: "P1",
+  sourceKey: CUSTOM_KEY,
+  sourceLabel: "示範自訂車種",
+  targetKey: CUSTOM_KEY,
+  targetLabel: "示範自訂車種",
+  roadPcu,
+  turnPcu: { left: roadPcu, through: roadPcu, right: roadPcu },
+}];
+
+function factors(core, scopes = [], settings = []) {
+  return { core, coreTurns: turnsFor(core), settings, scopes };
 }
 
 test("A27 同一格的係數設定狀態等於逐筆非零 PCU 的邏輯或（含範圍覆寫）", () => {
@@ -49,6 +70,21 @@ test("A27 同一格的係數設定狀態等於逐筆非零 PCU 的邏輯或（�
       name: "同格兩筆的邏輯或",
       factors: factors(mixed),
       records: [record("11:00～12:00", { small: 5 }), record("11:00～12:00", { large: 2 })],
+    },
+    {
+      /*
+       * 核心四車種的係數全是 0，只有自訂車種帶著係數：
+       * 「有沒有設定過係數」這個答案**完全由 settings 決定**。
+       */
+      name: "自訂車種的係數（settings 是唯一來源）",
+      factors: factors(zero, [], customSetting(2.5)),
+      records: [record("14:00～15:00", { small: 5, [CUSTOM_KEY]: 4 })],
+    },
+    {
+      /* 自訂車種的係數正好是 0：兩邊都必須說「沒設定」，不可以一邊說有。 */
+      name: "自訂車種的係數是 0",
+      factors: factors(zero, [], customSetting(0)),
+      records: [record("15:00～16:00", { small: 5, [CUSTOM_KEY]: 4 })],
     },
     {
       name: "季別與路段專屬覆寫",
@@ -82,5 +118,5 @@ test("A27 同一格的係數設定狀態等於逐筆非零 PCU 的邏輯或（�
         `逐筆 hasNonZeroVehiclePcu 的邏輯或=${recordOr}（${entry.records.length} 筆）`,
     );
   }
-  assert.ok(nonEmptyBuckets >= 5, `前置檢查：只驗到 ${nonEmptyBuckets} 個非空 bucket`);
+  assert.ok(nonEmptyBuckets >= 8, `前置檢查：只驗到 ${nonEmptyBuckets} 個非空 bucket`);
 });
