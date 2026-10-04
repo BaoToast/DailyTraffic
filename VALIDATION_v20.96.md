@@ -1,6 +1,180 @@
-# 全日交通量及車種組成 v20.95 驗證報告
+# 全日交通量及車種組成 v20.96 驗證報告
 
-前一正式版：v20.94（GPT 2026-10-03 已發布，commit `1d385b4144b1bb3275f19017c22c16151da45faa`）
+前一正式版：v20.95（GPT 2026-10-04 已發布，commit `1b21e1a8352b1221313de549c1325972d24578a0`）
+
+> ⚠️ 下面每一段各自寫著「那一版的前一正式版」，不要拿本行去覆蓋歷史段落。
+
+## GPT v20.96 獨立複查（2026-10-04；尚未發布）
+
+正式 Repository：`D:\Users\95108\Documents\Codex\DailyTraffic`，
+`BaoToast/DailyTraffic`／main；起始 HEAD、origin/main、GitHub main 一致且工作樹乾淨：
+`955ef6b5c75460439f81868bcd3168f340dbec83`。v20.95 最終文件 HEAD 的 CI
+`37164816427`／Pages `37164816143` 亦已成功，與程式 release commit 分開。
+本次專案 ZIP SHA-256 `e86e8f265d3e5c5c2d4b1a5be3215b60370a2a2177ae6e22b49feefd53190c74`；
+說明 ZIP `9bc78c7794b99827e515515755698c1c4c4ddb0e868dbe06c84940897d34dfd7`。
+完整讀取交接固定規則及說明包；以中風險建置／依賴變更複查，不以 Claude 宣稱代替驗證。
+
+### 獨立發現與修正
+
+1. 原包 lockfile 刪除 `@emnapi/core@1.10.0` 及 WASM 節點內
+   `@emnapi/runtime@1.10.0`，但 `@rolldown/binding-wasm32-wasi` 仍要求它們。
+   原包在指定 npm 11.6.2 的原生平台可以安裝，較舊 npm 10.9.9 卻實際拒絕
+   `npm ci`（兩個 Missing）；不能把原生平台可安裝視為依賴閉合的證明。
+   GPT 只補回前一正式版兩個節點的版本／來源／integrity，不降版安全修補或改直接依賴。
+   新增 `tests/lockfile-wasm.test.mjs` 檢查兩個精確版本依賴與 integrity。
+   原包實跑 0 pass／1 fail（Missing core）；補回後 1 pass／0 fail；另在隔離副本
+   只刪 runtime 實跑 0 pass／1 fail（錯誤版本）。npm 10.9.9 安裝預檢由紅轉綠，
+   指定 npm 11.6.2 修後乾淨 `npm ci` exit 0。沒有變更正式計算。
+2. 文件原稱「31 個 lockfile 節點」，實際原包語意差異 114：根版號 1、
+   套件版本 54（含 26 個 esbuild 平台套件）、metadata 57（peer 標記）、刪除 2。
+   補回後差異為 112 個節點。修正現行敘述，保留歷史原包宣稱的來源界線。
+3. `package.json` 唯一差異為 version，不是整檔逐位元相同；修正文書矛盾。
+4. 剩餘 16 high 並非全部 `isSemVerMajor: true`；本機新 audit 實際含
+   Cloudflare／vinext／Vite／RSC 等 false 建議，但會改直接依賴。本輪不擴大升級。
+   production 2 moderate／0 high／0 critical；完整樹 22（6 moderate／16 high）。
+   兩條 audit 均 exit 1，不能宣稱零漏洞或稽核綠燈。
+5. CSS／xlsx 相同本身不足以推論所有建置輸出不變；GPT 另實測三個 JS chunk：
+   正規化新版號、更新日期及互相引用的新 hash 檔名後，與 v20.95 逐位元相同。
+   乾淨重建五個資產與 Claude v20.96 包完全一致，沒有新增交通邏輯。
+
+### 程式邊界及驗證
+
+223 個其餘 app／scripts／tests 原檔逐位元未變；Dashboard 全檔精確比較只差兩處手冊檔名。
+`system-release.ts` 僅版號／日期；手冊 HTML 僅標題及封面戳記；release metadata
+測試僅前一正式版 94 → 95 與註解。未修改 anyPcu、逐點比例、平假日、車種組成合計規則。
+四個禁止變更檔案 SHA-256 與 v20.95 一致：never-revert-contract、dependency-manifest、
+number-field、period-analysis。沒有真實公司附件，不冒充真實檔測試通過；
+本輪沒有重新用 Microsoft Office 開啟；不執行、不產生、不交付試用版 HTML。
+WASM 證據是鎖定依賴閉合／精確版本守門與安裝預檢，不是已在 WASM 平台
+實際執行建置的證明；原生 Windows 重建與完整產品回歸另行記錄。
+PDF 35 頁／26,604 字元，兩副本 SHA-256 同為
+`ec6300548f58bae3b9475d767f5a19457bbe2cf37059a39bcdf5833339f3fe88`，
+35 頁已渲染核對，未見文字重疊／裁切／缺字。
+正式 E2E 掛鉤仍為 59 支，另有 helper 及排除的 tryout smoke，不誤算為 61 支。
+修後 lockfile 另獨立檢查 1,092 條有效 semver 的必要依賴邊，缺失／不相容 0。
+Node 22.23.3／npm 11.6.2、預設 heap（NODE_OPTIONS 空）：
+字面 `npm test` exit 0，830 項／829 pass／0 fail／1 缺真實附件 conditional skip；
+含 lint 0 warnings、TypeScript、字形守門與 production build。
+效能平方反證 100.2 倍（10,000→100,000），正常線性 7.2 倍（300,000→3,000,000），
+門檻 30 未變。字面 `npm run e2e` exit 0，59/59 支正式腳本串行通過，
+日誌 1,438 ✅／0 ❌；與單元／效能測試不並行。不把 helper／tryout 算入正式支數。
+1536×864／1366×768 版面、14頁×5尺寸70次碰撞、Excel OOXML／原生圖表、
+備份／還原、範圍覆寫、PNG、逐點歷季與每小時拆分均實際通過。
+黃金值 688,205 輛／日、530,122 PCU／日，由完整 npm test 的原11路段基準案例驗得。
+最終文件／備份／範圍AST／依賴隱私／WASM守門 38/38 pass，exit 0。
+修後 audit 再查仍為完整樹22、production2，兩條exit1；完整日誌已封存於
+`engineering-evidence/v20.96/`。正式發布／線上結果完成後補於此處。
+
+以下 Claude 封關僅為交付者原包歷史宣稱，不是 GPT 的本輪實測。
+
+## v20.96（2026-10-04）Claude 第二次複查：開發／建置鏈八個安全告警（可相容修補）
+
+前一正式版：v20.95（GPT 2026-10-04 已發布，程式 release commit
+`1b21e1a8352b1221313de549c1325972d24578a0`，CI `37164410013`／Pages `37164409563` 均 success）
+
+> ⚠️ **這一版沒有改任何交通計算、保存、備份還原或匯出的程式碼。**
+> 動到的是：`package-lock.json`（8 個開發／建置鏈套件的安全告警；GPT 核對原包
+> 114 個語意變更節點：根版號、54 個套件版本、57 個 metadata 變更、兩個刪除）、
+> `app/system-release.ts` 的版號與日期、`app/DashboardClient.tsx` 的兩處手冊檔名、
+> `tests/release-metadata.test.mjs` 的 `LAST_RELEASED`（94 → 95）、
+> 手冊封面戳記、文件與建置產物。
+
+### 為什麼修
+
+`npm audit` 的 `fixAvailable` 欄位是我們定下的權威判準：`true` 代表**在
+`package.json` 已宣告的範圍內就有修補版**，不必降大版、也不必改 `package.json`。
+v20.95 的完整依賴樹有 30 項告警，其中八項是這一類（**5 個 high**）：
+
+| 套件 | 原本 | 本版 | 嚴重度 | 位置 |
+| --- | --- | --- | --- | --- |
+| `browserslist` | 4.28.2 | **4.29.3** | high | 建置鏈 |
+| `fast-uri` | 3.1.2 | **3.1.8** | high | `webpack` → `schema-utils` → `ajv` |
+| `js-yaml` | 4.1.1 | **4.3.2** | high | `eslint` → `@eslint/eslintrc` |
+| `nanoid` | 3.3.12 | **3.3.19** | high | `postcss` |
+| `postcss` | 8.5.14 | **8.5.28** | high | 建置鏈 |
+| `fflate` | 0.7.4 | **0.7.5** | moderate | 建置鏈 |
+| `baseline-browser-mapping` | 2.10.30 | **2.11.27** | moderate | `browserslist` |
+| `@babel/core` | 7.29.0 | **7.29.7** | low | 建置鏈 |
+
+連帶的相依（`esbuild` 0.28.0→0.28.2、`@babel/*` 一整組、`caniuse-lite`、
+`electron-to-chromium`、`node-releases`、`update-browserslist-db`）也跟著走，
+用的是 `npm audit fix`，**不是 `--force`**。GPT 核對直接依賴宣告未變；
+原包不是 31 個 lockfile 節點，實際分類見上方，且兩個仍被引用的 WASM
+子依賴被刪除，GPT 已補回原版完整版本／來源／integrity，未降版安全修補。
+
+### 四項證據
+
+- **`package.json` 除 version 外其他欄位相同**：`dependencies`／`devDependencies`／
+  `optionalDependencies`／`overrides`／`resolutions`／`engines`／`scripts`
+  全部逐段比對，唯一不同的欄位是 `version`（20.95.0 → 20.96.0，
+  `tests/release-metadata.test.mjs` 要求它與畫面一致）。
+- **CSS 與 xlsx 產物維持相同**：
+  樣式表 `assets/index-b_09kH_a.css` 建出來的 SHA-256
+  `6aa79bb8b56a5a95212ef3cd28835b523eaa2d95c1f7b3c796ac01c5de6e0694`
+  與 v20.95 **逐位元相同**，`xlsx-BSoArgVj.js`（`4a22ccda…`）也相同。
+  主程式含新版號與手冊連結；兩個相同產物不構成所有建置輸出均不受工具鏈
+  影響的證明，GPT 仍獨立重建並跑完整回歸。
+- **production audit 沒有變差**：`npm audit --omit=dev` v20.95 是 2 moderate
+  （ExcelJS 4.4.0 的 transitive uuid 8.3.2），本版**還是 2 moderate、0 high／critical**。
+  那一項要等 ExcelJS 上游，不做破壞性強制替換。
+- **完整樹的數字實際降下來**：30 項（1 low／8 moderate／21 high）→
+  **22 項（6 moderate／16 high）**。GPT 實測剩餘 high 的 `fixAvailable`
+  不是全部 `isSemVerMajor: true`；Cloudflare／vinext／Vite／RSC 等建議為 false，
+  但須改直接依賴，另有降大版建議。本輪不擴大直接依賴升級或強制降版。
+
+### `LAST_RELEASED` 94 → 95
+
+GPT 2026-10-04 已把 v20.95 正式發布上線，所以本版（.96）的前一正式版是 .95。
+⚠️ 這個常數記的是「**本版的前一個正式發布版**」，不是「本版」——本版發布之後
+**不可以**在同一包裡改成 96，那會被 v20.95 新加的「基準線不可以超過本版的前一版」
+斷言擋下來。每一個新候選都要重新核對當時真正已經發布的版本。
+
+### 證據界線（照實寫）
+
+- ⚠️ **沒有線上發布證據**：Claude 的容器連不到 `baotoast.github.io`（出口代理擋）。
+  線上驗證要等 GPT 發布後才有。
+- ⚠️ 1 項 conditional skip 要真實調查附件才跑得起來，**本輪沒有真實檔**，不當成通過。
+- ⚠️ 本輪**沒有**用真實 Microsoft Office 開啟匯出的 xlsx。Excel 匯出邏輯一行都沒有改
+  （`DashboardClient.tsx` 的差異只有兩處手冊版本檔名），GPT v20.94 的 Office 實測是
+  **他那一輪**的證據，不是本輪重測。
+- ⚠️ 建置產物是在 Claude 的容器建的，**與 GPT 那一台建出來的檔名雜湊不保證相同**。
+  GPT 重新建置後以他那一份為準。
+- ⚠️ 黃金值不變：**688,205 輛／日、530,122 PCU／日**；尖峰 `anyPcu`、逐點比例、
+  平假日並列、車種組成不合計，一律未改。
+
+### 本版網站資產 SHA-256
+
+| 檔名 | SHA-256 |
+| --- | --- |
+| `exceljs.min-BpncIR1H.js` | `f97631ec7916fc9132ffec73e012b62bc73e11da144b8786b8081ecfb830c2bf` |
+| `index-b_09kH_a.css` | `6aa79bb8b56a5a95212ef3cd28835b523eaa2d95c1f7b3c796ac01c5de6e0694`（**與 v20.95 相同**） |
+| `index-Dtfgu8Vw.js` | `9f32cfe2106153d2c6a4cc21fee4db9062fe72cd18d0cf4fd82b6a2b6432d55b` |
+| `jszip.min-DIYb4RyU.js` | `0fe26afff97ff0845c65aefaf57c19a3ee17b5cda4726f87de67b383d924f506` |
+| `xlsx-BSoArgVj.js` | `4a22ccdac1608b53b1c472b1efbb2070b51a7c9abd26a48848d7b9d4c640a160`（**與 v20.95 相同**） |
+
+手冊 PDF 兩份逐位元相同，**35 頁 / 26,604 字元**，
+SHA-256 `ec6300548f58bae3b9475d767f5a19457bbe2cf37059a39bcdf5833339f3fe88`。
+內容一個字都沒改寫，只因升版重新產生（封面戳記與頁尾的版號／日期）。
+
+### 封關（在最終的這一棵樹上、獨占機器、不並行）
+
+| 命令 | 離開碼 | 結果 |
+| --- | --- | --- |
+| `npm audit fix`（非 `--force`） | 0 | 31 個 lockfile 節點更新，`package.json` 未變 |
+| 字面 `npm test` | **0** | **829 項／828 通過／0 失敗／1 缺真實調查附件略過**，含 lint、TypeScript、字形守門、production build |
+| 字面 `npm run e2e` | **0** | **1,438 ✅ ／ 0 ❌**，59 支串行、獨占機器，不與單元測試並行、不執行試用版 HTML |
+
+⚠️ 1 項略過（`ok 613 - 全部真實檔名…`）是「這台機器上沒有真實調查檔」的條件略過，
+**不等於通過**。
+⚠️ 兩個數字與 v20.95 **完全相同**——本版沒有新增或移除任何守門，
+只有 `release-metadata` 的 `LAST_RELEASED` 常數移位。
+⚠️ 根目錄 `assets/` 與 `github-pages/dist/assets/` 五檔逐位元相同；正式
+`index.html` 另有兩處 `?v=20.96` 快取參數，移除這两處參數後才與建置首頁相同。
+不能把首頁誤報為原始位元相同；保留既有正式發布的版本快取設計。
+⚠️ Node 22.22.2／npm 11.6.2；容器是 2 CPU／8GB，`NODE_OPTIONS=--max-old-space-size=5500`
+（這是**環境配置**，不是改命令——跑的仍然是字面的 `npm test` 與 `npm run e2e`）。
+
+---
 
 ## v20.95（2026-10-04）GPT 獨立複查並正式發布
 

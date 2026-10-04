@@ -1,0 +1,16 @@
+{
+  "requiredEdgesChecked": 1089,
+  "invalidEdges": [
+    {
+      "where": "node_modules/@rolldown/binding-wasm32-wasi",
+      "name": "@emnapi/core",
+      "range": "1.10.0"
+    },
+    {
+      "where": "node_modules/@rolldown/binding-wasm32-wasi",
+      "name": "@emnapi/runtime",
+      "range": "1.10.0",
+      "found": "1.11.3"
+    }
+  ]
+}

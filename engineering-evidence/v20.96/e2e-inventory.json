@@ -1,0 +1,10 @@
+{
+  "formal": 59,
+  "unique": 59,
+  "named": 61,
+  "notHooked": [
+    "e2e-nav.mjs",
+    "e2e-tryout-smoke.mjs"
+  ],
+  "missing": []
+}

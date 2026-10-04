@@ -1,0 +1,241 @@
+TAP version 13
+# Subtest: 匯出的備份收齊了使用者的設定
+ok 1 - 匯出的備份收齊了使用者的設定
+  ---
+  duration_ms: 2.2178
+  type: 'test'
+  ...
+# Subtest: 還原備份時會把條件範本寫回去
+ok 2 - 還原備份時會把條件範本寫回去
+  ---
+  duration_ms: 3.0074
+  type: 'test'
+  ...
+# Subtest: 備份裡沒有條件範本時，不可以把這台電腦既有的範本清掉
+ok 3 - 備份裡沒有條件範本時，不可以把這台電腦既有的範本清掉
+  ---
+  duration_ms: 0.4366
+  type: 'test'
+  ...
+# Subtest: 備份全部計畫時，每個計畫的資料是各自抓回來的，不是拿畫面上的 state
+ok 4 - 備份全部計畫時，每個計畫的資料是各自抓回來的，不是拿畫面上的 state
+  ---
+  duration_ms: 0.3885
+  type: 'test'
+  ...
+# Subtest: buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的
+ok 5 - buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的
+  ---
+  duration_ms: 0.6414
+  type: 'test'
+  ...
+# Subtest: 還原本計畫時，使用者親手按出來的東西也要跟著回來
+ok 6 - 還原本計畫時，使用者親手按出來的東西也要跟著回來
+  ---
+  duration_ms: 0.5794
+  type: 'test'
+  ...
+# Subtest: 還原多個計畫時，車種分類與路口幾何是累加的，不會互相覆蓋
+ok 7 - 還原多個計畫時，車種分類與路口幾何是累加的，不會互相覆蓋
+  ---
+  duration_ms: 0.4637
+  type: 'test'
+  ...
+# Subtest: 測試與腳本 import 的每一個套件都列在 package.json 裡
+ok 8 - 測試與腳本 import 的每一個套件都列在 package.json 裡
+  ---
+  duration_ms: 278.3377
+  type: 'test'
+  ...
+# Subtest: 建置、端對端測試與 GitHub 發布來源都完整
+ok 9 - 建置、端對端測試與 GitHub 發布來源都完整
+  ---
+  duration_ms: 51.2638
+  type: 'test'
+  ...
+# Subtest: 每一支可執行的 e2e 腳本都有正式入口
+ok 10 - 每一支可執行的 e2e 腳本都有正式入口
+  ---
+  duration_ms: 2.0941
+  type: 'test'
+  ...
+# Subtest: lock 檔和 package.json 宣告的依賴一致
+ok 11 - lock 檔和 package.json 宣告的依賴一致
+  ---
+  duration_ms: 3.6763
+  type: 'test'
+  ...
+# Subtest: Node.js 最低版本足以直接載入測試使用的 TypeScript
+ok 12 - Node.js 最低版本足以直接載入測試使用的 TypeScript
+  ---
+  duration_ms: 1.6936
+  type: 'test'
+  ...
+# Subtest: 正式 e2e 引用的每份活頁簿都能由匿名樣本產生器建立
+ok 13 - 正式 e2e 引用的每份活頁簿都能由匿名樣本產生器建立
+  ---
+  duration_ms: 31.4857
+  type: 'test'
+  ...
+# Subtest: 測試引用的固定檔案都在交付包裡（不是 .gitignore 掉的路徑）
+ok 14 - 測試引用的固定檔案都在交付包裡（不是 .gitignore 掉的路徑）
+  ---
+  duration_ms: 56.6708
+  type: 'test'
+  ...
+# Subtest: 交付包裡沒有任何試算表檔案（避免真實調查資料被提交）
+ok 15 - 交付包裡沒有任何試算表檔案（避免真實調查資料被提交）
+  ---
+  duration_ms: 3.5115
+  type: 'test'
+  ...
+# Subtest: 原始碼裡沒有實際的站號或調查點名稱
+ok 16 - 原始碼裡沒有實際的站號或調查點名稱
+  ---
+  duration_ms: 129.2517
+  type: 'test'
+  ...
+# Subtest: 內建基準資料只保留匿名識別資訊
+ok 17 - 內建基準資料只保留匿名識別資訊
+  ---
+  duration_ms: 5.9178
+  type: 'test'
+  ...
+# Subtest: 有 .gitattributes 且關閉了換行轉換
+ok 18 - 有 .gitattributes 且關閉了換行轉換
+  ---
+  duration_ms: 1.843
+  type: 'test'
+  ...
+# Subtest: 被排除的產出目錄名稱與 .gitignore 一致
+ok 19 - 被排除的產出目錄名稱與 .gitignore 一致
+  ---
+  duration_ms: 1.8421
+  type: 'test'
+  ...
+# Subtest: WASM fallback keeps its exact-version dependency lock entries
+ok 20 - WASM fallback keeps its exact-version dependency lock entries
+  ---
+  duration_ms: 16.6367
+  type: 'test'
+  ...
+# Subtest: package.json 與 package-lock.json 的版本號和程式顯示的一致
+ok 21 - package.json 與 package-lock.json 的版本號和程式顯示的一致
+  ---
+  duration_ms: 12.0435
+  type: 'test'
+  ...
+# Subtest: 畫面上的手冊連結檔名帶著目前版本
+ok 22 - 畫面上的手冊連結檔名帶著目前版本
+  ---
+  duration_ms: 8.0529
+  type: 'test'
+  ...
+# Subtest: 手冊裡有本版的更新說明區塊
+ok 23 - 手冊裡有本版的更新說明區塊
+  ---
+  duration_ms: 12.9189
+  type: 'test'
+  ...
+# Subtest: GitHub Pages 根目錄建置產物與目前版本一致
+ok 24 - GitHub Pages 根目錄建置產物與目前版本一致
+  ---
+  duration_ms: 29.35
+  type: 'test'
+  ...
+# Subtest: 驗證報告檔名與目前版本一致，不得殘留舊版
+ok 25 - 驗證報告檔名與目前版本一致，不得殘留舊版
+  ---
+  duration_ms: 2.4755
+  type: 'test'
+  ...
+# Subtest: 更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名
+ok 26 - 更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名
+  ---
+  duration_ms: 6.4643
+  type: 'test'
+  ...
+# Subtest: 更新說明裡寫出來的每一個 SHA-256 都要與實際檔案相符
+ok 27 - 更新說明裡寫出來的每一個 SHA-256 都要與實際檔案相符
+  ---
+  duration_ms: 64.3648
+  type: 'test'
+  ...
+# Subtest: 更新說明與驗證報告都不可以有兩段共用同一個版號
+ok 28 - 更新說明與驗證報告都不可以有兩段共用同一個版號
+  ---
+  duration_ms: 8.2089
+  type: 'test'
+  ...
+#   ℹ️ 與最後一次建置逐位元相同、時間戳不列入比較：index-Dtfgu8Vw.js、index-b_09kH_a.css
+#   ℹ️ 主程式與樣式兩個產物都與最後一次建置逐位元相同，不需要再比 mtime（逐位元相同是比時間更強的證據）。
+# Subtest: 根目錄的建置產物不可以比原始碼舊
+ok 29 - 根目錄的建置產物不可以比原始碼舊
+  ---
+  duration_ms: 11.722
+  type: 'test'
+  ...
+#   ℹ️ v20.95 已正式發布，本版直接建在它之上，沒有「未發布候選區間」可寫——改成要求現況文件寫明前一正式版是哪一版。
+# Subtest: 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+ok 30 - 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+  ---
+  duration_ms: 8.9452
+  type: 'test'
+  ...
+# Subtest: 驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時跳過並說明）
+ok 31 - 驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時跳過並說明）
+  ---
+  duration_ms: 2948.9575
+  type: 'test'
+  ...
+# Subtest: 文件寫的測試條數必須等於那支檔案裡 test() 的數量
+ok 32 - 文件寫的測試條數必須等於那支檔案裡 test() 的數量
+  ---
+  duration_ms: 24.5011
+  type: 'test'
+  ...
+# Subtest: classification coefficient warning must not claim negative PCU is zeroed
+ok 33 - classification coefficient warning must not claim negative PCU is zeroed
+  ---
+  duration_ms: 0.7115
+  type: 'test'
+  ...
+# Subtest: threshold scopes travel in both single and all-project backup exports
+ok 34 - threshold scopes travel in both single and all-project backup exports
+  ---
+  duration_ms: 0.1187
+  type: 'test'
+  ...
+# Subtest: both restore routes validate and restore threshold scopes to the destination
+ok 35 - both restore routes validate and restore threshold scopes to the destination
+  ---
+  duration_ms: 0.1627
+  type: 'test'
+  ...
+# Subtest: formal xlsx exports classification warnings and the scoped mapping table
+ok 36 - formal xlsx exports classification warnings and the scoped mapping table
+  ---
+  duration_ms: 0.1014
+  type: 'test'
+  ...
+# Subtest: long intervals are blocked before confirmations or writes
+ok 37 - long intervals are blocked before confirmations or writes
+  ---
+  duration_ms: 0.0853
+  type: 'test'
+  ...
+# Subtest: the import report uses the same long-interval rule as the write guard
+ok 38 - the import report uses the same long-interval rule as the write guard
+  ---
+  duration_ms: 0.0875
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 38
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3287.1628

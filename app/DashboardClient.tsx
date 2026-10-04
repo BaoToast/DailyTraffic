@@ -17502,14 +17502,14 @@ export default function DashboardClient({ user }: { user: User }) {
               <div className="manual-menu" aria-label="新手使用說明手冊下載">
                 <a
                   className="button secondary manual-download"
-                  href="./manuals/全日交通流量程式手冊_v20.95.pdf"
+                  href="./manuals/全日交通流量程式手冊_v20.96.pdf"
                   /*
                    * ⚠️ download 一定要**帶檔名**，不可以只寫 `download`。
                    *   沒給值時瀏覽器是從網址推檔名的；單檔試用版把手冊嵌成
                    *   data: URI，那種網址裡沒有檔名，使用者拿到的就會是「下載」。
                    *   （使用者 2026-09-14 實際回報過。）
                    */
-                  download="全日交通流量程式手冊_v20.95.pdf"
+                  download="全日交通流量程式手冊_v20.96.pdf"
                 >
                   下載新手手冊
                 </a>

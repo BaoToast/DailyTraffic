@@ -1,0 +1,20 @@
+add @tybys/wasm-util 0.10.2
+add @tailwindcss/oxide-wasm32-wasi 4.2.1
+add @rolldown/binding-wasm32-wasi 1.0.1
+add @napi-rs/wasm-runtime 1.1.4
+add @img/sharp-wasm32 0.34.5
+remove @tailwindcss/oxide-win32-x64-msvc 4.2.1
+remove @rolldown/binding-win32-x64-msvc 1.0.1
+remove @img/sharp-win32-x64 0.34.5
+remove @esbuild/win32-x64 0.18.20
+remove @esbuild/win32-x64 0.28.2
+remove @cloudflare/workerd-windows-64 1.20260515.1
+remove @esbuild/win32-x64 0.27.3
+remove lightningcss-win32-x64-msvc 1.32.0
+remove lightningcss-win32-x64-msvc 1.31.1
+remove @esbuild/win32-x64 0.25.12
+
+added 5 packages, and removed 10 packages in 1s
+
+161 packages are looking for funding
+  run `npm fund` for details

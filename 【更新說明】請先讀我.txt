@@ -1,4 +1,45 @@
-全日交通量及車種組成 — 完整專案 v20.95
+全日交通量及車種組成 — 完整專案 v20.96
+
+■ v20.96（2026-10-04）：Claude 第二次複查——開發／建置鏈八個安全告警（可相容修補）
+
+  **程式的行為一行都沒有改。** 樣式表 index-b_09kH_a.css 的雜湊與 v20.95
+  **逐位元相同**；xlsx chunk 也沒換。改的是 lockfile、畫面版號與手冊檔名。
+
+  ・`npm audit` 的 fixAvailable 欄位是權威判準：`true` 代表宣告範圍內就有
+    修補版，不必降大版、也不必改 package.json。這一輪有八個落在這一類，
+    其中 **5 個是 high**：
+      browserslist 4.28.2 → 4.29.3（high）
+      fast-uri     3.1.2  → 3.1.8（high）
+      js-yaml      4.1.1  → 4.3.2（high）
+      nanoid       3.3.12 → 3.3.19（high）
+      postcss      8.5.14 → 8.5.28（high）
+      fflate       0.7.4  → 0.7.5（moderate）
+      baseline-browser-mapping 2.10.30 → 2.11.27（moderate）
+      @babel/core  7.29.0 → 7.29.7（low）
+    連帶的相依（esbuild 0.28.0→0.28.2、@babel/* 一整組、caniuse-lite、
+    electron-to-chromium、node-releases、update-browserslist-db）也跟著走，
+    全部都在宣告範圍內。
+  ⚠️ **package.json 只有 version 改變，其他欄位相同**
+    （dependencies／devDependencies／overrides／engines／scripts 全部逐段比對過，
+      唯一不同的欄位是 version：20.95.0 → 20.96.0）。
+  ⚠️ postcss 與 esbuild 是**建置工具鏈**，升了之後最該擔心的是產出變了。
+    實際結果：樣式表 index-b_09kH_a.css 建出來**逐位元相同**（雜湊沒換），
+    xlsx chunk 也相同；主程式換檔名是因為畫面版號與手冊連結改了。
+  ⚠️ 只看會送到瀏覽器那一棵的 npm audit --omit=dev：v20.95 是 2 moderate
+    （ExcelJS 的 transitive uuid），本版還是 2 moderate——**沒有變好也沒有變壞**，
+    那一項要等 ExcelJS 上游，不做破壞性強制替換。
+  ⚠️ 完整依賴樹 30 項（1 low／8 moderate／21 high）→ **22 項（6 moderate／16 high）**。
+    剩下的 16 high 不是全部要跨大版；部分是不跨大版但須改直接依賴。
+    本輪不擴大直接依賴升級或強制降版。
+  ・GPT 額外發現：原包 lockfile 114 個語意變更節點，不是 31 個；兩個 WASM
+    必要子依賴被刪除。已補回其原版版本／來源／integrity，新增守門實跑舊包紅、
+    修後綠；不變更交通計算及直接依賴宣告。
+  ⚠️ tests/release-metadata.test.mjs 的 LAST_RELEASED 94 → **95**：
+    GPT 2026-10-04 已把 v20.95 正式發布上線，所以本版的前一正式版是 .95。
+    這個常數記的是「本版的前一個正式發布版」，發布後不可以在同一包裡改成 96。
+  ⚠️ 沒有線上發布證據（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
+  本版手冊只因升版重新產生（封面戳記與頁尾），內容一個字都沒改：35 頁 / 26,604 字元。
+  以下 v20.95 與更早各段是歷史紀錄，不是本輪重新驗證。
 
 ■ v20.95（2026-10-04）：GPT 獨立複查並正式發布
   前一正式版：v20.94；起始 main fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c。
@@ -2624,28 +2665,31 @@
 https://github.com/BaoToast/DailyTraffic
 
 本版網站資產：
-  exceljs.min-MrjoqAcZ.js
-    SHA-256 = e897a4af2c24f8348d5955ade97095ef90f09117c7a460c4d8df4b50281921ed
+  exceljs.min-BpncIR1H.js
+    SHA-256 = f97631ec7916fc9132ffec73e012b62bc73e11da144b8786b8081ecfb830c2bf
   index-b_09kH_a.css
     SHA-256 = 6aa79bb8b56a5a95212ef3cd28835b523eaa2d95c1f7b3c796ac01c5de6e0694
-    ⚠️ 樣式表自 v20.94 起逐位元相同，檔名與雜湊不變。
-  index-pH_yVaGI.js
-    SHA-256 = 1847f61c6f340c9bb12ebe6ff2ff13d33167e68927e0d4796e15c937eb270756
-  jszip.min-FuS0ICj0.js
-    SHA-256 = 9474312be9bbe14b6492c8b65bf28f9913e3c04aebfe56de6b487476bc0ccf96
+    ⚠️ 樣式表已經連續好幾版逐位元相同，檔名與雜湊不變
+      （刻意不寫出是從哪一版開始——守門在擋這一段出現別的版號）。
+    ⚠️ v20.96 把建置工具鏈的 postcss 8.5.14 → 8.5.28、esbuild 0.28.0 → 0.28.2
+      （安全告警，只動 lockfile），而樣式表**產出的位元還是一模一樣**——
+      這只證明樣式表相同，不能推論所有建置輸出或行為不受工具鏈影響。
+  index-Dtfgu8Vw.js
+    SHA-256 = 9f32cfe2106153d2c6a4cc21fee4db9062fe72cd18d0cf4fd82b6a2b6432d55b
+  jszip.min-DIYb4RyU.js
+    SHA-256 = 0fe26afff97ff0845c65aefaf57c19a3ee17b5cda4726f87de67b383d924f506
   xlsx-BSoArgVj.js
     SHA-256 = 4a22ccdac1608b53b1c472b1efbb2070b51a7c9abd26a48848d7b9d4c640a160
     （這個 XLSX chunk 從好幾版前就逐位元相同，檔名與雜湊不變；
       刻意不寫出是哪一版——同上，守門在擋這一段出現別的版號）
-  ⚠️ v20.95 補強兩支測試，並同步畫面版本與手冊檔名；主程式 bundle **重新建置**，
-    所以主檔與依賴它的 exceljs／jszip 兩個 chunk 檔名雜湊都換了
-    （它們第一行寫著 from "./index-<主檔雜湊>.js"）。
+  ⚠️ v20.96 改的是 lockfile（8 個開發／建置鏈套件的安全告警）與畫面版號、
+    手冊檔名；主程式 bundle **重新建置**，所以主檔與依賴它的 exceljs／jszip
+    兩個 chunk 檔名雜湊都換了（它們第一行寫著 from "./index-<主檔雜湊>.js"）。
     看到它們換名字不代表換了版本的 exceljs／jszip。
-  GPT 2026-10-04 在乾淨依賴工作區重新建置，五個資產與 Claude 交付逐位元相同。
-  檔名不變不代表未重建；已重新同步 github-pages/dist 至正式網站根目錄。
+  ⚠️ 這幾個檔名雜湊是在 Claude 的容器建出來的。GPT 重新建置後**以他那一份為準**。
 本版手冊：
-  全日交通流量程式手冊_v20.95.pdf
-    SHA-256 = 0620c32d4762a3c9e3ade7a54398830461e6c85fb4cb5a7da49020f4d54a1b8c
+  全日交通流量程式手冊_v20.96.pdf
+    SHA-256 = ec6300548f58bae3b9475d767f5a19457bbe2cf37059a39bcdf5833339f3fe88
     35 頁 / 26,604 字元（pdftotext -enc UTF-8、換行統一為 LF、NFKC 正規化、含空白）
     ⚠️ 只因升版重新產生（封面戳記與頁尾版號／日期），內容一個字都沒改寫。
     ⚠️ 這個字元數是「在哪一台機器**產生**這份 PDF」決定的，不是內容的指紋：
@@ -2663,24 +2707,28 @@ VALIDATION_v*.md，避免 GitHub Pages 保留已不再使用的檔案。
     必須為「資料不足」，不可回退為不足一小時的數字；調查時段合計仍保留。
     是否能形成完整視窗須看實際連續資料，不能只憑單格格長判定。
     2 小時單格的新 Excel 匯入則直接阻擋；既存／JSON 備份不是此入口的證據。
-  ・網站顯示 v20.95
-  ・manuals/全日交通流量程式手冊_v20.95.pdf 可下載
-  ・VALIDATION_v20.95.md 可下載
+  ・網站顯示 v20.96
+  ・manuals/全日交通流量程式手冊_v20.96.pdf 可下載
+  ・VALIDATION_v20.96.md 可下載
   ・匯入時同一批選兩個不同季別的檔案：「確認匯入／追加」是**停用**的，
     滑鼠移上去說得出原因；檢核報告寫「指向 2 個不同的期別」，
     而且**沒有**「改用檔案日期的季別」那顆按鈕。兩份都是同一季時按鈕要按得下去
   ・線上**目前還在的那一版**（前一正式版）的資產回傳 404：
-      index-BniIYehv.js、exceljs.min-CZeneQmJ.js、jszip.min-EOxDqsNE.js
-      （那三個是前一正式版 v20.94 線上實際引用的檔案）
-    與前一正式版的手冊（全日交通流量程式手冊_v20.94.pdf）回傳 404
-    ⚠️ **2026-10-03 更新基準（v20.95）**：前一正式版已經是 **v20.94**
-      （GPT 2026-10-03 發布上線），所以要查的 404 是它的檔名，
-      不是再往前的那一版。下面那兩段 09-27／09-29 的註記是當時的基準，
-      **保留當歷史紀錄，不要照著它去查更早那一版的檔名**。
+      index-BXYO8mCW.js 不是這一支的檔案，不要抄；要查的是
+      index-pH_yVaGI.js、exceljs.min-MrjoqAcZ.js、jszip.min-FuS0ICj0.js
+      （那三個是前一正式版 v20.95 線上實際引用的檔案）
+    與前一正式版的手冊（全日交通流量程式手冊_v20.95.pdf）回傳 404
+    ⚠️ **2026-10-04 更新基準（v20.96）**：前一正式版已經是 **v20.95**
+      （GPT 2026-10-04 發布上線，commit 1b21e1a8352b1221313de549c1325972d24578a0），
+      所以要查的 404 是它的檔名。
+    ⚠️ 下面 10-03／09-29／09-27 三段註記寫的是**當時**的基準，
+      **保留當歷史紀錄**，不要照著它們去查更早那幾版的檔名。
+      （那幾段原本寫出來的版號已經移除——守門在擋這一段出現別的版號，
+        拿一個不是現在線上那一版的檔名去驗 404 會得到假通過。）
       ⚠️ 這裡刻意**不寫出更早那個版號**：release-metadata 有一條守門在擋
         「如何更新」段落出現非本版、非前一正式版的版號——拿一個不是現在線上
         那一版的檔名去驗 404，會得到假通過。
-    ⚠️ 樣式表 index-b_09kH_a.css 自 v20.94 起**逐位元相同、檔名沒換**，
+    ⚠️ 樣式表 index-b_09kH_a.css 已經連續好幾版**逐位元相同、檔名沒換**，
       所以這一版**不可以**把它列進 404 清單——它應該還在、而且回 200。
     ⚠️ **2026-09-27 更新基準**：前一正式版已經換成**已發布上線的那一版**，
       不再是某個從未上線的候選版。要查的一定是「**線上現在真的在用**」的檔名——

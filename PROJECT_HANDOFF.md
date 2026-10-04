@@ -1,6 +1,37 @@
 # 全日交通量及車種組成：工程交接基準
 
-> **GPT 本輪狀態（2026-10-04）**：已獨立完成候選差異複查及五項紅／綠反證，
+> **GPT v20.96 本輪封關（2026-10-04，尚未發布）**：起始正式 HEAD
+> `955ef6b5c75460439f81868bcd3168f340dbec83`；中風險依賴／建置鏈複查。
+> 已補回兩個 WASM 必要鎖定節點，新守門對原包與 runtime 隔離破壞均實跑紅燈、
+> 修後綠燈；1,092 條必要依賴邊閉合。字面 npm test 830項／829pass／0fail／
+> 1缺真實附件略過，正式 E2E 59/59 串行通過、1,438 ✅／0 ❌。
+> 五資產乾淨重建與候選包一致，三個JS正規化發布中繼資料後與v20.95相同；
+> 不修改交通計算、保存、匯出，黃金值維持。35頁手冊已渲染核對。
+> production 2 moderate，完整樹16 high／6 moderate；audit仍非零退出。
+> 尚未重做真實附件／Office／WASM平台實際建置；完整證據見 VALIDATION_v20.96.md。
+>
+> 下方 Claude 本包封關及過去版本段落保留來源界線，不取代 GPT 的當前實測。
+
+> **目前狀態（2026-10-04）**：本包為 **v20.96**，是 Claude 在 GPT 發布 v20.95 之後的
+> 第二次複查產出，**尚未發布**。
+> **前一正式版：v20.95**（GPT 2026-10-04 已發布上線，程式 release commit
+> `1b21e1a8352b1221313de549c1325972d24578a0`，CI `37164410013`／Pages `37164409563` 均成功）。
+> v20.96 **沒有改任何交通計算、保存、備份還原或匯出的程式碼**：`npm audit fix`
+> （非 `--force`）更新八個 `fixAvailable: true` 的開發／建置鏈套件（5 個 high：
+> `browserslist`、`fast-uri`、`js-yaml`、`nanoid`、`postcss`）。原包實際 114 個語意
+> 變更節點（根版號、54 個套件版本、57 個 metadata 變更、兩個刪除），不是 31 個。
+> GPT 補回 WASM 備援的兩個必要節點並新增實跑紅／綠守門。
+> `package.json` 僅 version 改變，其他欄位相同，不是整檔逐位元相同。
+> 另把 `tests/release-metadata.test.mjs` 的 `LAST_RELEASED` 94 → **95**。
+> ⚠️ `postcss`／`esbuild` 升版後樣式表與 xlsx chunk 建出來**逐位元相同**。
+> ⚠️ `npm audit --omit=dev` 前後都是 2 moderate；完整樹 30 → **22 項（6 moderate／16 high）**。
+> 封關：字面 `npm test` 離開碼 0；字面 `npm run e2e` 離開碼 0。
+> ⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
+> 詳見 `VALIDATION_v20.96.md`。
+>
+> 以下 GPT v20.95 與 Claude v20.95 兩段都是**歷史紀錄**，不是本輪重新驗證。
+
+> **GPT v20.95 狀態（2026-10-04）**：已獨立完成候選差異複查及五項紅／綠反證，
 > 字面 npm test 829 項／828 通過／0 失敗／1 缺真實附件略過；59/59 支正式 E2E
 > 串行通過，日誌 1,438 ✅／0 ❌。程式 release commit `1b21e1a8352b1221313de549c1325972d24578a0`
 > 已發布；其 CI `37164410013`／Pages `37164409563` 均 success，線上九檔雜湊相符、
@@ -9,7 +40,7 @@
 > 起始正式 main 為 `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。
 > 風險為相對已發布 v20.94 的低風險增量，未改交通計算、保存、匯出功能。
 > 發現並修正文書的實際修改範圍、過時驗證檔名、共用契約／實作描述及部分日
-> 尖峰指示；不變更程式口徑。完整本輪證據與限制見 `VALIDATION_v20.95.md`。
+> 尖峰指示；不變更程式口徑。完整該輪證據與限制見 `VALIDATION_v20.96.md` 裡的 v20.95 段落。
 >
 > 以下 v20.95 原包段落是 Claude 的交付狀態，不取代 GPT 當前實測。
 
@@ -22,7 +53,8 @@
 > 以下封關屬 Claude 交付結果：字面 `npm test` 離開碼 0（829／828／0／1 略過）、
 > 字面 `npm run e2e` 離開碼 0（1,438 ✅ / 0 ❌，59 支串行）。
 > ⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
-> 詳見 `VALIDATION_v20.95.md`。
+> 詳見 `VALIDATION_v20.96.md` 裡的 v20.95 段落（驗證報告是累積的，檔名跟著
+> 最新版號走，根目錄只保留本版那一份；`VALIDATION_v20.95.md` 已改名）。
 >
 > ⚠️ 以下這一段是 **v20.94 當時**的狀態記錄，保留備查：
 > **（v20.94，2026-10-03 已正式發布）**：前一正式版：v20.89。複查基準為 `d6e3efb1b49fd2edc6c5c180d9fd462ee1d619c3`；本版程式 release commit 為 `1d385b4144b1bb3275f19017c22c16151da45faa`（台北時間 2026-10-03）。完整 npm test 828 通過／0 失敗／1 缺真實附件略過，正式 E2E 59/59 串行通過。該 release 的 CI `37111885873`／Pages `37111885393` 均成功，線上新版檔案雜湊與舊版 404 已核對；詳見 `VALIDATION_v20.94.md`。最後文件 HEAD 以 Git main 核對，後續文件提交仍須確認其對應 CI／Pages。
@@ -84,9 +116,11 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
+| 本輪複查基準 | `955ef6b5c75460439f81868bcd3168f340dbec83`，v20.95 最後交接 HEAD；本機／origin/main／GitHub main 相同且乾淨；該 HEAD 的 CI `37164816427`／Pages `37164816143` 已成功 |
+| 本輪候選 | 使用者指定 20261004b 的 v20.96；中風險依賴／建置链修改；尚未發布，不以 Claude 原包封關代替 GPT gates |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
 | 正式版本 | `v20.95`，程式 release commit `1b21e1a8352b1221313de549c1325972d24578a0`，台北時間 2026-10-04；CI `37164410013`／Pages `37164409563` 均 success，線上已實測。前一正式版 `v20.94`，release commit `1d385b4144b1bb3275f19017c22c16151da45faa`；本輪起始 HEAD `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-03；不任意改寫原包日期。本輪證據在 `VALIDATION_v20.95.md`，最後文件 HEAD 以 Git main 及交付收據核對 |
-| 本版來源 | 使用者指定 20261003b 的 Claude v20.95 包，SHA-256 `a335d4e7f553edfce883bcd4e1e8ad07047b21478b5734f6975a17cfbf09c613`；說明 ZIP `3aa7cbd5f89a2f41c9b8c9fb99ecdb8e8b0da155e56b6795e3e21082eb795999`。GPT 修正文書、實跑反證與完整 gates；交通計算、保存及匯出未變。更早候選歷史保留於 Git 與本版累積驗證報告 |
+| 本版來源 | 使用者指定 20261004b 的 Claude v20.96 包，SHA-256 `e86e8f265d3e5c5c2d4b1a5be3215b60370a2a2177ae6e22b49feefd53190c74`；說明 ZIP `9bc78c7794b99827e515515755698c1c4c4ddb0e868dbe06c84940897d34dfd7`。GPT 補回兩個 WASM 依賴鎖定節點、新增實跑反證守門、修正文書；交通計算、保存及匯出原始碼未變。完整本輪證據在 `VALIDATION_v20.96.md`；更早候選由 Git 與累積報告保存 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線
@@ -515,16 +549,16 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 ### 依賴安全狀態
 
 - `npm audit --omit=dev`：0 high／critical，2 moderate，來自 ExcelJS 4.4.0 的 transitive uuid 8.3.2；目前 ExcelJS 無相容的較新版可直接解決，而且系統未使用該風險 API。
-- 25 vulnerabilities（1 low、8 moderate、16 high）是歷史快照；2026-10-04 本輪
-  npm ci 為 30（1 low、8 moderate、21 high）。不得把 production audit 的結果
-  誤報成整棵依賴樹零漏洞；本輪 production 為 2 moderate、0 high／critical。
+- 25 vulnerabilities（1 low、8 moderate、16 high）是歷史快照；v20.95 為 30
+  （1 low、8 moderate、21 high）。v20.96 本輪實測 22（6 moderate、16 high）；
+  production 仍為 2 moderate、0 high／critical。兩條 audit exit 1，不誤報零漏洞。
 - 禁止為消除數字而使用可能破壞 ExcelJS 的強制 downgrade／override；升級前須重跑 Excel 匯入／匯出與完整 E2E。
 
 ### 手冊驗證
 
 - v20.81 正式交付手冊為 PDF；Repository 不附帶舊版 DOCX。
-- 31 頁是 v20.81 的歷史證據；本輪 v20.95 為 35 頁／26,604 字元，兩個正式
-  位置內容一致，已逐頁轉圖檢查。本輪與歷史證據不得混算。
+- 31 頁是 v20.81 的歷史證據；v20.95 及本輪 v20.96 均為 35 頁／26,604 字元。
+  v20.96 兩個正式位置内容一致，本輪35頁已渲染檢查，不冒充沿用舊版目視結果。
 
 ## 12. 發布、GitHub Pages 與交付規則
 
@@ -629,7 +663,9 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 2. UI 元件、文字與單位格式變更時，同步更新守門且先在舊邏輯上做紅燈反證；不得只放寬正規表示式。
 3. 真實公司去識別附件可取得時，補跑路段、路口、舊 Excel 變體與檔名身分案例，並把結果寫進
    當版 `VALIDATION_v*.md`；沒有附件時必須明列未執行。
-4. 依賴升級須檢查最新 dev/build chain 稽核，本輪整棵樹為 21 high，而非歷史的 16。
+4. 依賴升級須檢查最新 dev/build chain 稽核；v20.95 為 21 high，v20.96 本輪實測
+   16 high／6 moderate，不能混用歷史快照。剩餘 high 有跨大版與不跨大版但須
+   改直接依賴的建議；本輪不擴大修改直接依賴，也不強制降版。
    修改依賴後須完整重跑 Excel 與 59 支正式 E2E；本輪不執行試用版 HTML，
    未來試用版 smoke 只能在該輪仍明確納入範圍時執行；
    禁止只為降低 audit 數字而強制覆寫 ExcelJS 相依版本。

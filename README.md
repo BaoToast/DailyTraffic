@@ -1,3 +1,29 @@
+## v20.96（2026-10-04）Claude 第二次複查：開發／建置鏈八個安全告警
+
+GPT 獨立封關：字面 npm test 830項／829通過／0失敗／1缺真實附件略過；
+59/59支正式E2E串行通過，1,438✅／0❌；最終針對守門38/38通過。
+補回原包遺失的兩個WASM必要鎖定節點並新增實跑紅／綠守門，交通邏輯未改。
+本節下方的 Claude 原包數字保留來源界線；正式發布狀態以當版 VALIDATION 與 Git 為準。
+
+前一正式版：v20.95（GPT 2026-10-04 已發布，release commit
+`1b21e1a8352b1221313de549c1325972d24578a0`，CI `37164410013`／Pages `37164409563` 均 success）。
+
+**沒有改任何交通計算、保存、備份還原或匯出的程式碼。**
+`npm audit fix`（非 `--force`）更新八個 `fixAvailable: true` 的套件（其中 **5 個 high**：
+`browserslist`、`fast-uri`、`js-yaml`、`nanoid`、`postcss`）。GPT 逐節點核對：原包
+共有 114 個語意變更節點（含根版號、54 個套件版本、57 個 metadata 變更及兩個刪除），
+不是 31 個節點；GPT 補回仍被 WASM 備援引用的兩個鎖定節點，加入紅／綠守門。
+⚠️ `package.json` **僅 version 改變，其他欄位相同**，不能稱整檔逐位元相同。
+⚠️ `postcss`／`esbuild` 是建置工具鏈，升版後樣式表建出來**逐位元相同**
+（`index-b_09kH_a.css` 雜湊沒換），`xlsx` chunk 也相同；這只證明兩個產物相同，
+不能推論所有輸出或行為均不受工具鏈影響，仍須完整重建與回歸。
+⚠️ `npm audit --omit=dev` 前後都是 **2 moderate**（ExcelJS 的 transitive uuid），
+完整樹 30 項 → **22 項（6 moderate／16 high）**。
+另把 `tests/release-metadata.test.mjs` 的 `LAST_RELEASED` 從 94 移到 **95**（v20.95 已發布）。
+封關：字面 `npm test` 離開碼 0；字面 `npm run e2e` 離開碼 0。
+⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
+最新證據見 `VALIDATION_v20.96.md`。
+
 ## v20.95（2026-10-04）GPT 獨立複查並正式發布
 
 前一正式版：v20.94；複查基準 `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。
@@ -7,7 +33,7 @@ GPT 實跑五項反證並全部還原；字面 npm test 829 項／828 通過／0
 修正文件錯述、現行報告檔名與共用契約／實作描述。程式 release commit
 `1b21e1a8352b1221313de549c1325972d24578a0` 已推送 main，CI `37164410013`／
 Pages `37164409563` 均成功；線上九檔雜湊相符、五個舊 URL 為 404，瀏覽器顯示 v20.95。
-本輪不冒充重做真實公司附件或 Office 實開。最新證據見 `VALIDATION_v20.95.md`。
+本輪不冒充重做真實公司附件或 Office 實開。最新證據見 `VALIDATION_v20.96.md`。
 最後純文件 HEAD 自身的 CI／Pages 及線上結果於交付收據再次核對。
 Claude 原包／畫面／手冊更新日為 2026-10-03；GPT 封關及 release commit 日期為
 台北時間 2026-10-04，兩者分開保留。
@@ -341,7 +367,7 @@ IndexedDB／localStorage，換電腦要靠匯出備份。
 
 > ⚠️ **這份 README 之前是 vinext 的通用範本**（講 Cloudflare D1、ChatGPT 登入那一套），
 > 與這支程式完全無關，而且會誤導維護者去找不存在的東西。2026-09-23 改寫成這一份。
-> 更完整的技術脈絡看 `PROJECT_HANDOFF.md`，逐版驗證證據看根目錄那一份 `VALIDATION_v20.95.md`
+> 更完整的技術脈絡看 `PROJECT_HANDOFF.md`，逐版驗證證據看根目錄那一份 `VALIDATION_v20.96.md`
 > （⚠️ 檔名跟著版號走，根目錄**只保留本版那一份**，有測試釘住；
 > 這兩處原本寫死成兩版前的檔名，而那個檔案不存在）。
 
@@ -420,5 +446,5 @@ npm run build:pages   # 產生 GitHub Pages 的靜態網站
 ## 相關文件
 
 - `PROJECT_HANDOFF.md` — 架構、資料流、已定案的口徑與證據界線
-- `VALIDATION_v20.95.md` — 逐版驗證紀錄（累積，含歷史）；檔名跟著版號走
+- `VALIDATION_v20.96.md` — 逐版驗證紀錄（累積，含歷史）；檔名跟著版號走
 - `【更新說明】請先讀我.txt` — 給使用者看的版本說明
