@@ -2,7 +2,7 @@
 
 前一正式版：v20.94（GPT 2026-10-03 已發布，commit `1d385b4144b1bb3275f19017c22c16151da45faa`）
 
-## v20.95（2026-10-04）GPT 獨立複查與封關
+## v20.95（2026-10-04）GPT 獨立複查並正式發布
 
 本輪由正式 Documents Repository 的乾淨 main 建立獨立工作區；起始 HEAD、
 origin/main 與 GitHub main 均為 `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。
@@ -54,10 +54,25 @@ README 的兩處現行驗證檔名仍指向不存在的舊報告，已指向本�
 線性 300000 → 3000000 筆，11.9 → 94.4 ms（7.9 倍），門檻 30。
 字面 npm run e2e exit 0：正式 59/59 支串行通過，日誌 1,438 個 ✅／0 個 ❌；
 沒有與單元／效能測試並行。59 支完整命令包含重新建立樣本及 Pages build。
-門檻覆寫的單一／全部計畫備份、旧備份缺欄位及兩條目的計畫還原，均在真正
+門檻覆寫的單一／全部計畫備份、舊備份缺欄位及兩條目的計畫還原，均在真正
 瀏覽器流程重跑，不只依賴靜態守門。版面檢查包含 1536×864 與 1366×768，
 PNG、原生 Excel OOXML、逐點分列與尖峰資料不足等既有守門也全部通過。
-目前本機封關完成，遠端發布／CI／Pages 尚待驗證，不把 push 當作網站完成。
+程式 release commit `1b21e1a8352b1221313de549c1325972d24578a0` 已推送 main，
+commit 日期為台北時間 2026-10-04 08:15:45。
+[CI 37164410013](https://github.com/BaoToast/DailyTraffic/actions/runs/37164410013) 與
+[Pages 37164409563](https://github.com/BaoToast/DailyTraffic/actions/runs/37164409563)
+均為此 commit 的 success。本機 HEAD、origin/main 與遠端 main 一致，工作樹乾淨。
+2026-10-04 08:17:59 台北時間以 cache-busting 逐檔實測：HTML、.nojekyll、
+五個 JS／CSS、v20.95 PDF 與本報告，共九檔 HTTP 200 且 SHA-256 與 Repository 相同；
+前版三個變動資產、PDF 與報告共五個舊 URL 均為 404。固定 CSS 與 xlsx chunk 保留，
+不能把仍由新版引用的檔案列入 404 驗證。逐檔證據為 engineering-evidence/v20.95/program-online.log。
+08:18:44 UTC+8 另開新瀏覽器 context 實測線上首頁：HTTP 200、顯示 v20.95、
+手冊 href／download 檔名正確、JavaScript pageerror 為空（1366×768）。
+第一次追加 smoke 因預設 Playwright headless shell 未安裝而 launch 失敗；
+改用既有 chrome-path.mjs 啟動已安裝瀏覽器後 exit 0。未安裝新瀏覽器、未改正式程式，
+保留首次環境失敗與最終成功日誌，不冒充網站失敗或刪掉失敗證據。
+後續只補公開發布證據與交接文件，不修改程式／測試／版本／資產；最後純文件
+HEAD 自身的 CI／Pages 及線上雜湊須再次核對，於使用者交付收據回報。
 正式掛鉤清單為 59 支；scripts 下另有 e2e-nav.mjs 共用助手及獨立試用版
 smoke，不把這兩檔誤算成額外兩支正式測試，也不宣稱試用版已驗證。
 本機 npm ci 與 Pages build 均 exit 0；五個本機重建資產與交付 ZIP 逐位元相同。

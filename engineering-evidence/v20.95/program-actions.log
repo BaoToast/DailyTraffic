@@ -1,0 +1,18 @@
+[
+  {
+    "id": 37164410013,
+    "name": "建置與測試",
+    "head_sha": "1b21e1a8352b1221313de549c1325972d24578a0",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/BaoToast/DailyTraffic/actions/runs/37164410013"
+  },
+  {
+    "id": 37164409563,
+    "name": "pages build and deployment",
+    "head_sha": "1b21e1a8352b1221313de549c1325972d24578a0",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/BaoToast/DailyTraffic/actions/runs/37164409563"
+  }
+]

@@ -2,7 +2,10 @@
 
 > **GPT 本輪狀態（2026-10-04）**：已獨立完成候選差異複查及五項紅／綠反證，
 > 字面 npm test 829 項／828 通過／0 失敗／1 缺真實附件略過；59/59 支正式 E2E
-> 串行通過，日誌 1,438 ✅／0 ❌。本機封關完成，遠端發布尚待驗證。
+> 串行通過，日誌 1,438 ✅／0 ❌。程式 release commit `1b21e1a8352b1221313de549c1325972d24578a0`
+> 已發布；其 CI `37164410013`／Pages `37164409563` 均 success，線上九檔雜湊相符、
+> 五個舊版專屬 URL 為 404，瀏覽器顯示 v20.95 且無 JS 例外。
+> 最後純文件 HEAD 仍須獨立核對，交付收據提供其自身 CI／Pages 結果。
 > 起始正式 main 為 `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。
 > 風險為相對已發布 v20.94 的低風險增量，未改交通計算、保存、匯出功能。
 > 發現並修正文書的實際修改範圍、過時驗證檔名、共用契約／實作描述及部分日
@@ -82,7 +85,7 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 本次封關版本 | `v20.95`，本機完整驗證通過，遠端發布待確認。前一正式版 `v20.94`，release commit `1d385b4144b1bb3275f19017c22c16151da45faa`；本輪起始 HEAD `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-03；GPT 封關及 release commit 日期為台北時間 2026-10-04。本輪證據在 `VALIDATION_v20.95.md` |
+| 正式版本 | `v20.95`，程式 release commit `1b21e1a8352b1221313de549c1325972d24578a0`，台北時間 2026-10-04；CI `37164410013`／Pages `37164409563` 均 success，線上已實測。前一正式版 `v20.94`，release commit `1d385b4144b1bb3275f19017c22c16151da45faa`；本輪起始 HEAD `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-03；不任意改寫原包日期。本輪證據在 `VALIDATION_v20.95.md`，最後文件 HEAD 以 Git main 及交付收據核對 |
 | 本版來源 | 使用者指定 20261003b 的 Claude v20.95 包，SHA-256 `a335d4e7f553edfce883bcd4e1e8ad07047b21478b5734f6975a17cfbf09c613`；說明 ZIP `3aa7cbd5f89a2f41c9b8c9fb99ecdb8e8b0da155e56b6795e3e21082eb795999`。GPT 修正文書、實跑反證與完整 gates；交通計算、保存及匯出未變。更早候選歷史保留於 Git 與本版累積驗證報告 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 

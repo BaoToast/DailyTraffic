@@ -27,3 +27,13 @@
 
 所有反證破壞皆已還原。37 項定向守門不能替代上面的完整 829 項及 59 支 E2E。
 真實調查附件略過與本輪未重做 Office 實開仍明確保留；歷史 Office 證據在累積報告中。
+
+程式 release commit 1b21e1a8352b1221313de549c1325972d24578a0 的發布證據：
+
+- program-actions.log：CI 37164410013／Pages 37164409563 均為此 HEAD 的 success。
+- program-online.log：九個現行檔 HTTP 200、SHA-256 相符，五個退役 URL 404，FAILURES=0。
+- remote-smoke-initial.log：追加瀏覽器檢查第一次 launch 因預設 headless shell 未安裝而 exit 1。
+- remote-smoke-final.log：改用既有已安裝瀏覽器，exit 0；線上 v20.95、正確 PDF 連結、pageerror 為空。
+
+最後文件 HEAD 自身的 CI／Pages 及線上雜湊另存使用者交付收據，不用程式 commit 的
+成功替代該 HEAD 的驗證；不為了自我記錄雜湊而無限新增文件 commit。
