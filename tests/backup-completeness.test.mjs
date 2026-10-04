@@ -114,6 +114,21 @@ const MUST_TRAVEL = [
    *   卻一直不在這張清單裡——正是這一支要防的那種漏。
    */
   "pcuScopes",
+  /*
+   * ⚠️ 2026-10-03 補上 thresholdScopes。它和 pcuScopes 是**同一種東西**
+   *   （依季別／路段的覆寫，使用者 09-30 裁示「做」），
+   *   而我 v20.94 做完 B1 之後**沒有把它加進這張清單**——
+   *   於是 `buildBackupPayload()` 整個函式裡它出現 0 次，
+   *   使用者在 A 電腦設好、匯出備份、在 B 電腦還原之後**無聲消失**。
+   *   是 GPT 2026-10-03 複查時抓到的，程式那一半他已經修好。
+   *
+   * ⚠️ **這一行補的是「判準只能有一份」。** GPT 另開了
+   *   `tests/scoped-settings-dataflow.test.mjs` 守住行為（刪掉打包那一行會紅，
+   *   已實測），但「哪些設定必須跟著備份走」因此有了兩個來源，
+   *   而看起來最像權威清單的這一張是不完整的——
+   *   下一個新增設定的人讀這裡，會以為門檻覆寫不必跟著走。
+   */
+  "thresholdScopes",
   "vehicleClassSettings",
   "roadAliases",
   "intersectionSettings",

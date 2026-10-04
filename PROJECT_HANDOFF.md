@@ -1,6 +1,28 @@
 # 全日交通量及車種組成：工程交接基準
 
-> **目前狀態（2026-10-03 v20.94 已正式發布）**：前一正式版：v20.89。複查基準為 `d6e3efb1b49fd2edc6c5c180d9fd462ee1d619c3`；本版程式 release commit 為 `1d385b4144b1bb3275f19017c22c16151da45faa`（台北時間 2026-10-03）。完整 npm test 828 通過／0 失敗／1 缺真實附件略過，正式 E2E 59/59 串行通過。該 release 的 CI `37111885873`／Pages `37111885393` 均成功，線上新版檔案雜湊與舊版 404 已核對；詳見 `VALIDATION_v20.94.md`。最後文件 HEAD 以 Git main 核對，後續文件提交仍須確認其對應 CI／Pages。
+> **GPT 本輪狀態（2026-10-04）**：已獨立完成候選差異複查及五項紅／綠反證，
+> 字面 npm test 829 項／828 通過／0 失敗／1 缺真實附件略過；59/59 支正式 E2E
+> 串行通過，日誌 1,438 ✅／0 ❌。本機封關完成，遠端發布尚待驗證。
+> 起始正式 main 為 `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。
+> 風險為相對已發布 v20.94 的低風險增量，未改交通計算、保存、匯出功能。
+> 發現並修正文書的實際修改範圍、過時驗證檔名、共用契約／實作描述及部分日
+> 尖峰指示；不變更程式口徑。完整本輪證據與限制見 `VALIDATION_v20.95.md`。
+>
+> 以下 v20.95 原包段落是 Claude 的交付狀態，不取代 GPT 當前實測。
+
+> **目前狀態（2026-10-03）**：本包為 **v20.95**，是 Claude 在 GPT 發布 v20.94 之後的第二次複查產出。
+> **前一正式版：v20.94**（GPT 2026-10-03 已發布上線，程式 release commit
+> `1d385b4144b1bb3275f19017c22c16151da45faa`，CI `37111885873`／Pages `37111885393` 均成功）。
+> v20.95 未修改交通計算、資料保存與匯出功能：補 `tests/backup-completeness.test.mjs` 的 `MUST_TRAVEL`
+> 清單（加 `"thresholdScopes"`）與 `tests/release-metadata.test.mjs` 的 `LAST_RELEASED`
+> 基準線（89 → 94），並調整無候選區間的斷言分支；另同步版本與手冊檔名。
+> 以下封關屬 Claude 交付結果：字面 `npm test` 離開碼 0（829／828／0／1 略過）、
+> 字面 `npm run e2e` 離開碼 0（1,438 ✅ / 0 ❌，59 支串行）。
+> ⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
+> 詳見 `VALIDATION_v20.95.md`。
+>
+> ⚠️ 以下這一段是 **v20.94 當時**的狀態記錄，保留備查：
+> **（v20.94，2026-10-03 已正式發布）**：前一正式版：v20.89。複查基準為 `d6e3efb1b49fd2edc6c5c180d9fd462ee1d619c3`；本版程式 release commit 為 `1d385b4144b1bb3275f19017c22c16151da45faa`（台北時間 2026-10-03）。完整 npm test 828 通過／0 失敗／1 缺真實附件略過，正式 E2E 59/59 串行通過。該 release 的 CI `37111885873`／Pages `37111885393` 均成功，線上新版檔案雜湊與舊版 404 已核對；詳見 `VALIDATION_v20.94.md`。最後文件 HEAD 以 Git main 核對，後續文件提交仍須確認其對應 CI／Pages。
 > 本版累積 v20.90～.93 共 4 個候選：A27 自訂車種守門、混批阻擋、覆蓋前日期確認、PCU 覆寫說明、圖說複製／版面、車種歸類及異常門檻範圍覆寫、超過 60 分鐘單格阻擋。歸類與門檻覆寫會影響使用該設定的結果；未使用覆寫時由黃金值維持既有結果。不能把本版描述為「所有執行期功能／計算一律未動」。
 >
 > （以下 v20.90 的敘述保留為歷史紀錄。）
@@ -53,15 +75,15 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | 英文／套件識別 | DailyTraffic；`traffic-volume-vehicle-composition` |
 | 用途 | 匯入路段或路口全日交通調查 Excel，進行全日交通量、PCU、尖峰小時、方向／路口流向、車種組成、歷季與跨計畫比較、品質檢查及可編輯 Excel 報表等分析 |
 | 本機資料夾 | `DailyTraffic` |
-| 本機完整路徑（2026-09-13 實際核對） | `D:\Users\95108\Documents\Codex\DailyTraffic` |
+| 本機完整路徑（2026-10-04 實際核對） | `D:\Users\95108\Documents\Codex\DailyTraffic` |
 | GitHub Repository | `BaoToast/DailyTraffic` |
 | Repository URL／origin | `https://github.com/BaoToast/DailyTraffic.git` |
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 正式版本 | `v20.94`；程式 release commit `1d385b4144b1bb3275f19017c22c16151da45faa`，2026-10-03。前一正式版 `v20.89`，release commit `8b88f99997c9d8a66558ee29e5c7478b244395db`。版本來源 `app/system-release.ts`；畫面／原包更新日 2026-09-30 與 GPT 正式發布日不同，未任意改寫來源歷史；本輪證據在 `VALIDATION_v20.94.md` |
-| 本版來源 | 使用者指定 20260930b 的 Claude v20.94 包，SHA-256 `510bb167f476d3b3367f81e7371ebb297c78d9d23db29cdae0e78b67600d71d1`；GPT 本輪額外修正及反證見 `VALIDATION_v20.94.md`。更早的 v20.82～v20.87 六個候選從未發布 |
+| 本次封關版本 | `v20.95`，本機完整驗證通過，遠端發布待確認。前一正式版 `v20.94`，release commit `1d385b4144b1bb3275f19017c22c16151da45faa`；本輪起始 HEAD `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-03；GPT 封關及 release commit 日期為台北時間 2026-10-04。本輪證據在 `VALIDATION_v20.95.md` |
+| 本版來源 | 使用者指定 20261003b 的 Claude v20.95 包，SHA-256 `a335d4e7f553edfce883bcd4e1e8ad07047b21478b5734f6975a17cfbf09c613`；說明 ZIP `3aa7cbd5f89a2f41c9b8c9fb99ecdb8e8b0da155e56b6795e3e21082eb795999`。GPT 修正文書、實跑反證與完整 gates；交通計算、保存及匯出未變。更早候選歷史保留於 Git 與本版累積驗證報告 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線
@@ -247,7 +269,8 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - 同值時使用固定且可重現的較早時段，不得因物件順序或瀏覽器不同而改變。
 - 「調查點／全方向」模式：先找單一共同尖峰時段，再呈現各方向在該時段的值，因此各方向可以相加到總值。
 - 「各方向」模式：每個方向各自找尖峰，時間可能不同，**不得相加聲稱是同一時段總尖峰**。
-- 尖峰單位只在完整 60 分鐘時使用「輛/hr、PCU/hr」；不足 60 分鐘必須揭示實際時長。
+- 尖峰單位只在完整 60 分鐘時使用「輛/hr、PCU/hr」；不存在完整視窗時顯示資料不足，
+  不回退不足一小時的數字或「該時段 N 分鐘」尖峰單位。
 
 ### 路段、路口與轉向
 
@@ -294,7 +317,9 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 - Pages 資料存在瀏覽器 IndexedDB，正常重新整理、關閉分頁或關機後再開仍應保留；清除瀏覽器網站資料、無痕模式、換瀏覽器或瀏覽器損壞仍可能遺失。
 - `app-fetch.ts` 儲存計畫／調查資料；`workflow-store.ts` 儲存品質及定稿狀態。兩者資料庫不同，備份與刪除流程需涵蓋完整狀態。
 - JSON 備份格式：`traffic-analysis-backup`，目前 schema version 5。
-- 備份包含計畫、PCU、轉向 PCU、動態車種映射、別名、路口設定、工作流程、結論範本與調查紀錄。
+- 備份包含計畫、PCU、轉向 PCU、季別／調查點 PCU 與異常門檻覆寫、動態車種歸類、
+  別名、路口設定、工作流程、結論範本與調查紀錄。thresholdScopes 是計畫範圍覆寫，
+  不等於 workflow.thresholds 的本機全域門檻；後者的既有不覆蓋規則不能誤套到前者。
 - 還原時驗證必要字串與季度、將西元季度正規化成民國、沒有計畫時可建立新計畫。
 - 已定稿季度禁止任意覆蓋；重疊資料須確認後取代，不相加。
 - 只還原備份內季度的工作流程狀態；全域門檻／範本按既有規則保存，結論範本按名稱合併，歷程保留上限 10。
@@ -487,13 +512,16 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 ### 依賴安全狀態
 
 - `npm audit --omit=dev`：0 high／critical，2 moderate，來自 ExcelJS 4.4.0 的 transitive uuid 8.3.2；目前 ExcelJS 無相容的較新版可直接解決，而且系統未使用該風險 API。
-- 包含開發工具鏈的 `npm ci` 曾列出 25 vulnerabilities（1 low、8 moderate、16 high），多位於 dev dependency chain。不得把 production audit 的結果誤報成整棵依賴樹零漏洞。
+- 25 vulnerabilities（1 low、8 moderate、16 high）是歷史快照；2026-10-04 本輪
+  npm ci 為 30（1 low、8 moderate、21 high）。不得把 production audit 的結果
+  誤報成整棵依賴樹零漏洞；本輪 production 為 2 moderate、0 high／critical。
 - 禁止為消除數字而使用可能破壞 ExcelJS 的強制 downgrade／override；升級前須重跑 Excel 匯入／匯出與完整 E2E。
 
 ### 手冊驗證
 
 - v20.81 正式交付手冊為 PDF；Repository 不附帶舊版 DOCX。
-- PDF 共 31 頁，兩個正式位置內容一致，已逐頁轉圖做視覺檢查。
+- 31 頁是 v20.81 的歷史證據；本輪 v20.95 為 35 頁／26,604 字元，兩個正式
+  位置內容一致，已逐頁轉圖檢查。本輪與歷史證據不得混算。
 
 ## 12. 發布、GitHub Pages 與交付規則
 
@@ -507,6 +535,10 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 6. 核對 `app/system-release.ts`、`package.json`、lockfile、更新說明、手冊名稱、驗證檔、HTML meta 與畫面版號。
 7. 用新建置輸出同步 Repository 根目錄的 `index.html`、`assets/`、`.nojekyll`、手冊及必要檔案，刪除已失效的舊 hash 資產。
 8. 檢查 Git diff，禁止把往來說明、私人樣本、node_modules、測試輸出或機密上傳。
+
+既有 `engineering-evidence/` 已版控的公開封關日誌是正式工程證據；本輪沿用
+此分類保存可追溯紅／綠日誌，不將 `.samples/`、`outputs/`、臨時匯出、截圖或
+私人／公司附件當成公開工程證據。給 Claude 的往來文件仍只放使用者交付區。
 
 ### 發布後
 
@@ -577,7 +609,8 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 
 ### 已知但尚未處理
 
-- `README.md` 是通用 starter 說明，容易誤導；實際維護先信本文件和程式碼。是否另行重寫 README 待使用者未來指示。
+- README 已於既有候選改為本程式說明，不再是通用 starter；本輪另修正其
+  現行驗證檔名與共用契約／實作的矛盾描述。舊「待重寫」敘述已過時。
 - ExcelJS transitive uuid 的 2 項 moderate production audit 尚無相容上游修正；持續監控，不做破壞性強制替換。
 - CSV 能力沒有和兩類真實 Excel 樣本等量的完整證據，新增／變更時需補測。
 - 本次沒有取得 Claude 所述的五份真實路段與五份真實路口公司附件；自動樣本與黃金值已通過，
@@ -593,8 +626,9 @@ CSV 是否涵蓋所有 Excel 能力目前沒有等同真實檔案的完整證據
 2. UI 元件、文字與單位格式變更時，同步更新守門且先在舊邏輯上做紅燈反證；不得只放寬正規表示式。
 3. 真實公司去識別附件可取得時，補跑路段、路口、舊 Excel 變體與檔名身分案例，並把結果寫進
    當版 `VALIDATION_v*.md`；沒有附件時必須明列未執行。
-4. 依賴升級須優先處理目前 dev/build chain 的 16 high，並完整重跑 Excel、59 支正式 E2E
-   與獨立試用版 smoke；
+4. 依賴升級須檢查最新 dev/build chain 稽核，本輪整棵樹為 21 high，而非歷史的 16。
+   修改依賴後須完整重跑 Excel 與 59 支正式 E2E；本輪不執行試用版 HTML，
+   未來試用版 smoke 只能在該輪仍明確納入範圍時執行；
    禁止只為降低 audit 數字而強制覆寫 ExcelJS 相依版本。
 5. 版面守門必須保留 1536×864 與 1366×768 的精準高度案例；只掃寬度、固定使用高視窗
    不能取代筆電可視高度驗證。

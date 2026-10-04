@@ -1,0 +1,183 @@
+TAP version 13
+# Subtest: classification coefficient warning must not claim negative PCU is zeroed
+ok 1 - classification coefficient warning must not claim negative PCU is zeroed
+  ---
+  duration_ms: 0.6799
+  type: 'test'
+  ...
+# Subtest: threshold scopes travel in both single and all-project backup exports
+not ok 2 - threshold scopes travel in both single and all-project backup exports
+  ---
+  duration_ms: 10.8688
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2095-review-20261004\\tests\\scoped-settings-dataflow.test.mjs:31:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /thresholdScopes: input\.thresholdScopes/. Input:
+    
+    'function buildBackupPayload(input: {\n' +
+      '    project: { name: string; code?: string; clientName?: string };\n' +
+      '    projectId: string;\n' +
+      '    records: TrafficRecord[];\n' +
+      '    pcuScopes: PcuScopes;\n' +
+      '    thresholdScopes: ThresholdScopes;\n' +
+      '    pcuFactors: PcuFactors;\n' +
+      '    turnPcuFactors: TurnPcuFactors;\n' +
+      '    roadAliases: RoadAlias[];\n' +
+      '    workflow: WorkflowState;\n' +
+      '  }) {\n' +
+      '    return {\n' +
+      '      format: "traffic-analysis-backup",\n' +
+      '      version: 5,\n' +
+      '      exportedAt: new Date().toISOString(),\n' +
+      '      project: {\n' +
+      '        name: input.project.name,\n' +
+      '        code: input.project.code ?? "",\n' +
+      '        clientName: input.project.clientName ?? "",\n' +
+      '      },\n' +
+      '      pcuFactors: input.pcuFactors,\n' +
+      '      turnPcuFactors: input.turnPcuFactors,\n' +
+      '      /*\n' +
+      '       * ── 依季別／路段的係數覆寫 ──────────────────────────\n' +
+      '       *\n' +
+      '       * 使用者 2026-09-10：「**這份設定要能被存檔匯出和匯入**」\n' +
+      '       * 「計畫和計畫之間不能彼此干擾」。\n' +
+      '       *\n' +
+      '       * ⚠️ 這裡只帶**目前這個計畫**的覆寫（pcuScopes 本來就只有它的）。\n' +
+      '       *   帶整份對照表出去的話，還原到另一台電腦會把別的計畫的係數\n' +
+      '       *   一起塞進去——而那台電腦上的計畫代碼可能剛好撞名。\n' +
+      '       *\n' +
+      '       * ⚠️ 上面的 pcuFactors／turnPcuFactors **照舊原樣寫出**。\n' +
+      '       *   那兩個欄位就是「全季別 × 全路段」那一組，舊版程式讀得到，\n' +
+      '       *   讀到的就是預設係數——不會因為新增了覆寫而讀出奇怪的值。\n' +
+      '       */\n' +
+      '      pcuScopes: input.pcuScopes,\n' +
+      '      vehicleClassSettings: vehicleClassSettings\n' +
+      '        .filter((setting) => setting.projectId === input.projectId)\n' +
+      '        .map(({ projectId: _projectId, ...setting }) => setting),\n' +
+      '      roadAliases: input.roadAliases,\n' +
+      '      intersectionSettings: intersectionSettings\n' +
+      '        .filter((setting) => setting.projectId === input.projectId)\n' +
+      '        .map(({ projectId: _projectId, ...setting }) => setting),\n' +
+      '      workflow: input.workflow,\n' +
+      '      /*\n' +
+      '       * 結論草稿的「條件範本」也要跟著備份走。\n' +
+      '       *\n' +
+      '       * 它存在 localStorage 的 traffic-conclusion-templates-v1（依計畫分開），\n' +
+      '       * 而備份原本沒有收——使用者在 A 電腦存好幾組常用條件，匯出備份帶到\n' +
+      '       * B 電腦還原之後，範本一個都不在，而畫面只會說「還原完成」。\n' +
+      '       * 那些條件是使用者自己一項一項勾出來的，重建很花時間。\n' +
+      '       */\n' +
+      '      conclusionTemplates: readConclusionTemplates(input.projectId),\n' +
+      '      records: input.records.map(\n' +
+      '        ({ projectId: _projectId, ...record }) => record,\n' +
+      '      ),\n' +
+      '    };\n' +
+      '  }'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    function buildBackupPayload(input: {
+        project: { name: string; code?: string; clientName?: string };
+        projectId: string;
+        records: TrafficRecord[];
+        pcuScopes: PcuScopes;
+        thresholdScopes: ThresholdScopes;
+        pcuFactors: PcuFactors;
+        turnPcuFactors: TurnPcuFactors;
+        roadAliases: RoadAlias[];
+        workflow: WorkflowState;
+      }) {
+        return {
+          format: "traffic-analysis-backup",
+          version: 5,
+          exportedAt: new Date().toISOString(),
+          project: {
+            name: input.project.name,
+            code: input.project.code ?? "",
+            clientName: input.project.clientName ?? "",
+          },
+          pcuFactors: input.pcuFactors,
+          turnPcuFactors: input.turnPcuFactors,
+          /*
+           * ── 依季別／路段的係數覆寫 ──────────────────────────
+           *
+           * 使用者 2026-09-10：「**這份設定要能被存檔匯出和匯入**」
+           * 「計畫和計畫之間不能彼此干擾」。
+           *
+           * ⚠️ 這裡只帶**目前這個計畫**的覆寫（pcuScopes 本來就只有它的）。
+           *   帶整份對照表出去的話，還原到另一台電腦會把別的計畫的係數
+           *   一起塞進去——而那台電腦上的計畫代碼可能剛好撞名。
+           *
+           * ⚠️ 上面的 pcuFactors／turnPcuFactors **照舊原樣寫出**。
+           *   那兩個欄位就是「全季別 × 全路段」那一組，舊版程式讀得到，
+           *   讀到的就是預設係數——不會因為新增了覆寫而讀出奇怪的值。
+           */
+          pcuScopes: input.pcuScopes,
+          vehicleClassSettings: vehicleClassSettings
+            .filter((setting) => setting.projectId === input.projectId)
+            .map(({ projectId: _projectId, ...setting }) => setting),
+          roadAliases: input.roadAliases,
+          intersectionSettings: intersectionSettings
+            .filter((setting) => setting.projectId === input.projectId)
+            .map(({ projectId: _projectId, ...setting }) => setting),
+          workflow: input.workflow,
+          /*
+           * 結論草稿的「條件範本」也要跟著備份走。
+           *
+           * 它存在 localStorage 的 traffic-conclusion-templates-v1（依計畫分開），
+           * 而備份原本沒有收——使用者在 A 電腦存好幾組常用條件，匯出備份帶到
+           * B 電腦還原之後，範本一個都不在，而畫面只會說「還原完成」。
+           * 那些條件是使用者自己一項一項勾出來的，重建很花時間。
+           */
+          conclusionTemplates: readConclusionTemplates(input.projectId),
+          records: input.records.map(
+            ({ projectId: _projectId, ...record }) => record,
+          ),
+        };
+      }
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2095-review-20261004/tests/scoped-settings-dataflow.test.mjs:32:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: both restore routes validate and restore threshold scopes to the destination
+ok 3 - both restore routes validate and restore threshold scopes to the destination
+  ---
+  duration_ms: 0.1267
+  type: 'test'
+  ...
+# Subtest: formal xlsx exports classification warnings and the scoped mapping table
+ok 4 - formal xlsx exports classification warnings and the scoped mapping table
+  ---
+  duration_ms: 0.1513
+  type: 'test'
+  ...
+# Subtest: long intervals are blocked before confirmations or writes
+ok 5 - long intervals are blocked before confirmations or writes
+  ---
+  duration_ms: 0.0876
+  type: 'test'
+  ...
+# Subtest: the import report uses the same long-interval rule as the write guard
+ok 6 - the import report uses the same long-interval rule as the write guard
+  ---
+  duration_ms: 0.0875
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 5
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 513.6363

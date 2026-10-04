@@ -736,7 +736,16 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    *   這時要求的是「寫明前一正式版是哪一版」。
    */
   const RANGE_BASE = 81;
-  const LAST_RELEASED = 89;
+  /*
+   * ⚠️ 2026-10-03：**基準線又動了**。GPT 已把 v20.94 正式發布上線
+   *   （commit 1d385b4144b1bb3275f19017c22c16151da45faa，CI／Pages 皆 success），
+   *   但 v20.94 那一包**沒有把這個常數跟著移**，還留在 89。
+   *   後果正是這一支自己 2026-09-29 那段註解警告過的事：
+   *   它會要求現況文件寫出「v20.90～.94 共 5 個候選未發布」——
+   *   **而 .94 是真的發布了**，守門逼著文件去寫一句假話。
+   *   這一條是 Claude 2026-10-03 第二次複查時抓到並移正的。
+   */
+  const LAST_RELEASED = 94;
   const CJK = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const pkg = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -757,7 +766,16 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    */
   const currentFrom = LAST_RELEASED + 1;
   const wantCount = wantTo - LAST_RELEASED;
-  assert.ok(wantCount >= 1, `算出來的未發布候選數是 ${wantCount}，版號解析壞了嗎？`);
+  /*
+   * ⚠️ 2026-10-03：這一行**原本擺在這裡，而且斷言 wantCount >= 1**。
+   *   那與下面「if (LAST_RELEASED >= wantTo)」那條分支互相矛盾——
+   *   那條分支正是為了「前一版就是正式發布版、沒有未發布候選區間」而寫的
+   *   （見上面 2026-09-27 的註解），而那個情況算出來的 wantCount 必然 <= 0。
+   *   於是只要基準線追上本版的前一版（這一輪就是：LAST_RELEASED = 94、本版 .95），
+   *   這一支會先死在這一行，**永遠走不到那條分支**。
+   *   修法：把「版號解析壞了嗎」這個前置檢查往下移，只在真的有區間時才驗。
+   *   ⚠️ 不可以改成 >= 0 就算了——那會讓「解析壞掉算出負數」靜靜通過。
+   */
 
   const FILES = [
     "README.md",
@@ -789,6 +807,16 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
   assert.ok(seen >= 2, `只抓到 ${seen} 句「v20.82～… N 個候選」——寫法改了嗎？`);
 
   if (LAST_RELEASED >= wantTo) {
+    /*
+     * 這條分支的前置檢查：基準線不可以**超過**本版的前一版。
+     * 超過＝基準線寫到還沒發布的版本，或版號解析壞了，兩種都要紅。
+     */
+    assert.equal(
+      LAST_RELEASED,
+      wantTo,
+      `LAST_RELEASED = ${LAST_RELEASED} 超過本版的前一版 ${wantTo}——` +
+        "基準線寫到還沒發布的版本了嗎？",
+    );
     /* ⚠️ 一定要印出來，安靜跳過就等於把這一條悄悄關掉。 */
     console.error(
       `  ℹ️ v20.${LAST_RELEASED} 已正式發布，本版直接建在它之上，` +
@@ -812,6 +840,7 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    *   「v20.90～.90 共 1 個」與「v20.90 一個候選未發布」。
    *   逼人為了滿足守門去寫「.90～.90」這種怪句子，是本末倒置。
    */
+  assert.ok(wantCount >= 1, `算出來的未發布候選數是 ${wantCount}，版號解析壞了嗎？`);
   const single = currentFrom === wantTo;
   const pattern = single
     ? new RegExp(`v20\\.${wantTo}[^。\n]{0,12}?([0-9一二三四五六七八九十]+)\\s*個候選`)

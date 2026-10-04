@@ -1,3 +1,41 @@
+## v20.95（2026-10-04）GPT 獨立複查與封關
+
+前一正式版：v20.94；複查基準 `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。
+本輪屬低風險測試守門增量，未改交通計算、保存及匯出功能。
+GPT 實跑五項反證並全部還原；字面 npm test 829 項／828 通過／0 失敗／
+1 缺真實附件略過，正式 E2E 59/59 串行通過。手冊 35 頁已逐頁渲染核對。
+修正文件錯述、現行報告檔名與共用契約／實作描述。遠端發布尚待確認，
+本輪不冒充重做真實公司附件或 Office 實開。最新證據見 `VALIDATION_v20.95.md`。
+Claude 原包／畫面／手冊更新日為 2026-10-03；GPT 封關及 release commit 日期為
+台北時間 2026-10-04，兩者分開保留。
+
+### Claude 原包第二次複查（2026-10-03）
+
+本版未修改交通計算、資料保存及匯出功能；兩支測試的清單／基準及分支斷言有調整，
+另同步版本與手冊檔名。以下封關數字屬 Claude 交付結果，GPT 本輪結果另見驗證報告。
+
+**① `tests/backup-completeness.test.mjs` 的 `MUST_TRAVEL` 補上 `"thresholdScopes"`。**
+v20.94 的 GPT 發現 #1 是真缺陷：異常門檻的季別×路段覆寫沒有收進
+`buildBackupPayload()`，在 A 電腦設好、匯出備份、在 B 電腦還原之後會無聲消失。
+程式那一半 GPT 已經修好，也另開 `tests/scoped-settings-dataflow.test.mjs` 守住行為；
+但 `MUST_TRAVEL` 這張「哪些設定必須跟著備份走」的清單沒有補——
+而那正是當初會漏掉的成因。反證：刪掉打包那一行 → 補過的這一支紅；
+換回未補的舊清單 → 同一個破壞下 7 項全綠。
+
+**② `tests/release-metadata.test.mjs` 的 `LAST_RELEASED` 從 89 移到 94。**
+GPT 已於 2026-10-03 把 v20.94 發布上線，但這個常數沒跟著移。
+後果正是那一支自己的註解警告過的事：它會要求現況文件寫出
+「v20.90～.94 共 5 個候選未發布」——**而 .94 是真的發布了**，
+守門逼著文件去寫一句假話。
+
+同時將「至少一個候選」斷言移至真正有候選區間的分支；沒有候選區間時，
+要求基準恰等於本版前一版，不接受超前基準。這不是只有常數替換。
+
+封關：字面 `npm test` 離開碼 0（**829 項／828 通過／0 失敗／1 真實附件缺少略過**）；
+字面 `npm run e2e` 離開碼 0（**1,438 ✅ / 0 ❌**，59 支串行、獨占機器）。
+手冊重新產生：35 頁 / 26,604 字元。
+⚠️ **沒有線上發布證據**——Claude 的容器連不到 GitHub Pages，要等 GPT 發布。
+
 ## v20.94（2026-10-03）GPT 獨立複查並正式發布
 
 本包新增車種歸類與異常門檻的季別／調查點覆寫，屬高風險跨模組修改。
@@ -300,7 +338,7 @@ IndexedDB／localStorage，換電腦要靠匯出備份。
 
 > ⚠️ **這份 README 之前是 vinext 的通用範本**（講 Cloudflare D1、ChatGPT 登入那一套），
 > 與這支程式完全無關，而且會誤導維護者去找不存在的東西。2026-09-23 改寫成這一份。
-> 更完整的技術脈絡看 `PROJECT_HANDOFF.md`，逐版驗證證據看根目錄那一份 `VALIDATION_v20.85.md`
+> 更完整的技術脈絡看 `PROJECT_HANDOFF.md`，逐版驗證證據看根目錄那一份 `VALIDATION_v20.95.md`
 > （⚠️ 檔名跟著版號走，根目錄**只保留本版那一份**，有測試釘住；
 > 這兩處原本寫死成兩版前的檔名，而那個檔案不存在）。
 
@@ -345,7 +383,7 @@ IndexedDB／localStorage，換電腦要靠匯出備份。
 需要 Node.js `>= 22.18.0`（與 `package.json` 的 `engines.node` 相同）。
 
 ```bash
-npm install     # 安裝依賴
+npm ci          # 依鎖檔重建依賴（CI 使用 npm 11.6.2）
 npm run dev     # 本機開發
 npm test        # lint + typecheck + glyph-guard + build + 單元測試
 npm run e2e     # Playwright 端對端（⚠️ 一律依序跑，不可平行）
@@ -353,8 +391,8 @@ npm run build:pages   # 產生 GitHub Pages 的靜態網站
 ```
 
 - 網站原始碼在 `app/`，共用契約與守門在 `tests/`。
-- `app/direction-pair.ts`、`app/chart-levels.ts`、`app/number-field.tsx`
-  與姊妹專案**逐位元相同**；要改就三支一起改。
+- 跨程式的 direction-pair／chart-levels 共用判定契約案例，不能把不同語言的實作
+  誤寫為逐位元相同；`app/number-field.tsx` 的實作才有跨程式逐位元守門。
   真正被 SHA-256 釘住的是**契約案例表**（規定「什麼輸入該得到什麼判定」）：
   `tests/direction-pair-contract.mjs`、`tests/chart-levels-contract.mjs`
   （`tests/shared-contract-pins.test.mjs`）、`tests/period-input-contract.mjs`
@@ -379,5 +417,5 @@ npm run build:pages   # 產生 GitHub Pages 的靜態網站
 ## 相關文件
 
 - `PROJECT_HANDOFF.md` — 架構、資料流、已定案的口徑與證據界線
-- `VALIDATION_v20.85.md` — 逐版驗證紀錄（累積，含歷史）；檔名跟著版號走
+- `VALIDATION_v20.95.md` — 逐版驗證紀錄（累積，含歷史）；檔名跟著版號走
 - `【更新說明】請先讀我.txt` — 給使用者看的版本說明

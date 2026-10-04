@@ -1,0 +1,32 @@
+TAP version 13
+# Subtest: 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+not ok 1 - 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+  ---
+  duration_ms: 18.7165
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2095-review-20261004\\tests\\release-metadata.test.mjs:727:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    LAST_RELEASED = 95 超過本版的前一版 94——基準線寫到還沒發布的版本了嗎？
+    
+    95 !== 94
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 94
+  actual: 95
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2095-review-20261004/tests/release-metadata.test.mjs:814:12)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 92.5591

@@ -1,0 +1,75 @@
+TAP version 13
+# Subtest: 匯出的備份收齊了使用者的設定
+not ok 1 - 匯出的備份收齊了使用者的設定
+  ---
+  duration_ms: 3.4969
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2095-review-20261004\\tests\\backup-completeness.test.mjs:140:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    buildBackupPayload() 沒有收這幾項——換一台電腦還原之後它們會消失：thresholdScopes
+    + actual - expected
+    
+    + [
+    +   'thresholdScopes'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'thresholdScopes'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2095-review-20261004/tests/backup-completeness.test.mjs:151:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: 還原備份時會把條件範本寫回去
+ok 2 - 還原備份時會把條件範本寫回去
+  ---
+  duration_ms: 1.6741
+  type: 'test'
+  ...
+# Subtest: 備份裡沒有條件範本時，不可以把這台電腦既有的範本清掉
+ok 3 - 備份裡沒有條件範本時，不可以把這台電腦既有的範本清掉
+  ---
+  duration_ms: 0.2361
+  type: 'test'
+  ...
+# Subtest: 備份全部計畫時，每個計畫的資料是各自抓回來的，不是拿畫面上的 state
+ok 4 - 備份全部計畫時，每個計畫的資料是各自抓回來的，不是拿畫面上的 state
+  ---
+  duration_ms: 0.291
+  type: 'test'
+  ...
+# Subtest: buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的
+ok 5 - buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的
+  ---
+  duration_ms: 0.3785
+  type: 'test'
+  ...
+# Subtest: 還原本計畫時，使用者親手按出來的東西也要跟著回來
+ok 6 - 還原本計畫時，使用者親手按出來的東西也要跟著回來
+  ---
+  duration_ms: 0.3811
+  type: 'test'
+  ...
+# Subtest: 還原多個計畫時，車種分類與路口幾何是累加的，不會互相覆蓋
+ok 7 - 還原多個計畫時，車種分類與路口幾何是累加的，不會互相覆蓋
+  ---
+  duration_ms: 0.3046
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 6
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 135.0545
