@@ -4,7 +4,7 @@
 
 > ⚠️ 下面每一段各自寫著「那一版的前一正式版」，不要拿本行去覆蓋歷史段落。
 
-## GPT v20.96 獨立複查（2026-10-04；尚未發布）
+## GPT v20.96 獨立複查並發布（2026-10-04）
 
 正式 Repository：`D:\Users\95108\Documents\Codex\DailyTraffic`，
 `BaoToast/DailyTraffic`／main；起始 HEAD、origin/main、GitHub main 一致且工作樹乾淨：
@@ -63,7 +63,22 @@ Node 22.23.3／npm 11.6.2、預設 heap（NODE_OPTIONS 空）：
 黃金值 688,205 輛／日、530,122 PCU／日，由完整 npm test 的原11路段基準案例驗得。
 最終文件／備份／範圍AST／依賴隱私／WASM守門 38/38 pass，exit 0。
 修後 audit 再查仍為完整樹22、production2，兩條exit1；完整日誌已封存於
-`engineering-evidence/v20.96/`。正式發布／線上結果完成後補於此處。
+`engineering-evidence/v20.96/`。
+
+### 正式發布與線上證據
+
+程式 release commit `90743ae705df3e4f521ed6b6341ece2497050dfb`，
+台北時間2026-10-04 17:28:11，已由隔離複查分支 ff-only 合併正式main並推送。
+[CI 37192254007](https://github.com/BaoToast/DailyTraffic/actions/runs/37192254007)
+及 [Pages 37192253728](https://github.com/BaoToast/DailyTraffic/actions/runs/37192253728)
+均 completed／success，head_sha精確對應上述程式commit。
+17:29:41線上實測九個現行檔案HTTP200且SHA-256與該commit相符；
+五個舊版專屬URL為404。17:29:46新瀏覽器1366×768啟動顯示v20.96、
+手冊href／download檔名正確、JavaScript錯誤0。原始證據同目錄
+`program-actions.log`、`program-online.log`、`remote-smoke.log`。
+最後純文件提交不改程式資產，其自身CI／Pages、最新線上報告雜湊、
+HEAD＝origin/main＝GitHub main及交付ZIP逐檔Git blob核對另載交付收據；
+文件無法在自身內容記錄自己的最終commit hash。
 
 以下 Claude 封關僅為交付者原包歷史宣稱，不是 GPT 的本輪實測。
 

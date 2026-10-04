@@ -1,6 +1,6 @@
 # 全日交通量及車種組成：工程交接基準
 
-> **GPT v20.96 本輪封關（2026-10-04，尚未發布）**：起始正式 HEAD
+> **GPT v20.96 本輪封關並發布（2026-10-04）**：起始正式 HEAD
 > `955ef6b5c75460439f81868bcd3168f340dbec83`；中風險依賴／建置鏈複查。
 > 已補回兩個 WASM 必要鎖定節點，新守門對原包與 runtime 隔離破壞均實跑紅燈、
 > 修後綠燈；1,092 條必要依賴邊閉合。字面 npm test 830項／829pass／0fail／
@@ -9,11 +9,15 @@
 > 不修改交通計算、保存、匯出，黃金值維持。35頁手冊已渲染核對。
 > production 2 moderate，完整樹16 high／6 moderate；audit仍非零退出。
 > 尚未重做真實附件／Office／WASM平台實際建置；完整證據見 VALIDATION_v20.96.md。
+> 程式 release `90743ae705df3e4f521ed6b6341ece2497050dfb` 已推送 main，
+> CI `37192254007`／Pages `37192253728` 均 success；線上九檔 SHA 相符、
+> 五個舊版專屬 URL 為404，實際瀏覽器顯示v20.96且無JavaScript錯誤。
+> 最後純文件 HEAD 自身的 CI／Pages 與交付封裝於交付收據再次核對。
 >
 > 下方 Claude 本包封關及過去版本段落保留來源界線，不取代 GPT 的當前實測。
 
-> **目前狀態（2026-10-04）**：本包為 **v20.96**，是 Claude 在 GPT 發布 v20.95 之後的
-> 第二次複查產出，**尚未發布**。
+> **Claude 原包交付歷史（2026-10-04）**：本包為 **v20.96**，是 Claude 在 GPT 發布 v20.95 之後的
+> 第二次複查產出；交付當時尚未發布，GPT 當前發布證據見上方。
 > **前一正式版：v20.95**（GPT 2026-10-04 已發布上線，程式 release commit
 > `1b21e1a8352b1221313de549c1325972d24578a0`，CI `37164410013`／Pages `37164409563` 均成功）。
 > v20.96 **沒有改任何交通計算、保存、備份還原或匯出的程式碼**：`npm audit fix`
@@ -117,9 +121,9 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
 | 本輪複查基準 | `955ef6b5c75460439f81868bcd3168f340dbec83`，v20.95 最後交接 HEAD；本機／origin/main／GitHub main 相同且乾淨；該 HEAD 的 CI `37164816427`／Pages `37164816143` 已成功 |
-| 本輪候選 | 使用者指定 20261004b 的 v20.96；中風險依賴／建置链修改；尚未發布，不以 Claude 原包封關代替 GPT gates |
+| 本輪複查 | 使用者指定 20261004b 的 v20.96；中風險依賴／建置鏈修改；GPT gates 已通過並發布，不以 Claude 原包封關代替實測 |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 正式版本 | `v20.95`，程式 release commit `1b21e1a8352b1221313de549c1325972d24578a0`，台北時間 2026-10-04；CI `37164410013`／Pages `37164409563` 均 success，線上已實測。前一正式版 `v20.94`，release commit `1d385b4144b1bb3275f19017c22c16151da45faa`；本輪起始 HEAD `fddfd16b983f611cab1f4e1cfb1f4a02947d7c6c`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-03；不任意改寫原包日期。本輪證據在 `VALIDATION_v20.95.md`，最後文件 HEAD 以 Git main 及交付收據核對 |
+| 正式版本 | `v20.96`，程式 release commit `90743ae705df3e4f521ed6b6341ece2497050dfb`，台北時間 2026-10-04 17:28:11；CI `37192254007`／Pages `37192253728` 均 success，線上已實測。前一正式版 `v20.95`，release commit `1b21e1a8352b1221313de549c1325972d24578a0`；本輪起始 HEAD `955ef6b5c75460439f81868bcd3168f340dbec83`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-04。本輪證據在 `VALIDATION_v20.96.md`，最後文件 HEAD 以 Git main 及交付收據核對 |
 | 本版來源 | 使用者指定 20261004b 的 Claude v20.96 包，SHA-256 `e86e8f265d3e5c5c2d4b1a5be3215b60370a2a2177ae6e22b49feefd53190c74`；說明 ZIP `9bc78c7794b99827e515515755698c1c4c4ddb0e868dbe06c84940897d34dfd7`。GPT 補回兩個 WASM 依賴鎖定節點、新增實跑反證守門、修正文書；交通計算、保存及匯出原始碼未變。完整本輪證據在 `VALIDATION_v20.96.md`；更早候選由 Git 與累積報告保存 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 

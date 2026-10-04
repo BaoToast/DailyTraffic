@@ -5,6 +5,11 @@ GPT 獨立封關：字面 npm test 830項／829通過／0失敗／1缺真實附�
 補回原包遺失的兩個WASM必要鎖定節點並新增實跑紅／綠守門，交通邏輯未改。
 本節下方的 Claude 原包數字保留來源界線；正式發布狀態以當版 VALIDATION 與 Git 為準。
 
+GPT 已正式發布v20.96：程式commit `90743ae705df3e4f521ed6b6341ece2497050dfb`；
+CI `37192254007`／Pages `37192253728` 均success，線上九檔SHA相符、
+五個舊版專屬URL為404，實際瀏覽器啟動無JavaScript錯誤。
+最後文件HEAD自身的CI／Pages與交付封裝另見交付收據。
+
 前一正式版：v20.95（GPT 2026-10-04 已發布，release commit
 `1b21e1a8352b1221313de549c1325972d24578a0`，CI `37164410013`／Pages `37164409563` 均 success）。
 
@@ -21,7 +26,7 @@ GPT 獨立封關：字面 npm test 830項／829通過／0失敗／1缺真實附�
 完整樹 30 項 → **22 項（6 moderate／16 high）**。
 另把 `tests/release-metadata.test.mjs` 的 `LAST_RELEASED` 從 94 移到 **95**（v20.95 已發布）。
 封關：字面 `npm test` 離開碼 0；字面 `npm run e2e` 離開碼 0。
-⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
+⚠️ Claude 原包交付時沒有線上發布證據（其容器連不到 GitHub Pages）；GPT 當前證據見上方。
 最新證據見 `VALIDATION_v20.96.md`。
 
 ## v20.95（2026-10-04）GPT 獨立複查並正式發布

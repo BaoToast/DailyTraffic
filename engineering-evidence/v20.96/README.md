@@ -5,6 +5,11 @@
 發布記錄見根目錄 VALIDATION_v20.96.md 及該 HEAD 的 GitHub checks。
 最終文件 commit 不在自己內容中記錄自己的 hash；其自身 CI／Pages 另於交付收據核對。
 
+程式release：90743ae705df3e4f521ed6b6341ece2497050dfb。
+program-actions.log：CI37192254007／Pages37192253728均success且同head_sha。
+program-online.log：九檔HTTP200／SHA相符、五個舊URL404。
+remote-smoke.log：新瀏覽器1366×768，v20.96與手冊入口正確，JS錯誤0。
+
 ## 封關
 
 - Node22.23.3／npm11.6.2／預設heap：乾淨npm ci exit0。
