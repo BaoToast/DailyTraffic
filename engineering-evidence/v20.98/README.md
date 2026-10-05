@@ -31,6 +31,9 @@ loading/error控制新context的IndexedDB入口，不冒稱真實資料驗收。
 `VALIDATION_v20.98.md`及相應原始日誌為準。第一輪完整測試若紅保留原始日誌；
 不能只用拆開的單项綠燈替代修後字面npm test與59支串行npm run e2e。
 PostCSS使用既有8.5.28，GPT補直接開發依賴宣告，已解析套件樹未變。
+原始Windows日誌保留CRLF與建置排版空白，未為Git whitespace檢查改寫；
+正式來源碼diff check通過。program-actions、online-program、remote-smoke只屬
+aa9516799a48617af2cc990cd68bcb865cc8181b自身結果，最後文件HEAD另由交付收據核對。
 
 使用者的截圖、35頁手冊渲染、Claude往返說明與完整下載ZIP放在有日期的
 Downloads交付區；工程基準與可公開原始測試證據留在Repository及GitHub。

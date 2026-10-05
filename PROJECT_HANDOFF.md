@@ -1,6 +1,6 @@
 # 全日交通量及車種組成：工程交接基準
 
-> **GPT v20.98獨立複查中（尚未發布）**：起始正式HEAD
+> **GPT v20.98獨立封關並發布（2026-10-05）**：起始正式HEAD
 > b381eec2a17a1be45b5f9dac2a36379ed5035c95，main／origin/main／GitHub一致且乾淨；
 > 該HEAD自身CI37263219425／Pages37263219063均success。低風險間距／測試增量。
 > 原包CSS字串可冒充規則、建置CSS只有存在性守門、間距量測包含框線；
@@ -9,10 +9,14 @@
 > 完整npm test抓出GPT守門使用未宣告的間接PostCSS；已補既有8.5.28直接開發
 > 依賴宣告，不新增／升級已解析套件、不放寬dependency-manifest守門。
 > 修後字面npm test退出0：842pass／0fail／1缺真實附件skip；完整59/59正式
-> E2E串行退出0，1,441 ✅／0 ❌；18px真正內距及錯誤提示樣式通過，尚未推送發布。
+> E2E串行退出0，1,441 ✅／0 ❌；18px真正內距及錯誤提示樣式通過。
+> 程式release aa9516799a48617af2cc990cd68bcb865cc8181b已推送main，自身CI
+> 37286590512／Pages37286589164均success；線上九檔SHA相符、六個v20.97網址404，
+> 真實瀏覽器v20.98／手冊入口／18px內距正常、JS例外0。手冊35頁渲染已檢視，PDF未修改。
+> 最後純文件HEAD自身CI／Pages及交付封裝以Git main與交付收據另外核對，不冒稱同一HEAD。
 > 反證及完整封關以本轮VALIDATION_v20.98.md與工程日誌為準，不採信原包封關宣稱。
 
-> **v20.98（2026-10-05，Claude 交付候選，尚未發布）**
+> **Claude v20.98原包交付歷史（2026-10-05，交付當時尚未發布）**
 > 前一正式版：v20.97（GPT 2026-10-05 已發布，commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`）。
 >
 > 使用者附線上截圖回報
@@ -174,7 +178,7 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | 本輪複查基準 | `b381eec2a17a1be45b5f9dac2a36379ed5035c95`，v20.97最後交接HEAD；本機／origin/main／GitHub main相同且乾淨；該HEAD自身CI `37263219425`／Pages `37263219063` 已成功 |
 | 本輪複查 | 使用者指定20261005b的v20.98；低風險間距／測試增量；GPT獨立實測及發布狀態見本檔最上方與VALIDATION_v20.98.md，不以Claude原包封關代替實測 |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 正式版本 | `v20.97`，程式release commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`，台北時間2026-10-05 12:16:03；CI `37262764450`／Pages `37262763715` 均success，線上九檔SHA與五個舊版404及瀏覽器已實测。前一正式版：v20.96，release `90743ae705df3e4f521ed6b6341ece2497050dfb`；本輪起始HEAD `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日2026-10-05。證據在 `VALIDATION_v20.98.md`，最後文件HEAD自身CI／Pages以Git main及交付收據核對 |
+| 正式版本 | `v20.98`，程式release commit `aa9516799a48617af2cc990cd68bcb865cc8181b`，台北時間2026-10-05 16:54:17；自身CI `37286590512`／Pages `37286589164` 均success，線上九檔SHA與六個v20.97網址404、瀏覽器v20.98／18px內距已實測。前一正式版：v20.97，release `517fe39f443c16d25993d583af6dd7d82cc8de3a`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日2026-10-05。證據在 `VALIDATION_v20.98.md`、`engineering-evidence/v20.98`；最後純文件HEAD自身CI／Pages以Git main及交付收據另行核對 |
 | 本版來源 | 使用者指定20261005b的Claude v20.98完整包，SHA-256 `b4a7cdabe6ee93330e23bfdfdc87107931f484127e1b403ba0ba7c153e42943b`；說明ZIP `2722526f59fbfbc3fa23820c0768af78e34482812e7e8016b4f688da3a71badb`；Pages ZIP `65f1a04faf446dc2d82c0bad3a626446ae3fcb24daa77b15fa167685e1aa70f5`。完整本輪獨立實測見 `VALIDATION_v20.98.md`；更早候選由Git與累積報告保存 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 

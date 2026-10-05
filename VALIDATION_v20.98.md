@@ -4,7 +4,7 @@
 
 > ⚠️ 下面每一段各自寫著「那一版的前一正式版」，不要拿本行去覆蓋歷史段落。
 
-## GPT v20.98獨立複查（尚未發布）
+## GPT v20.98獨立複查與發布（2026-10-05）
 
 正式Repository D:\Users\95108\Documents\Codex\DailyTraffic，BaoToast/DailyTraffic／main。
 起始HEAD b381eec2a17a1be45b5f9dac2a36379ed5035c95，本機／origin/main／GitHub一致且乾淨；
@@ -57,7 +57,7 @@ GPT另補既有PostCSS 8.5.28直接開發依賴宣告，不新增或升級任何
 修後字面npm run e2e退出0：59/59支正式腳本串行通過，日誌1,441 ✅／0 ❌。
 相較Claude原包1,440，多一項GPT錯誤提示樣式探針；不把探針當真實資料庫故障證據。
 61個e2e命名檔為59支正式腳本、nav共用helper及未執行的tryout smoke。
-本輪未並行E2E／效能測試，不執行試用HTML。線上發布尚待核對。
+本輪未並行E2E／效能測試，不執行試用HTML。
 第一次字面npm test exit1：843項／841pass／1fail／1缺真實附件skip；
 唯一失敗是GPT新守門直接import的PostCSS尚未宣告。完整原始紅燈保留為
 complete-test-dependency-red.log。依賴守門與四個禁止變更檔未修改；修後重新npm ci
@@ -74,6 +74,21 @@ Windows與原包Linux套件數差異來自平台，依賴樹是否不变另外�
 本輪fresh audit：完整樹16high／6moderate／0critical，production2moderate／
 0high／0critical；兩次exit1，保留原始JSON。不以測試通過冒稱無依賴風險，
 不在本輪低風險UI修正中擅自force升級既有依賴。
+
+### 正式發布與線上核對
+
+程式release `aa9516799a48617af2cc990cd68bcb865cc8181b`，2026-10-05 16:54:17台北，
+已推送BaoToast/DailyTraffic main，本機／origin/main／GitHub一致且乾淨。
+該commit自身CI `37286590512`／Pages `37286589164`均completed／success。
+16:56:13台北線上九檔HTTP200／SHA-256相同；六個v20.97專屬URL為404：
+index-DSS-yyDk.js、exceljs.min-DQuAn8yo.js、jszip.min-CeKCovvZ.js、
+index-b_09kH_a.css、v20.97手冊及VALIDATION_v20.97.md。
+瀏覽器1366×768真實線上啟動v20.98、手冊href／下載名v20.98、JS例外0，
+左右下真正内距均18px；已檢視線上截圖。xlsx仍為現行共用資產，不列為退役。
+版本／手冊／新靜態守門最後19項pass，四份正式／建置PDF SHA相同。
+原始program-actions.json、online-program.log、remote-smoke.log納入工程證據。
+最後純文件交接HEAD不以此程式commit冒稱自身結果：其自身CI／Pages、九檔重驗、
+Git clean與git archive CRC／Git blob／交付SHA在交付收據獨立記錄。
 
 下方v20.98 Claude及v20.97以前段落保留交付／歷史界線，不替代GPT本輪實測。
 
