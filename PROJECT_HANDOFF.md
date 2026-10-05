@@ -1,15 +1,18 @@
 # 全日交通量及車種組成：工程交接基準
 
-> **GPT v20.97 獨立複查進行中（2026-10-05，尚未發布）**：起始正式HEAD
+> **GPT v20.97 獨立封關並發布（2026-10-05）**：起始正式HEAD
 > f977e23e6e559a5b346ed6d7d0a801ed96a74ee1，低風險註解／測試增量。
 > GPT修正檔頭六類操作／八條件宣告範圍及內建測資來源、手冊HTML／PDF內部Title，
 > 補兩項實跑紅綠守門；PDF正文、35頁渲染不變。另修復既有regex測試條數誤計，
 > 改用語法樹並加三項實跑反證。未改交通計算／保存／匯出或四個禁止變更檔。
 > 本機字面npm test退出0：837pass／0fail／1缺真實附件略過；59/59正式E2E串行
-> 通過，1,438 ✅／0 ❌。本機封關完成，正式推送／線上發布尚待核對；
+> 通過，1,438 ✅／0 ❌。程式release `517fe39f443c16d25993d583af6dd7d82cc8de3a`
+> 已推送main，CI `37262764450`／Pages `37262763715` 均success；線上九檔SHA
+> 相符、五個舊版URL為404，1366×768實際瀏覽器v20.97／手冊入口正常且無JS例外。
+> 最後純文件HEAD自身CI／Pages及交付封裝仍須以交付收據獨立核對；
 > 證據見VALIDATION_v20.97.md與engineering-evidence/v20.97，下方Claude為原包紀錄。
 
-> **Claude v20.97 交付候選（2026-10-05，尚未發布）**：只改三處**註解**——
+> **Claude v20.97 原包交付歷史（交付當時尚未發布）**：只改三處**註解**——
 > `scripts/probe-filter-matrix.mjs` 與 `scripts/e2e-filter-coverage.mjs` 的檔頭
 > 原本整段是 `scripts/capture-baseline.mjs` 的（標題與用法都指向別支）、
 > `tests/project-name-limit.test.mjs` 把「換行」那一半說成由一支已不存在的
@@ -147,7 +150,7 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | 本輪複查基準 | `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`，v20.96 最後交接 HEAD；本機／origin/main／GitHub main 相同且乾淨；該 HEAD 的 CI `37192646396`／Pages `37192646147` 已成功 |
 | 本輪複查 | 使用者指定 20261005 的 v20.97；低風險註解／測試增量；GPT獨立實測及發布狀態見本檔最上方與VALIDATION_v20.97.md，不以Claude原包封關代替實測 |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 正式版本 | `v20.96`，程式 release commit `90743ae705df3e4f521ed6b6341ece2497050dfb`，台北時間 2026-10-04 17:28:11；CI `37192254007`／Pages `37192253728` 均 success，線上已實測。前一正式版 `v20.95`，release commit `1b21e1a8352b1221313de549c1325972d24578a0`；本輪起始 HEAD `955ef6b5c75460439f81868bcd3168f340dbec83`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-04。本輪證據在 `VALIDATION_v20.96.md`，最後文件 HEAD 以 Git main 及交付收據核對 |
+| 正式版本 | `v20.97`，程式release commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`，台北時間2026-10-05 12:16:03；CI `37262764450`／Pages `37262763715` 均success，線上九檔SHA與五個舊版404及瀏覽器已實测。前一正式版：v20.96，release `90743ae705df3e4f521ed6b6341ece2497050dfb`；本輪起始HEAD `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日2026-10-05。證據在 `VALIDATION_v20.97.md`，最後文件HEAD自身CI／Pages以Git main及交付收據核對 |
 | 本版來源 | 使用者指定20261005的Claude v20.97完整包，SHA-256 `7a4e5bbc385134f6f7f9067ae6e32046f992c10b3f391e35e87b79178c0a9e4c`；說明ZIP `49074dfb261d8d5e324ea1575b0fed179f5e2ae3b0ed65199bcce8ae6bfa7bf1`。GPT精確化註解、修正手冊內部Title及既有測試條數誤計，新增實跑紅綠守門；未改交通計算、保存及匯出。完整證據在 `VALIDATION_v20.97.md`；更早候選由Git與累積報告保存 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 

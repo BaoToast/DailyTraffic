@@ -4,7 +4,7 @@
 
 > ⚠️ 下面每一段各自寫著「那一版的前一正式版」，不要拿本行去覆蓋歷史段落。
 
-## GPT v20.97 獨立複查（2026-10-05；尚未發布）
+## GPT v20.97 獨立複查及發布（2026-10-05）
 
 正式Repository為D:\Users\95108\Documents\Codex\DailyTraffic，BaoToast/DailyTraffic／main。
 起始HEAD、origin/main、GitHub main均為f977e23e6e559a5b346ed6d7d0a801ed96a74ee1，
@@ -59,7 +59,13 @@ Node22.23.3／npm11.6.2，預設heap；乾淨npm ci成功。
 字面npm run e2e退出碼0：59/59支正式脚本串行通過，日誌1,438 ✅／0 ❌。
 本輪未並行E2E；61個e2e命名檔含59支正式腳本、nav共用helper及未執行的tryout smoke。
 完成後五個Pages資產仍與根目錄相同，四個禁止變更檔及四份正式／建置PDF副本再次核對。
-當前已完成本機封關，GitHub推送及線上發布另行實測後補記；不沿用Claude封關數字。
+程式release `517fe39f443c16d25993d583af6dd7d82cc8de3a` 已推送main，
+GitHub CI `37262764450`／Pages `37262763715` 均completed／success，對應SHA相同。
+2026-10-05 12:17:45（台北）線上九檔HTTP200／SHA-256全相符，五個v20.96專屬URL404。
+1366×768實際瀏覽器啟動v20.97、下載手冊href／檔名v20.97、JS例外0；已檢視截圖。
+原始program-actions.json、online-program.log、remote-smoke.log納入工程證據。
+最後純文件HEAD自身CI／Pages、九檔重驗與Git archive封裝在交付收據另行核對，
+不將此程式commit的結果冒稱後續HEAD的結果；不沿用Claude封關數字。
 最新audit完整樹16high／6moderate，production2moderate／0high／critical，兩條exit1。
 沒有真實公司附件，不能把條件略過稱通過；本輪未重新用Microsoft Office實開，
 也未在WASM平台實際建置。不執行、不產生、不交付試用版HTML；原有腳本保留。
