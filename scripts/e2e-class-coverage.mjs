@@ -177,8 +177,8 @@ for (const [name, quarter] of [
  * 在目前畫面上找出「沒有任何 CSS 規則提到它」的 class。
  * 回傳 { klass: 第一個用到它的元素敘述 } 方便回頭找。
  */
-const scanPage = () =>
-  page.evaluate(() => {
+const scanPage = (target = page) =>
+  target.evaluate(() => {
     /* 1. 把所有樣式表裡出現過的 class 名稱收成一個集合 */
     const styled = new Set();
     const collect = (rules) => {
@@ -342,6 +342,103 @@ for (const [zone, label] of [
   }
   console.log(`   ${label}：${count ? `${count} 個沒有規則` : "全部都有規則"}`);
 }
+
+/*
+ * ══ 空狀態（還沒有任何計畫）══════════════════════════════════
+ *
+ * 使用者 2026-10-05（附線上 v20.97 截圖）：
+ *   「這張截圖下方的文字"還沒有任何計畫"幾乎與邊緣方框處黏在一起了」
+ *
+ * ⚠️ 成因是 .inline-note **完全沒有樣式**——而這支掃描器當時是綠的。
+ *   理由和 .donut-pair 那一次一字不差：上面那一輪為了讓各頁有東西可以畫，
+ *   開頭就建了計畫、灌了樣本，於是 projects.length > 0，
+ *   「還沒有任何計畫」那一段**從來沒有渲染過**，也就從來沒被掃到。
+ *   這是同一個先天限制第三次咬人，所以這一輪專門開一個**乾淨的瀏覽器環境**
+ *   把空狀態掃一次。
+ *
+ * ⚠️ 用新的 context 而不是清掉現有資料：清除流程自己有別支在驗
+ *   （e2e-clear-local），混在這裡的話，清不乾淨會讓這一輪變成假的綠。
+ */
+console.log("\n══ 空狀態（乾淨的瀏覽器，一個計畫都沒有）══");
+const emptyCtx = await browser.newContext({
+  viewport: { width: 1500, height: 1000 },
+  locale: "zh-TW",
+});
+const emptyPage = await emptyCtx.newPage();
+emptyPage.on("pageerror", (e) => errors.push(String(e.message)));
+emptyPage.on("dialog", (d) => d.accept(d.type() === "prompt" ? "N" : ""));
+await emptyPage.goto("http://localhost:8188/");
+await emptyPage.waitForTimeout(1200);
+await ensureToolbarOpen(emptyPage);
+await emptyPage.waitForTimeout(600);
+/*
+ * 前置：真的停在空狀態才算數。
+ * 找不到那一句就**紅**，不是略過——略過等於這一輪沒有發生，
+ * 而沒有發生的檢查和恆綠是同一回事。
+ */
+const emptyText = await emptyPage.locator("body").innerText();
+ok(
+  "乾淨環境真的停在「還沒有任何計畫」的空狀態",
+  emptyText.includes("還沒有任何計畫"),
+  failOnly("掃不到空狀態的話，這一輪是空轉的"),
+);
+const emptyFound = await scanPage(emptyPage);
+let emptyCount = 0;
+for (const [klass, where] of Object.entries(emptyFound)) {
+  if (INTENTIONAL.has(klass)) continue;
+  emptyCount += 1;
+  if (!(klass in missing)) missing[klass] = `空狀態｜${where}`;
+}
+console.log(`   空狀態：${emptyCount ? `${emptyCount} 個沒有規則` : "全部都有規則"}`);
+
+/*
+ * ⚠️ 有規則**不等於**間距夠。使用者回報的是「黏在一起」，不是「沒有樣式」，
+ *   所以這裡直接量：那一句話的文字框，到它所在面板的左、右、下三個內緣，
+ *   每一邊都要 ≥ 12px。這是行為契約，不是「有沒有寫規則」。
+ */
+const gaps = await emptyPage.evaluate(() => {
+  const note = [...document.querySelectorAll(".inline-note")].find((el) =>
+    (el.textContent || "").includes("還沒有任何計畫"),
+  );
+  if (!note) return null;
+  const panel = note.closest(".panel");
+  if (!panel) return null;
+  const n = note.getBoundingClientRect();
+  const p = panel.getBoundingClientRect();
+  const cs = getComputedStyle(note);
+  return {
+    // 面板內緣必須扣掉border，否則11px padding加1px框線會錯誤通過12px門檻。
+    left: n.left - p.left - Number.parseFloat(getComputedStyle(panel).borderLeftWidth || "0") + Number.parseFloat(cs.paddingLeft || "0"),
+    right: p.right - n.right - Number.parseFloat(getComputedStyle(panel).borderRightWidth || "0") + Number.parseFloat(cs.paddingRight || "0"),
+    bottom: p.bottom - n.bottom - Number.parseFloat(getComputedStyle(panel).borderBottomWidth || "0") + Number.parseFloat(cs.paddingBottom || "0"),
+  };
+});
+ok(
+  "「還沒有任何計畫」那一句與面板邊線之間，左右下都留得出 12px 以上",
+  gaps !== null &&
+    gaps.left >= 12 &&
+    gaps.right >= 12 &&
+    gaps.bottom >= 12,
+  gaps === null
+    ? "找不到那一句或它外面的面板"
+    : `左 ${gaps.left.toFixed(1)}px／右 ${gaps.right.toFixed(1)}px／下 ${gaps.bottom.toFixed(1)}px`,
+);
+/* CSS樣式探針：使用正式錯誤提示class與現行.content父層，不冒稱資料庫故障流程。 */
+const errorStyle = await emptyPage.evaluate(() => {
+  const probe = document.createElement("p");
+  probe.className = "inline-note project-load-error";
+  probe.textContent = "讀取錯誤樣式探針";
+  document.querySelector(".content").appendChild(probe);
+  const s = getComputedStyle(probe);
+  const result = {padding:s.padding, color:s.color, background:s.backgroundColor, weight:s.fontWeight, margin:s.margin};
+  probe.remove();
+  return result;
+});
+ok("讀取錯誤提示維持原有內距、顏色、字重及外距",
+  errorStyle.padding === "12px 14px" && errorStyle.color === "rgb(116, 42, 29)" &&
+  errorStyle.background === "rgb(255, 240, 236)" && errorStyle.weight === "700" && errorStyle.margin === "0px 0px 12px",
+  JSON.stringify(errorStyle));
+await emptyCtx.close();
 
 console.log("\n══ 結果 ══");
 ok(

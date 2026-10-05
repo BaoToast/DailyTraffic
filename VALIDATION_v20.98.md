@@ -1,8 +1,81 @@
-# 全日交通量及車種組成 v20.97 驗證報告
+# 全日交通量及車種組成 v20.98 驗證報告
 
-前一正式版：v20.96（GPT 2026-10-04 已發布，commit `90743ae705df3e4f521ed6b6341ece2497050dfb`）
+前一正式版：v20.97（GPT 2026-10-05 已發布，commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`）
 
 > ⚠️ 下面每一段各自寫著「那一版的前一正式版」，不要拿本行去覆蓋歷史段落。
+
+## GPT v20.98獨立複查（尚未發布）
+
+正式Repository D:\Users\95108\Documents\Codex\DailyTraffic，BaoToast/DailyTraffic／main。
+起始HEAD b381eec2a17a1be45b5f9dac2a36379ed5035c95，本機／origin/main／GitHub一致且乾淨；
+自身CI37263219425／Pages37263219063已獨立核對success。
+20261005b說明ZIP已完整讀完，三個輸入ZIP SHA與提供的SHA256SUMS.txt逐一一致。
+完整包b4a7cdabe6ee93330e23bfdfdc87107931f484127e1b403ba0ba7c153e42943b；
+說明2722526f59fbfbc3fa23820c0768af78e34482812e7e8016b4f688da3a71badb；
+Pages65f1a04faf446dc2d82c0bad3a626446ae3fcb24daa77b15fa167685e1aa70f5。
+
+### 風險及GPT發現
+
+低風險UI間距／測試增量，但仍完整執行全部必要gates。保留兩條CSS間距、18px設計、
+字級／顏色及計算／保存／匯入／匯出，四個禁止變更檔不動；LAST_RELEASED=97。
+
+1. 新靜態hasRule只搜尋整段CSS文字，宣告值與屬性選擇器字串可冒充class規則。
+   隔離副本新增無樣式zz-probe-coverage及CSS字串，原守門仍5pass／0fail（假的綠）；
+   修後同案例4pass／1fail、exit1。以既有PostCSS套件只讀實際rule selector並遮蔽字串，
+   原五項的前置另含假selector／真media-rule探針。第一次完整npm test由依賴守門
+   抓出PostCSS只有間接依賴，已在devDependencies與lock根宣告既有8.5.28；
+   所有已解析套件節點／版本／integrity不變，不降低dependency-manifest判準。
+2. 原第五項只驗建置CSS規則存在，built padding改成11px仍5pass／0fail；
+   修後4pass／1fail、exit1。原第四項亦未檢查四值padding的左邊，補左右下各自>=12px。
+   source與built共用數值／順序判準，清單／門檻未放寬，仍5項。
+3. 原E2E稱量面板內緣卻包含1px框線，11px內距會被量成12px。
+   修後扣除各邊border，以真正內緣驗>=12px；現行18px內距不變。
+   新增正式.content父層之錯誤提示CSS樣式探針；這不是IndexedDB故障流程的證據。
+4. 修正註解不存在的e2e-inline-note檔名及③／④條號；CSS特異性說明區分單一class
+   與.panel>.inline-note，現行錯誤提示不是panel子元素。下方Claude「同特異性」及
+   1px／19px為原包外緣量測歷史，不是修後內緣數字。
+
+### 原包與修後獨立反證、完整封關
+
+移除規則2pass／3fail；逆轉順序4pass／1fail；已有規則panel列入豁免4pass／1fail；
+四值padding左0px為4pass／1fail，均隔離實跑exit1。修後本機靜態守門5/5通過。
+原v20.97 class-coverage對沒有inline-note規則的正式舊版實跑exit0，證明空狀態漏掃。
+端對端反證均隔離、串行實跑：移除規則exit1、兩項紅；11px內距在原守門
+量成12px而exit0，修後正確量成11px而exit1、一項紅；抹除預期空狀態文字
+exit1、前置與量測兩項紅，不因元素不存在而跳過。各次錯誤提示樣式探針均通過。
+1366×768及1536×864各驗ready／loading／error六個畫面並檢視六張截圖：
+目標面板提示左右下內距均18px，錯誤提示保留12px 14px、背景rgb(255,240,236)、
+文字rgb(116,42,29)、字重700。loading／error採乾淨context控制IndexedDB入口；
+此為分支及版面驗證，不宣稱真實資料庫故障／持久化驗收，也不宣稱所有頁面無溢出。
+手冊35頁已逐頁渲染、以五張分頁總覽目視核對，內部Title及封面v20.98正確；
+PDF未修改，SHA-256 2d3284c9e9697bee687fd8bbad50f19f04c310e8f46cf92435a131aaa1d36a18。
+本次Poppler -layout文字含版面空白經NFKC為39,140字元，不與歷史正文計數混用。
+226個其他原app／scripts／tests檔逐位元相同；Claude原包package僅version、lock僅兩處version，
+GPT另補既有PostCSS 8.5.28直接開發依賴宣告，不新增或升級任何已解析套件；
+三個JS正規化發布中繼資料後相同、xlsx相同，五個乾淨Pages build資產與根目錄一致。
+原始完整包與Pages九檔逐位元相同、兩ZIP CRC完整；四個禁止變更檔及period-date未變。
+修後字面npm run e2e退出0：59/59支正式腳本串行通過，日誌1,441 ✅／0 ❌。
+相較Claude原包1,440，多一項GPT錯誤提示樣式探針；不把探針當真實資料庫故障證據。
+61個e2e命名檔為59支正式腳本、nav共用helper及未執行的tryout smoke。
+本輪未並行E2E／效能測試，不執行試用HTML。線上發布尚待核對。
+第一次字面npm test exit1：843項／841pass／1fail／1缺真實附件skip；
+唯一失敗是GPT新守門直接import的PostCSS尚未宣告。完整原始紅燈保留為
+complete-test-dependency-red.log。依賴守門與四個禁止變更檔未修改；修後重新npm ci
+再重跑字面完整命令，不用拆開的綠燈替代。該紅燈輪的效能反證為平方102.0倍、
+線性7.6倍、門檻30；不得把這輪其他通過項目冒稱修後完整封關。
+Node22.23.3／npm11.6.2、預設heap，乾淨npm ci成功，570added／571audited。
+補直接PostCSS宣告後再次乾淨npm ci退出0，修後字面npm test退出0：
+843項／842pass／0fail／1缺真實附件conditional skip，含lint零warnings、
+TypeScript、字形守門與production build。平方反證102.9倍（10,000→100,000）、
+線性7.3倍（300,000→3,000,000），門檻30不變。原11路段黃金值測試通過：
+688,205輛／日、530,122PCU／日；數值／係數未改。
+Windows與原包Linux套件數差異來自平台，依賴樹是否不变另外逐節點核對。
+缺真實附件、Office未實開及WASM未實建不冒稱pass；不執行／產生／交付tryout HTML。
+本輪fresh audit：完整樹16high／6moderate／0critical，production2moderate／
+0high／0critical；兩次exit1，保留原始JSON。不以測試通過冒稱無依賴風險，
+不在本輪低風險UI修正中擅自force升級既有依賴。
+
+下方v20.98 Claude及v20.97以前段落保留交付／歷史界線，不替代GPT本輪實測。
 
 ## GPT v20.97 獨立複查及發布（2026-10-05）
 
@@ -70,6 +143,109 @@ GitHub CI `37262764450`／Pages `37262763715` 均completed／success，對應SHA
 沒有真實公司附件，不能把條件略過稱通過；本輪未重新用Microsoft Office實開，
 也未在WASM平台實際建置。不執行、不產生、不交付試用版HTML；原有腳本保留。
 下方Claude本版封關及過去版本是交付／歷史紀錄，不取代GPT的本輪實測。
+
+---
+
+## v20.98（2026-10-05）：空狀態那一句話貼著外框——class 寫了，樣式表沒有規則
+
+前一正式版：v20.97（GPT 2026-10-05 已發布，程式 release commit
+`517fe39f443c16d25993d583af6dd7d82cc8de3a`）。
+
+### 使用者回報
+
+附線上 v20.97 截圖：「這張截圖下方的文字"還沒有任何計畫"幾乎與邊緣方框處黏在一起了」。
+
+### 確認（在**備存的 v20.97 交付包**上查，不是工作目錄）
+
+| 查什麼 | 結果 |
+| --- | --- |
+| `.inline-note` 在 `app/globals.css` 的規則數 | **0** |
+| `.inline-note` 在建置後 `assets/*.css` 的規則數 | **0** |
+| `.inline-note` 在 `app/DashboardClient.tsx` 的使用次數 | **5** |
+
+本專案用 Tailwind preflight，沒有規則**不等於**瀏覽器預設值：preflight 會把 `<p>`
+的預設 margin 歸零。`.panel` 自己沒有 padding（內距一律由子元素各自帶：`.panel-title`
+是 `16px 18px 12px`、`.period-help` 是 `0 18px`、`.panel-empty-note` 是 `0 18px 18px`），
+所以面板裡那三句連左右內距都是 0，直接貼著邊線。
+
+**使用者看到一處，實際四處**（第五處另外掛了 `.project-load-error`，那個 class 有自己
+完整的規則，不受影響）：計畫卡片裡的「還沒有任何計畫…」「正在讀取這台電腦上的資料…」
+「計畫資料讀取失敗…」，以及主內容區最上方的「正在讀取這台電腦上的資料…」。
+
+### 修正
+
+`app/globals.css` 補兩條，**只補間距**：
+
+```css
+.inline-note{margin:0 0 12px}
+.panel>.inline-note{margin:0;padding:0 18px 18px}
+```
+
+- 18px 刻意與 `.panel-title` 的左右內距、`.panel-empty-note` 的 `0 18px 18px` 取同一組。
+- **字級與顏色刻意不動**——那兩項各自有別的規則與守門在管（對比由
+  `scripts/e2e-chart-notes.mjs` 量），順手改會把修正範圍擴大到沒有被回報、
+  也沒有被量過的地方。
+- 兩條必須排在 `.project-load-error` **前面**：特異性相同，順序決定勝負。
+
+### ★ 既有守門為什麼是綠的（照實寫）
+
+`scripts/e2e-class-coverage.mjs` 的職責就是「畫面上每一個 class，樣式表裡都要真的
+寫過」，而它在 v20.97 是**全綠**的。理由和它自己檔頭裡記著的 `.donut-pair` 那一次
+一字不差：它開頭就建了計畫、灌了樣本讓各頁有東西可以畫，於是 `projects.length > 0`，
+「還沒有任何計畫」那一段**從來沒有渲染過**，也就從來沒被掃到。
+**「沒出現就掃不到」是這支先天的限制，這是同一個限制第三次咬人。**
+
+### 守門
+
+| 守門 | 內容 |
+| --- | --- |
+| `scripts/e2e-class-coverage.mjs`（既有，本版補強） | 新增「空狀態」那一輪：另開一個**乾淨的瀏覽器環境**掃一次（不清現有資料——清除流程自己有別支在驗，混進來清不乾淨會變成假的綠）。前置：乾淨環境必須真的停在「還沒有任何計畫」，**找不到就紅，不是略過**。另外直接量那一句的文字框到面板左／右／下三個內緣，每一邊 ≥ 12px |
+| `tests/inline-note-spacing.test.mjs`（新增，5 項） | 靜態檢查：①前置防恆綠（語法樹要掃到 ≥200 個 class、其中 ≥150 個在樣式表找得到規則）②每個元素至少要有一個 class 有規則，刻意沒有樣式的寫進 `INTENTIONALLY_UNSTYLED` 並說明來源 ③清單裡每一筆都要還在用、而且確實還沒有規則（防止清單變成免死金牌）④`.panel>.inline-note` 的左右與下內距 ≥ 12px，且排在 `.project-load-error` 前面 ⑤**建置出來的 `assets/*.css` 也要有這兩條**（改了原始碼卻沒重建資產一樣是壞的） |
+
+⚠️ 解析一律走 TypeScript 的語法樹，CSS 註解用**會認字串的字元掃描器**，**不用正規式**
+——2026-10-05 才踩過 `release-metadata` 用正規式刪註解、被測試標題裡的字串
+`scripts/*.mjs` 騙掉一個 `test()` 的坑。
+
+### 反證（都在隔離副本上實跑）
+
+| 反證 | 做法 | 結果 |
+| --- | --- | --- |
+| A | 把兩條 CSS 規則拿掉（還原成 v20.97 的樣子） | 判準②④⑤**各自紅**；②逐行指名四處（第 17446／18093／18095／18097 行） |
+| B | 把 `.inline-note` 排到 `.project-load-error` 後面 | 判準④紅——順序守門不是裝飾 |
+| C | 還原 | 5 項全綠 |
+| D | **CSS 壞的（還原成 v20.97）＋ 守門也換回 v20.97 原版的 `e2e-class-coverage.mjs`** | **離開碼 0、印「✅ 全部通過」**——這就是「舊守門是假的綠」的直接證據，不是推論 |
+| E | CSS 壞的 ＋ **本版修好的守門** | **離開碼 1**，兩條各自紅：`❌ 左 1.0px／右 1.0px／下 1.0px`、`❌ .inline-note ← 空狀態｜<p class="inline-note">還沒有任何計畫…` |
+
+### 封關（在 Claude 的容器、獨占機器、不並行、字面命令、npm 10.9.9／Node 22.22.2）
+
+| 命令 | 離開碼 | 結果 |
+| --- | --- | --- |
+| `npm ci` | **0** | added 577 packages／audited 578 |
+| 字面 `npm test` | **0** | **843 項／842 通過／0 失敗／1 缺真實調查附件條件略過**。比 v20.97 的 838 多 5 ＝ 新守門的五個判準 |
+| 字面 `npm run e2e` | **0** | **1,440 ✅／0 ❌**，59 支正式腳本串行。比 v20.97 的 1,438 多 2 ＝ `e2e-class-coverage` 新增的兩條斷言（空狀態前置、三邊間距） |
+
+⚠️ **數字變了要解釋得出來**：843 − 838 = 5、1,440 − 1,438 = 2，兩個差值都對得上本版新增的判準數。
+
+### 行為有沒有變
+
+| 項 | 結果 |
+| --- | --- |
+| `xlsx-BSoArgVj.js` | **檔名與雜湊都與 v20.97 逐位元相同** `4a22ccda…` |
+| 樣式表 | **換了**：`index-b_09kH_a.css` → `index-CTPKCkkc.css`。本版就是改它，換名是對的 |
+| `exceljs` / `jszip` 兩個 chunk | 換名，但**長度相同、全檔只差第一行的 `import … from "./index-<主檔雜湊>.js"`**（主檔重建就一定會帶著換名） |
+| `package.json` | **僅 `version` 不同** |
+| `package-lock.json` | **僅兩處 `version` 不同，依賴樹一個節點都沒動** |
+| 手冊 | **35 頁 / 26,604 字元**，與 v20.97 相同；`<title>` 與 PDF 內部 Title 都已是 v20.98 |
+| 四個禁止變更檔 | 未動 |
+
+### 證據界線（照實寫）
+
+- **沒有線上驗證**：本版還沒發布，CI／Pages 與線上雜湊要等 GPT 發布後才驗得了。
+- **沒有真實調查附件**：1 項條件式略過，**略過不等於通過**。
+- 沒有在真的 Microsoft Office 裡開過 Excel／Word。
+- `npm ci` 只在 npm 10.9.9 跑過；本版沒動 lockfile 的依賴樹。
+- **有肉眼看過**：本版動的是版面，所以在無頭瀏覽器裡把空狀態實際畫出來、
+  量過左右下三個間距，並截圖逐一比對修正前後。
 
 ---
 

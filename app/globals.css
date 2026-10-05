@@ -367,6 +367,33 @@
 @media(max-width:900px){.quality-strip{grid-template-columns:1fr 1fr}.validation-grid{grid-template-columns:repeat(2,1fr)}.threshold-grid,.export-checks{grid-template-columns:1fr 1fr}}
 .empty-project-list{margin:8px 2px;padding:12px;border:1px dashed #b9cbd7;border-radius:9px;color:var(--muted);font-size:10px;line-height:1.5}.empty-state{margin-bottom:14px;padding:24px;border:1px dashed #94c8c5;border-radius:12px;background:#f3fbfa;text-align:center}.empty-state strong{display:block;color:var(--navy);font-size:18px}.empty-state p{max-width:650px;margin:8px auto 16px;color:var(--muted);font-size:11px;line-height:1.7}
 .offline-note{margin:0 0 12px;padding:11px 14px;border:1px solid #f0cf9f;border-radius:9px;background:#fff8ed;color:#76501d;font-size:10px;line-height:1.6}.offline-note strong{color:#a55a08}
+/*
+ * ── .inline-note：面板／內容區裡的單行說明句 ─────────────────────
+ *
+ * v20.98（使用者 2026-10-05 附線上截圖回報：「下方的文字『還沒有任何計畫』
+ * 幾乎與邊緣方框處黏在一起了」）。
+ *
+ * ⚠️ 當時這個 class 在 DashboardClient.tsx 用了五次，而**樣式表裡一條規則
+ *   都沒有**——globals.css 0 處、建置後的 assets/*.css 也 0 處。Tailwind 的
+ *   preflight 會把 <p> 的預設 margin 歸零，所以這幾句話沒有內距也沒有外距，
+ *   直接貼著容器的左邊線與下邊線。使用者看到的就是這個。
+ *
+ * ⚠️ .panel 自己沒有 padding，內距一律由子元素各自帶（.panel-title 是
+ *   16px 18px 12px、.period-help 是 0 18px、.panel-empty-note 是 0 18px 18px）。
+ *   所以面板裡的這一句要**自己補 18px** 才會與標題對齊；數值刻意與
+ *   .panel-empty-note 取同一組，不另外發明一套。
+ *
+ * ⚠️ 只補間距，**不動字級與顏色**。那兩項各自有別的規則與守門在管
+ *   （對比由 scripts/e2e-chart-notes.mjs 量），順手改會把這一次的
+ *   修正範圍擴大到沒有被回報、也沒有被量過的地方。
+ *
+ * ⚠️ 基礎 .inline-note 與 .project-load-error 都是單一class，順序影響重疊屬性；
+ *   .panel>.inline-note 則特異性較高，但現行錯誤提示在 .content 下，不匹配它。
+ *   只補上述間距，不改錯誤提示的padding、color、font-weight及line-height。
+ *   tests/inline-note-spacing.test.mjs 的判準④守順序及左右下內距；E2E實量錯誤樣式。
+ */
+.inline-note{margin:0 0 12px}
+.panel>.inline-note{margin:0;padding:0 18px 18px}
 .project-load-error{margin:0 0 12px;padding:12px 14px;border:1px solid #d88977;border-radius:9px;background:#fff0ec;color:#742a1d;font-weight:700;line-height:1.7}
 
 /* 時段車種分析（獨立區塊） */

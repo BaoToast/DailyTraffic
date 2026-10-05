@@ -1,0 +1,66 @@
+TAP version 13
+# Subtest: 前置：真的用語法樹掃到 className，而且大多數 class 在樣式表裡找得到規則
+ok 1 - 前置：真的用語法樹掃到 className，而且大多數 class 在樣式表裡找得到規則
+  ---
+  duration_ms: 0.9667
+  type: 'test'
+  ...
+# Subtest: 每一個元素的 className 裡至少要有一個 class 在樣式表裡有規則
+ok 2 - 每一個元素的 className 裡至少要有一個 class 在樣式表裡有規則
+  ---
+  duration_ms: 8.772
+  type: 'test'
+  ...
+# Subtest: INTENTIONALLY_UNSTYLED 裡的每一個名稱都要還在用，而且確實沒有規則
+ok 3 - INTENTIONALLY_UNSTYLED 裡的每一個名稱都要還在用，而且確實沒有規則
+  ---
+  duration_ms: 0.3116
+  type: 'test'
+  ...
+# Subtest: 面板裡的 .inline-note 要有左右內距與下內距，而且 .project-load-error 不可以被它蓋掉
+ok 4 - 面板裡的 .inline-note 要有左右內距與下內距，而且 .project-load-error 不可以被它蓋掉
+  ---
+  duration_ms: 12.6792
+  type: 'test'
+  ...
+# Subtest: 建置出來的樣式表也要有這兩條（改了原始碼卻沒重建資產一樣是壞的）
+not ok 5 - 建置出來的樣式表也要有這兩條（改了原始碼卻沒重建資產一樣是壞的）
+  ---
+  duration_ms: 18.7595
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2098-static-cases\\built-small-fixed\\tests\\inline-note-spacing.test.mjs:210:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    線上吃的是這份建置產物，不是 globals.css：
+      index-CTPKCkkc.css：右內距11px不足12px或不是可驗證的px單位
+    + actual - expected
+    
+    + [
+    +   'index-CTPKCkkc.css：右內距11px不足12px或不是可驗證的px單位'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'index-CTPKCkkc.css：右內距11px不足12px或不是可驗證的px單位'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2098-static-cases/built-small-fixed/tests/inline-note-spacing.test.mjs:221:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 4
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 635.6563

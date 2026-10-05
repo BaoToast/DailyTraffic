@@ -762,7 +762,7 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    *   「基準線不可以超過本版的前一版」的斷言擋下來（這是本輪新加的）。
    *   每一個新候選都要重新核對當時真正已經發布的版本。
    */
-  const LAST_RELEASED = 96;
+  const LAST_RELEASED = 97;
   const CJK = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const pkg = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),

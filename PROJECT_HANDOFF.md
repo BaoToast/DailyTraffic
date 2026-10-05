@@ -1,5 +1,29 @@
 # 全日交通量及車種組成：工程交接基準
 
+> **GPT v20.98獨立複查中（尚未發布）**：起始正式HEAD
+> b381eec2a17a1be45b5f9dac2a36379ed5035c95，main／origin/main／GitHub一致且乾淨；
+> 該HEAD自身CI37263219425／Pages37263219063均success。低風險間距／測試增量。
+> 原包CSS字串可冒充規則、建置CSS只有存在性守門、間距量測包含框線；
+> GPT已補實際selector解析、左右下px內距與built值守門、內緣扣除border及錯誤樣式探針。
+> 靜態守門仍5項，原始程式兩條間距規則不變；未改計算、保存、匯入或匯出。
+> 完整npm test抓出GPT守門使用未宣告的間接PostCSS；已補既有8.5.28直接開發
+> 依賴宣告，不新增／升級已解析套件、不放寬dependency-manifest守門。
+> 修後字面npm test退出0：842pass／0fail／1缺真實附件skip；完整59/59正式
+> E2E串行退出0，1,441 ✅／0 ❌；18px真正內距及錯誤提示樣式通過，尚未推送發布。
+> 反證及完整封關以本轮VALIDATION_v20.98.md與工程日誌為準，不採信原包封關宣稱。
+
+> **v20.98（2026-10-05，Claude 交付候選，尚未發布）**
+> 前一正式版：v20.97（GPT 2026-10-05 已發布，commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`）。
+>
+> 使用者附線上截圖回報
+> 「還沒有任何計畫」那一句與卡片外框黏在一起。成因是 `.inline-note` 用了五次卻
+> **一條 CSS 規則都沒有**，Tailwind preflight 把 `<p>` 的預設邊距歸零。
+> 使用者看到一處、實際四處。只補間距，不動字級與顏色，計算／匯入／匯出未改。
+> ⚠️ 既有的 `scripts/e2e-class-coverage.mjs` 當時是綠的——它開頭就建了計畫灌了樣本，
+> 空狀態從來沒渲染過。已補「乾淨瀏覽器的空狀態」那一輪並直接量間距，
+> 另新增 `tests/inline-note-spacing.test.mjs`（5 項）。詳見 `VALIDATION_v20.98.md`。
+
+
 > **GPT v20.97 獨立封關並發布（2026-10-05）**：起始正式HEAD
 > f977e23e6e559a5b346ed6d7d0a801ed96a74ee1，低風險註解／測試增量。
 > GPT修正檔頭六類操作／八條件宣告範圍及內建測資來源、手冊HTML／PDF內部Title，
@@ -10,7 +34,7 @@
 > 已推送main，CI `37262764450`／Pages `37262763715` 均success；線上九檔SHA
 > 相符、五個舊版URL為404，1366×768實際瀏覽器v20.97／手冊入口正常且無JS例外。
 > 最後純文件HEAD自身CI／Pages及交付封裝仍須以交付收據獨立核對；
-> 證據見VALIDATION_v20.97.md與engineering-evidence/v20.97，下方Claude為原包紀錄。
+> 證據見VALIDATION_v20.98.md與engineering-evidence/v20.97，下方Claude為原包紀錄。
 
 > **Claude v20.97 原包交付歷史（交付當時尚未發布）**：只改三處**註解**——
 > `scripts/probe-filter-matrix.mjs` 與 `scripts/e2e-filter-coverage.mjs` 的檔頭
@@ -19,7 +43,7 @@
 > 專案外暫存腳本實測（實際上那個守門就在同一支測試的最後一個 `test()`）。
 > **程式行為、計算、畫面、依賴宣告一個字都沒有動**；樣式表與 xlsx chunk
 > 檔名與雜湊與 v20.96 **逐位元相同**，主程式 bundle 只因版號字串改變而重建。
-> 依「Claude 一改就要升一個 patch」升版。詳見 `VALIDATION_v20.97.md`。
+> 依「Claude 一改就要升一個 patch」升版。詳見 `VALIDATION_v20.98.md`。
 >
 > **前一正式版：v20.96**（GPT 2026-10-04 已發布上線，
 > commit `90743ae705df3e4f521ed6b6341ece2497050dfb`）。本包建在它之上，
@@ -35,7 +59,7 @@
 > 五資產乾淨重建與候選包一致，三個JS正規化發布中繼資料後與v20.95相同；
 > 不修改交通計算、保存、匯出，黃金值維持。35頁手冊已渲染核對。
 > production 2 moderate，完整樹16 high／6 moderate；audit仍非零退出。
-> 尚未重做真實附件／Office／WASM平台實際建置；完整證據見 VALIDATION_v20.97.md（v20.96 那一輪的證據在同一份檔案的歷史段落）。
+> 尚未重做真實附件／Office／WASM平台實際建置；完整證據見 VALIDATION_v20.98.md（v20.96 那一輪的證據在同一份檔案的歷史段落）。
 > 程式 release `90743ae705df3e4f521ed6b6341ece2497050dfb` 已推送 main，
 > CI `37192254007`／Pages `37192253728` 均 success；線上九檔 SHA 相符、
 > 五個舊版專屬 URL 為404，實際瀏覽器顯示v20.96且無JavaScript錯誤。
@@ -58,7 +82,7 @@
 > ⚠️ `npm audit --omit=dev` 前後都是 2 moderate；完整樹 30 → **22 項（6 moderate／16 high）**。
 > 封關：字面 `npm test` 離開碼 0；字面 `npm run e2e` 離開碼 0。
 > ⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
-> 詳見 `VALIDATION_v20.97.md`（累積式，含 v20.96 的段落）。
+> 詳見 `VALIDATION_v20.98.md`（累積式，含 v20.96 的段落）。
 >
 > 以下 GPT v20.95 與 Claude v20.95 兩段都是**歷史紀錄**，不是本輪重新驗證。
 
@@ -147,11 +171,11 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
-| 本輪複查基準 | `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`，v20.96 最後交接 HEAD；本機／origin/main／GitHub main 相同且乾淨；該 HEAD 的 CI `37192646396`／Pages `37192646147` 已成功 |
-| 本輪複查 | 使用者指定 20261005 的 v20.97；低風險註解／測試增量；GPT獨立實測及發布狀態見本檔最上方與VALIDATION_v20.97.md，不以Claude原包封關代替實測 |
+| 本輪複查基準 | `b381eec2a17a1be45b5f9dac2a36379ed5035c95`，v20.97最後交接HEAD；本機／origin/main／GitHub main相同且乾淨；該HEAD自身CI `37263219425`／Pages `37263219063` 已成功 |
+| 本輪複查 | 使用者指定20261005b的v20.98；低風險間距／測試增量；GPT獨立實測及發布狀態見本檔最上方與VALIDATION_v20.98.md，不以Claude原包封關代替實測 |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
-| 正式版本 | `v20.97`，程式release commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`，台北時間2026-10-05 12:16:03；CI `37262764450`／Pages `37262763715` 均success，線上九檔SHA與五個舊版404及瀏覽器已實测。前一正式版：v20.96，release `90743ae705df3e4f521ed6b6341ece2497050dfb`；本輪起始HEAD `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日2026-10-05。證據在 `VALIDATION_v20.97.md`，最後文件HEAD自身CI／Pages以Git main及交付收據核對 |
-| 本版來源 | 使用者指定20261005的Claude v20.97完整包，SHA-256 `7a4e5bbc385134f6f7f9067ae6e32046f992c10b3f391e35e87b79178c0a9e4c`；說明ZIP `49074dfb261d8d5e324ea1575b0fed179f5e2ae3b0ed65199bcce8ae6bfa7bf1`。GPT精確化註解、修正手冊內部Title及既有測試條數誤計，新增實跑紅綠守門；未改交通計算、保存及匯出。完整證據在 `VALIDATION_v20.97.md`；更早候選由Git與累積報告保存 |
+| 正式版本 | `v20.97`，程式release commit `517fe39f443c16d25993d583af6dd7d82cc8de3a`，台北時間2026-10-05 12:16:03；CI `37262764450`／Pages `37262763715` 均success，線上九檔SHA與五個舊版404及瀏覽器已實测。前一正式版：v20.96，release `90743ae705df3e4f521ed6b6341ece2497050dfb`；本輪起始HEAD `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日2026-10-05。證據在 `VALIDATION_v20.98.md`，最後文件HEAD自身CI／Pages以Git main及交付收據核對 |
+| 本版來源 | 使用者指定20261005b的Claude v20.98完整包，SHA-256 `b4a7cdabe6ee93330e23bfdfdc87107931f484127e1b403ba0ba7c153e42943b`；說明ZIP `2722526f59fbfbc3fa23820c0768af78e34482812e7e8016b4f688da3a71badb`；Pages ZIP `65f1a04faf446dc2d82c0bad3a626446ae3fcb24daa77b15fa167685e1aa70f5`。完整本輪獨立實測見 `VALIDATION_v20.98.md`；更早候選由Git與累積報告保存 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線

@@ -1,0 +1,8 @@
+{"unchangedOriginalSourceFiles":226,"packageOnlyVersionAndExistingPostcssDeclaration":true,"lockOnlyTwoVersionsAndExistingPostcssDeclaration":true,"resolvedDependencyTreeUnchanged":true,"dashboardOnlyTwoManualNames":true,"cssOnlyTwoSpacingRules":true}
+tests/never-revert-contract.mjs SHA256=bf929a6b503779f4df7ebc5164c34e96073db1cb4dcfd98534c15014c7e457b5
+tests/dependency-manifest.test.mjs SHA256=23648ab073ab187c549d7ee5dbce96ddd31cb69389189e65b4424e82186c0052
+app/number-field.tsx SHA256=93b203151bef9b5c5bd2701e6e7b6eb13991f833623ea516312925f39883b569
+app/period-analysis.ts SHA256=6fc40e6a06976c6549288a8044a98d1867e0db3b4af002385d406c7f084c1b48
+app/period-date.ts SHA256=2a19eeb2f1990725106def87ad269d5e562a9e08a77b3b38debc63026450d75e
+{"formalSerialE2E":59,"namedE2EFiles":61,"rebuiltAssets":5,"threeJsMetadataOnly":true,"xlsxUnchanged":true}
+Original source/Pages nine files match, both ZIP CRC pass

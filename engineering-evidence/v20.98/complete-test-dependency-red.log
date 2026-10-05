@@ -1,0 +1,5194 @@
+
+> traffic-volume-vehicle-composition@20.98.0 test
+> npm run lint && npm run typecheck && npm run glyph-guard && npm run build && node --test tests/*.test.mjs
+
+
+> traffic-volume-vehicle-composition@20.98.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern "github-pages/dist" --ignore-pattern "github-pages/.tryout" --max-warnings=0
+
+[BABEL] Note: The code generator has deoptimised the styling of D:\Users\95108\AppData\Local\Temp\dailytraffic-v2098-review-20261005\app\DashboardClient.tsx as it exceeds the max of 500KB.
+
+> traffic-volume-vehicle-composition@20.98.0 typecheck
+> tsc --noEmit
+
+
+> traffic-volume-vehicle-composition@20.98.0 glyph-guard
+> node scripts/glyph-guard.mjs
+
+字形把關通過：畫面符號全部在 Big5 安全名單內。
+
+> traffic-volume-vehicle-composition@20.98.0 build
+> node scripts/run-vinext.mjs build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 343 modules transformed.
+rendering chunks...
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - rsc:virtual-client-package (15%)
+  - vinext:css-data-url (11%)
+  - vinext:og-inline-fetch-assets (10%)
+  - vinext:rsc-client-reference-loaders (10%)
+  - rsc:rsc-css-export-transform (7%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 3.63s
+[2/5] analyze server references...
+[2K
+transforming...✓ 104 modules transformed.
+rendering chunks...
+✓ built in 1.73s
+[3/5] build rsc environment...
+[2K
+transforming...✓ 341 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 1.84s
+[4/5] build client environment...
+[2K
+transforming...✓ 145 modules transformed.
+rendering chunks...
+computing gzip size...
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - vinext:validate-page-exports (30%)
+  - rsc:scan-strip (15%)
+  - rsc:use-client (7%)
+  - vinext:optimize-imports (5%)
+  - alias (5%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 3.94s
+[5/5] build ssr environment...
+[2K
+transforming...✓ 608 modules transformed.
+rendering chunks...
+computing gzip size...
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - vinext:og-inline-fetch-assets (27%)
+  - vinext:validate-page-exports (11%)
+  - rolldown:vite-resolve (7%)
+  - vinext:middleware-server-only (5%)
+  - rsc:virtual-client-package (4%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 4.77s
+[0m
+  Route (app)
+  ┌ ƒ /                        
+  ├ λ /api/files               
+  ├ λ /api/import              
+  ├ λ /api/projects            
+  ├ λ /api/projects/:id        
+  ├ λ /api/projects/:id/members
+  ├ λ /api/quarters            
+  ├ λ /api/roads               
+  └ λ /api/traffic             
+
+  λ API  ƒ Dynamic
+  Build complete. Run `vinext start` to start the production server.
+
+TAP version 13
+# Subtest: 方向名稱與多日期提醒接進統計、篩選、草稿、Excel 與結果表
+ok 1 - 方向名稱與多日期提醒接進統計、篩選、草稿、Excel 與結果表
+  ---
+  duration_ms: 4.8109
+  type: 'test'
+  ...
+# Subtest: ⚠️ 選了「季度（起）」不可以把沒有季度的提醒吃掉
+ok 2 - ⚠️ 選了「季度（起）」不可以把沒有季度的提醒吃掉
+  ---
+  duration_ms: 3.071
+  type: 'test'
+  ...
+# Subtest: ⚠️ 選了「季度（迄）」也一樣
+ok 3 - ⚠️ 選了「季度（迄）」也一樣
+  ---
+  duration_ms: 0.6304
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置檢查：季度篩選本身仍然有作用（不是一律不篩）
+ok 4 - ⚠️ 前置檢查：季度篩選本身仍然有作用（不是一律不篩）
+  ---
+  duration_ms: 0.5201
+  type: 'test'
+  ...
+# Subtest: 篩出來的筆數與類型統計不可以互相矛盾
+ok 5 - 篩出來的筆數與類型統計不可以互相矛盾
+  ---
+  duration_ms: 0.8933
+  type: 'test'
+  ...
+# Subtest: 路段與日別同一套規則：欄位是空的就不參與篩選
+ok 6 - 路段與日別同一套規則：欄位是空的就不參與篩選
+  ---
+  duration_ms: 0.6188
+  type: 'test'
+  ...
+# Subtest: 每一條 INSERT ... VALUES 的欄位數與佔位符數相等
+ok 7 - 每一條 INSERT ... VALUES 的欄位數與佔位符數相等
+  ---
+  duration_ms: 27.2446
+  type: 'test'
+  ...
+# Subtest: 每一條 INSERT 的佔位符數與 bind() 引數數相等
+ok 8 - 每一條 INSERT 的佔位符數與 bind() 引數數相等
+  ---
+  duration_ms: 18.0384
+  type: 'test'
+  ...
+# Subtest: INSERT ... SELECT 的欄位數與 SELECT 的運算式數相等
+ok 9 - INSERT ... SELECT 的欄位數與 SELECT 的運算式數相等
+  ---
+  duration_ms: 36.795
+  type: 'test'
+  ...
+# Subtest: 各路口車種一致時，切出每一個路口且數字各自獨立
+ok 10 - 各路口車種一致時，切出每一個路口且數字各自獨立
+  ---
+  duration_ms: 33.0986
+  type: 'test'
+  ...
+# Subtest: 某個路口的車種名稱不一樣時，仍要切出全部路口、數字不可相加
+ok 11 - 某個路口的車種名稱不一樣時，仍要切出全部路口、數字不可相加
+  ---
+  duration_ms: 2.2022
+  type: 'test'
+  ...
+# Subtest: 不一樣的車種名稱保留原樣，不會被自動改成別的分類
+ok 12 - 不一樣的車種名稱保留原樣，不會被自動改成別的分類
+  ---
+  duration_ms: 1.3904
+  type: 'test'
+  ...
+# Subtest: 沒有「路口編號」標記的檔案，仍走原本的週期推測
+ok 13 - 沒有「路口編號」標記的檔案，仍走原本的週期推測
+  ---
+  duration_ms: 0.9069
+  type: 'test'
+  ...
+# Subtest: 預設角度推出來的缺口，與真實三岔調查檔相反（問題確實存在）
+ok 14 - 預設角度推出來的缺口，與真實三岔調查檔相反（問題確實存在）
+  ---
+  duration_ms: 5.7918
+  type: 'test'
+  ...
+# Subtest: 三岔的算術盤點：每支印 3 欄、只能去 2 個地方、應缺 1 個
+ok 15 - 三岔的算術盤點：每支印 3 欄、只能去 2 個地方、應缺 1 個
+  ---
+  duration_ms: 0.5885
+  type: 'test'
+  ...
+# Subtest: 反推出來的拓樸與調查表一致，而且是唯一解
+ok 16 - 反推出來的拓樸與調查表一致，而且是唯一解
+  ---
+  duration_ms: 1.4883
+  type: 'test'
+  ...
+# Subtest: 反推的角度重現同一組轉向，而且與預設角度不同
+ok 17 - 反推的角度重現同一組轉向，而且與預設角度不同
+  ---
+  duration_ms: 2.6718
+  type: 'test'
+  ...
+# Subtest: 套用反推結果之後，沒有任何轉向會掉進 UNMAPPED
+ok 18 - 套用反推結果之後，沒有任何轉向會掉進 UNMAPPED
+  ---
+  duration_ms: 1.1183
+  type: 'test'
+  ...
+# Subtest: 四岔沒有任何橫線時資訊不足，不可以硬給答案
+ok 19 - 四岔沒有任何橫線時資訊不足，不可以硬給答案
+  ---
+  duration_ms: 0.7924
+  type: 'test'
+  ...
+# Subtest: 整欄空白不算成橫線，但算術仍指得出來時可以反推
+ok 20 - 整欄空白不算成橫線，但算術仍指得出來時可以反推
+  ---
+  duration_ms: 0.5203
+  type: 'test'
+  ...
+# Subtest: 同一支支線有兩個轉向空白時資訊真的不足，必須回 null
+ok 21 - 同一支支線有兩個轉向空白時資訊真的不足，必須回 null
+  ---
+  duration_ms: 0.2401
+  type: 'test'
+  ...
+# Subtest: 真的整天量到 0 的轉向不可以被當成「不存在」
+ok 22 - 真的整天量到 0 的轉向不可以被當成「不存在」
+  ---
+  duration_ms: 0.5264
+  type: 'test'
+  ...
+# Subtest: buildArmSettings 不會就地重排呼叫端的支線代碼陣列
+ok 23 - buildArmSettings 不會就地重排呼叫端的支線代碼陣列
+  ---
+  duration_ms: 0.7758
+  type: 'test'
+  ...
+# Subtest: buildArmSettings 自己的輸出仍照代碼排序（修正沒有改掉行為）
+ok 24 - buildArmSettings 自己的輸出仍照代碼排序（修正沒有改掉行為）
+  ---
+  duration_ms: 0.3076
+  type: 'test'
+  ...
+# Subtest: 匯出的備份收齊了使用者的設定
+ok 25 - 匯出的備份收齊了使用者的設定
+  ---
+  duration_ms: 3.4574
+  type: 'test'
+  ...
+# Subtest: 還原備份時會把條件範本寫回去
+ok 26 - 還原備份時會把條件範本寫回去
+  ---
+  duration_ms: 5.3749
+  type: 'test'
+  ...
+# Subtest: 備份裡沒有條件範本時，不可以把這台電腦既有的範本清掉
+ok 27 - 備份裡沒有條件範本時，不可以把這台電腦既有的範本清掉
+  ---
+  duration_ms: 1.6807
+  type: 'test'
+  ...
+# Subtest: 備份全部計畫時，每個計畫的資料是各自抓回來的，不是拿畫面上的 state
+ok 28 - 備份全部計畫時，每個計畫的資料是各自抓回來的，不是拿畫面上的 state
+  ---
+  duration_ms: 1.5723
+  type: 'test'
+  ...
+# Subtest: buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的
+ok 29 - buildBackupPayload() 的 PCU 係數一定是由 input 傳進來的
+  ---
+  duration_ms: 1.5075
+  type: 'test'
+  ...
+# Subtest: 還原本計畫時，使用者親手按出來的東西也要跟著回來
+ok 30 - 還原本計畫時，使用者親手按出來的東西也要跟著回來
+  ---
+  duration_ms: 0.8806
+  type: 'test'
+  ...
+# Subtest: 還原多個計畫時，車種分類與路口幾何是累加的，不會互相覆蓋
+ok 31 - 還原多個計畫時，車種分類與路口幾何是累加的，不會互相覆蓋
+  ---
+  duration_ms: 0.9038
+  type: 'test'
+  ...
+# Subtest: 前置：從樣式表讀得出「要和 button 一起用」的修飾詞（讀到 0 個就是恆真）
+ok 32 - 前置：從樣式表讀得出「要和 button 一起用」的修飾詞（讀到 0 個就是恆真）
+  ---
+  duration_ms: 1.649
+  type: 'test'
+  ...
+# Subtest: 前置：真的掃到 className（掃到 0 個就是恆真）
+ok 33 - 前置：真的掃到 className（掃到 0 個就是恆真）
+  ---
+  duration_ms: 0.4263
+  type: 'test'
+  ...
+# Subtest: 凡是用了 button 的修飾詞，就一定要同時有 button 這個基底 class
+ok 34 - 凡是用了 button 的修飾詞，就一定要同時有 button 這個基底 class
+  ---
+  duration_ms: 1.8357
+  type: 'test'
+  ...
+# Subtest: 而且那顆「下載勾選的 N 張圖」確實是 button primary（釘住這一次的修正）
+ok 35 - 而且那顆「下載勾選的 N 張圖」確實是 button primary（釘住這一次的修正）
+  ---
+  duration_ms: 1.1396
+  type: 'test'
+  ...
+# Subtest: cellCount 把儲存格的小數四捨五入成整數
+ok 36 - cellCount 把儲存格的小數四捨五入成整數
+  ---
+  duration_ms: 4.8269
+  type: 'test'
+  ...
+# Subtest: 路段格式：小數儲存格匯入後不再出現小數
+ok 37 - 路段格式：小數儲存格匯入後不再出現小數
+  ---
+  duration_ms: 4.5073
+  type: 'test'
+  ...
+# Subtest: 路口轉向格式（左直右三欄）：小數儲存格匯入後不再出現小數
+ok 38 - 路口轉向格式（左直右三欄）：小數儲存格匯入後不再出現小數
+  ---
+  duration_ms: 3.7077
+  type: 'test'
+  ...
+# Subtest: OD（往B／往C）格式：小數儲存格匯入後不再出現小數
+ok 39 - OD（往B／往C）格式：小數儲存格匯入後不再出現小數
+  ---
+  duration_ms: 2.1324
+  type: 'test'
+  ...
+# Subtest: 整數的調查檔完全不受影響
+ok 40 - 整數的調查檔完全不受影響
+  ---
+  duration_ms: 1.2214
+  type: 'test'
+  ...
+# Subtest: 讀取原始儲存格只有 cellCount 一個入口
+ok 41 - 讀取原始儲存格只有 cellCount 一個入口
+  ---
+  duration_ms: 3.9456
+  type: 'test'
+  ...
+# Subtest: 全日：完整 24 小時是「輛/日」「PCU/日」
+ok 42 - 全日：完整 24 小時是「輛/日」「PCU/日」
+  ---
+  duration_ms: 5.8
+  type: 'test'
+  ...
+# Subtest: 全日：部分時段調查不能標成「每日」
+ok 43 - 全日：部分時段調查不能標成「每日」
+  ---
+  duration_ms: 0.6107
+  type: 'test'
+  ...
+# Subtest: 全日：同一批資料裡 24 小時與部分時段各標各的
+ok 44 - 全日：同一批資料裡 24 小時與部分時段各標各的
+  ---
+  duration_ms: 0.237
+  type: 'test'
+  ...
+# Subtest: 平日＋假日：不能標成「每日」，因為那是兩天的加總
+ok 45 - 平日＋假日：不能標成「每日」，因為那是兩天的加總
+  ---
+  duration_ms: 0.2436
+  type: 'test'
+  ...
+# Subtest: 尖峰：剛好 60 分鐘才是「/hr」
+ok 46 - 尖峰：剛好 60 分鐘才是「/hr」
+  ---
+  duration_ms: 1.0163
+  type: 'test'
+  ...
+# Subtest: 尖峰：湊不滿一小時的視窗要講出實際長度，不能當成時率
+ok 47 - 尖峰：湊不滿一小時的視窗要講出實際長度，不能當成時率
+  ---
+  duration_ms: 0.2829
+  type: 'test'
+  ...
+# Subtest: 尖峰：以兩小時為一格的原始檔不能標成「/hr」
+ok 48 - 尖峰：以兩小時為一格的原始檔不能標成「/hr」
+  ---
+  duration_ms: 0.2322
+  type: 'test'
+  ...
+# Subtest: 尖峰：跨午夜的視窗長度算得出來，不會變成負數
+ok 49 - 尖峰：跨午夜的視窗長度算得出來，不會變成負數
+  ---
+  duration_ms: 0.1671
+  type: 'test'
+  ...
+# Subtest: 時段標籤不是時間範圍時退回「/hr」，不會產生 NaN
+ok 50 - 時段標籤不是時間範圍時退回「/hr」，不會產生 NaN
+  ---
+  duration_ms: 2.0311
+  type: 'test'
+  ...
+# Subtest: 百分比一律是「%」，不受時段影響
+ok 51 - 百分比一律是「%」，不受時段影響
+  ---
+  duration_ms: 0.625
+  type: 'test'
+  ...
+# Subtest: 同一欄的單位，畫面與匯出必須一致
+ok 52 - 同一欄的單位，畫面與匯出必須一致
+  ---
+  duration_ms: 1.9178
+  type: 'test'
+  ...
+# Subtest: 混用時間格要出警告，但休息時段與單一格長不可誤報
+ok 53 - 混用時間格要出警告，但休息時段與單一格長不可誤報
+  ---
+  duration_ms: 60.4948
+  type: 'test'
+  ...
+# Subtest: ⚠️ 畫面與匯出的「尖峰（…）」欄名一律走 peakColumnUnit，不可以寫死單位
+ok 54 - ⚠️ 畫面與匯出的「尖峰（…）」欄名一律走 peakColumnUnit，不可以寫死單位
+  ---
+  duration_ms: 48.0603
+  type: 'test'
+  ...
+# Subtest: 圖說第 3、4 級符合三支共用的契約
+ok 55 - 圖說第 3、4 級符合三支共用的契約
+  ---
+  duration_ms: 7.7664
+  type: 'test'
+  ...
+# Subtest: ⚠️ 共用模組的內容要與另外兩支逐位元相同（SHA-256 釘住）
+ok 56 - ⚠️ 共用模組的內容要與另外兩支逐位元相同（SHA-256 釘住）
+  ---
+  duration_ms: 21.0553
+  type: 'test'
+  ...
+# Subtest: 車種組成：講的佔比要與資料算出來的一致
+ok 57 - 車種組成：講的佔比要與資料算出來的一致
+  ---
+  duration_ms: 91.4597
+  type: 'test'
+  ...
+# Subtest: 車種組成：歸類到機車的自訂車種**不算**大車（要看 key，不是看名稱）
+ok 58 - 車種組成：歸類到機車的自訂車種**不算**大車（要看 key，不是看名稱）
+  ---
+  duration_ms: 1.1615
+  type: 'test'
+  ...
+# Subtest: 車種組成：沒有歸類的自訂車種自成一類，要算進大車
+ok 59 - 車種組成：沒有歸類的自訂車種自成一類，要算進大車
+  ---
+  duration_ms: 0.6912
+  type: 'test'
+  ...
+# Subtest: 車種組成：沒有資料時要說沒有資料，不可以硬湊
+ok 60 - 車種組成：沒有資料時要說沒有資料，不可以硬湊
+  ---
+  duration_ms: 0.438
+  type: 'test'
+  ...
+# Subtest: 24 小時型態：尖峰、離峰與集中程度都要講對
+ok 61 - 24 小時型態：尖峰、離峰與集中程度都要講對
+  ---
+  duration_ms: 1.598
+  type: 'test'
+  ...
+# Subtest: ⚠️ 稽核表 E：多個調查點時，尖峰佔比要明講是合起來算的
+ok 62 - ⚠️ 稽核表 E：多個調查點時，尖峰佔比要明講是合起來算的
+  ---
+  duration_ms: 0.7299
+  type: 'test'
+  ...
+# Subtest: 24 小時型態：時段不足 24 小時要主動講出來
+ok 63 - 24 小時型態：時段不足 24 小時要主動講出來
+  ---
+  duration_ms: 0.5023
+  type: 'test'
+  ...
+# Subtest: 同季平假日：要明講兩根柱子不會相加
+ok 64 - 同季平假日：要明講兩根柱子不會相加
+  ---
+  duration_ms: 2.8249
+  type: 'test'
+  ...
+# Subtest: 同季平假日：沒有一個點同時有兩種日別時要說清楚
+ok 65 - 同季平假日：沒有一個點同時有兩種日別時要說清楚
+  ---
+  duration_ms: 0.8523
+  type: 'test'
+  ...
+# Subtest: ⚠️ 稽核表 F：只有一個調查點時照樣寫得出它自己的兩個數字
+ok 66 - ⚠️ 稽核表 F：只有一個調查點時照樣寫得出它自己的兩個數字
+  ---
+  duration_ms: 1.6908
+  type: 'test'
+  ...
+# Subtest: MARKS 與 CONCLUSION_METRICS 一一對應（新增指標不可以漏登記）
+ok 67 - MARKS 與 CONCLUSION_METRICS 一一對應（新增指標不可以漏登記）
+  ---
+  duration_ms: 3.7057
+  type: 'test'
+  ...
+# Subtest: ⚠️ 判定字樣必須分辨得出來：一個指標都不勾時，一個字樣都不可以命中
+ok 68 - ⚠️ 判定字樣必須分辨得出來：一個指標都不勾時，一個字樣都不可以命中
+  ---
+  duration_ms: 15.2433
+  type: 'test'
+  ...
+# Subtest: ⚠️ 矩陣：每一個指標在四個時段底下都寫得出內容
+ok 69 - ⚠️ 矩陣：每一個指標在四個時段底下都寫得出內容
+  ---
+  duration_ms: 24.4851
+  type: 'test'
+  ...
+# Subtest: ⚠️ 路段篩選：勾一個路段不可以寫出另一個路段
+ok 70 - ⚠️ 路段篩選：勾一個路段不可以寫出另一個路段
+  ---
+  duration_ms: 0.9948
+  type: 'test'
+  ...
+# Subtest: ⚠️ 日別篩選：勾平日不可以寫出假日的數字
+ok 71 - ⚠️ 日別篩選：勾平日不可以寫出假日的數字
+  ---
+  duration_ms: 1.0162
+  type: 'test'
+  ...
+# Subtest: ⚠️ 方向／支線篩選：勾不同的要寫出不同的字
+ok 72 - ⚠️ 方向／支線篩選：勾不同的要寫出不同的字
+  ---
+  duration_ms: 0.441
+  type: 'test'
+  ...
+# Subtest: ⚠️ 三種分組方式都產得出內容，而且輸出彼此不同
+ok 73 - ⚠️ 三種分組方式都產得出內容，而且輸出彼此不同
+  ---
+  duration_ms: 1.6988
+  type: 'test'
+  ...
+# Subtest: ⚠️ 四種統計範圍（單季／年度／區間／全計畫）都挑得到資料
+ok 74 - ⚠️ 四種統計範圍（單季／年度／區間／全計畫）都挑得到資料
+  ---
+  duration_ms: 0.9532
+  type: 'test'
+  ...
+# Subtest: ⚠️ 四個時段 × 全部指標一起勾：每一個指標都還在
+ok 75 - ⚠️ 四個時段 × 全部指標一起勾：每一個指標都還在
+  ---
+  duration_ms: 4.8818
+  type: 'test'
+  ...
+# Subtest: ⚠️ 報表草稿：每一個段落單獨勾都要寫得出內容
+ok 76 - ⚠️ 報表草稿：每一個段落單獨勾都要寫得出內容
+  ---
+  duration_ms: 4.1986
+  type: 'test'
+  ...
+# Subtest: ⚠️ 報表草稿：全部段落一起勾，每一段都還在
+ok 77 - ⚠️ 報表草稿：全部段落一起勾，每一段都還在
+  ---
+  duration_ms: 2.0871
+  type: 'test'
+  ...
+# Subtest: 百分比要跟著「小數位數」走
+ok 78 - 百分比要跟著「小數位數」走
+  ---
+  duration_ms: 43.4335
+  type: 'test'
+  ...
+# Subtest: 季度變動幅度與平假日對比的百分比也要跟著走
+ok 79 - 季度變動幅度與平假日對比的百分比也要跟著走
+  ---
+  duration_ms: 4.1905
+  type: 'test'
+  ...
+# Subtest: 車輛數維持整數，不跟著小數位數跑
+ok 80 - 車輛數維持整數，不跟著小數位數跑
+  ---
+  duration_ms: 0.8029
+  type: 'test'
+  ...
+# Subtest: 舊範本帶進非法的小數位數時，安全回到 1 位而且不丟例外
+ok 81 - 舊範本帶進非法的小數位數時，安全回到 1 位而且不丟例外
+  ---
+  duration_ms: 23.0784
+  type: 'test'
+  ...
+# Subtest: 合法的數字字串仍然可以用（舊範本常把它存成字串）
+ok 82 - 合法的數字字串仍然可以用（舊範本常把它存成字串）
+  ---
+  duration_ms: 1.2932
+  type: 'test'
+  ...
+# Subtest: 季度排序鍵可以混排民國兩碼、三碼與西元四碼
+ok 83 - 季度排序鍵可以混排民國兩碼、三碼與西元四碼
+  ---
+  duration_ms: 2.0762
+  type: 'test'
+  ...
+# Subtest: 單季／年度／區間條件都會生效
+ok 84 - 單季／年度／區間條件都會生效
+  ---
+  duration_ms: 2.2742
+  type: 'test'
+  ...
+# Subtest: 路段、方向與日別條件都會生效
+ok 85 - 路段、方向與日別條件都會生效
+  ---
+  duration_ms: 10.7342
+  type: 'test'
+  ...
+# Subtest: 只勾車輛數時不會寫出 PCU，反之亦然
+ok 86 - 只勾車輛數時不會寫出 PCU，反之亦然
+  ---
+  duration_ms: 15.8481
+  type: 'test'
+  ...
+# Subtest: 全調查時段與尖峰的單位分開標示，不會把累計量標成每小時
+ok 87 - 全調查時段與尖峰的單位分開標示，不會把累計量標成每小時
+  ---
+  duration_ms: 0.9558
+  type: 'test'
+  ...
+# Subtest: 車種組成的百分比以該格總量為分母
+ok 88 - 車種組成的百分比以該格總量為分母
+  ---
+  duration_ms: 0.8043
+  type: 'test'
+  ...
+# Subtest: 最大宗車種挑的是車輛數最多的那一種
+ok 89 - 最大宗車種挑的是車輛數最多的那一種
+  ---
+  duration_ms: 0.4758
+  type: 'test'
+  ...
+# Subtest: 沒勾「各方向分列」時只寫合計那一列
+ok 90 - 沒勾「各方向分列」時只寫合計那一列
+  ---
+  duration_ms: 1.6675
+  type: 'test'
+  ...
+# Subtest: 單位不一致時拒絕比較，並說明原因
+ok 91 - 單位不一致時拒絕比較，並說明原因
+  ---
+  duration_ms: 1.395
+  type: 'test'
+  ...
+# Subtest: 季度變動只在同一路段、同一方向、同一日別之間計算
+ok 92 - 季度變動只在同一路段、同一方向、同一日別之間計算
+  ---
+  duration_ms: 1.3442
+  type: 'test'
+  ...
+# Subtest: 起始為 0 時不寫出無限大的百分比
+ok 93 - 起始為 0 時不寫出無限大的百分比
+  ---
+  duration_ms: 0.4821
+  type: 'test'
+  ...
+# Subtest: 平日假日對比只比同一路段同一季，且單位不同時不比
+ok 94 - 平日假日對比只比同一路段同一季，且單位不同時不比
+  ---
+  duration_ms: 0.9696
+  type: 'test'
+  ...
+# Subtest: 最大最小只比合計列，混單位時不比
+ok 95 - 最大最小只比合計列，混單位時不比
+  ---
+  duration_ms: 0.9254
+  type: 'test'
+  ...
+# Subtest: 部分時段調查會在文末註明不可與完整全日比較
+ok 96 - 部分時段調查會在文末註明不可與完整全日比較
+  ---
+  duration_ms: 0.3006
+  type: 'test'
+  ...
+# Subtest: 沒有資料的格子會明講，不會寫成 0
+ok 97 - 沒有資料的格子會明講，不會寫成 0
+  ---
+  duration_ms: 1.9735
+  type: 'test'
+  ...
+# Subtest: 條件挑不到資料時給的是可行動的說明
+ok 98 - 條件挑不到資料時給的是可行動的說明
+  ---
+  duration_ms: 0.3073
+  type: 'test'
+  ...
+# Subtest: 三種分段方式都寫得出東西
+ok 99 - 三種分段方式都寫得出東西
+  ---
+  duration_ms: 0.5418
+  type: 'test'
+  ...
+# Subtest: 每一個可勾選指標都真的會改變輸出（沒有死選項）
+ok 100 - 每一個可勾選指標都真的會改變輸出（沒有死選項）
+  ---
+  duration_ms: 6.5566
+  type: 'test'
+  ...
+# Subtest: 標頭一定寫明全調查時段與尖峰的單位規則
+ok 101 - 標頭一定寫明全調查時段與尖峰的單位規則
+  ---
+  duration_ms: 2.1001
+  type: 'test'
+  ...
+# Subtest: ⚠️ 四個時段全勾：每一個都要寫出來，而且單位各自正確
+ok 102 - ⚠️ 四個時段全勾：每一個都要寫出來，而且單位各自正確
+  ---
+  duration_ms: 1.8207
+  type: 'test'
+  ...
+# Subtest: ⚠️ 混合勾選：依附時段的與不依附時段的一起勾，兩邊都要寫出來
+ok 103 - ⚠️ 混合勾選：依附時段的與不依附時段的一起勾，兩邊都要寫出來
+  ---
+  duration_ms: 1.1761
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：測資真的有四個時段（少一格會讓上面兩支變成恆真）
+ok 104 - ⚠️ 前置：測資真的有四個時段（少一格會讓上面兩支變成恆真）
+  ---
+  duration_ms: 0.5972
+  type: 'test'
+  ...
+# Subtest: ⚠️ 日別選「平日」時，「平日與假日對比」仍然要寫出來（byRoad）
+ok 105 - ⚠️ 日別選「平日」時，「平日與假日對比」仍然要寫出來（byRoad）
+  ---
+  duration_ms: 0.7884
+  type: 'test'
+  ...
+# Subtest: ⚠️ 日別選「平日」時，「平日與假日對比」仍然要寫出來（byQuarter）
+ok 106 - ⚠️ 日別選「平日」時，「平日與假日對比」仍然要寫出來（byQuarter）
+  ---
+  duration_ms: 0.4495
+  type: 'test'
+  ...
+# Subtest: ⚠️ 日別選「平日」時，「平日與假日對比」仍然要寫出來（overall）
+ok 107 - ⚠️ 日別選「平日」時，「平日與假日對比」仍然要寫出來（overall）
+  ---
+  duration_ms: 0.2346
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證：沒有假日資料時要寫出理由，不可以整段消失
+ok 108 - ⚠️ 反證：沒有假日資料時要寫出理由，不可以整段消失
+  ---
+  duration_ms: 0.3617
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證：沒設日別條件時，輸出與改版前逐字相同
+ok 109 - ⚠️ 反證：沒設日別條件時，輸出與改版前逐字相同
+  ---
+  duration_ms: 0.6711
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證：日別條件對其餘各段仍然生效（別把日別整個改鬆了）
+ok 110 - ⚠️ 反證：日別條件對其餘各段仍然生效（別把日別整個改鬆了）
+  ---
+  duration_ms: 0.5496
+  type: 'test'
+  ...
+# Subtest: ⚠️ 「依路段分段」的季度變動沒得比時也要寫出理由
+ok 111 - ⚠️ 「依路段分段」的季度變動沒得比時也要寫出理由
+  ---
+  duration_ms: 0.2582
+  type: 'test'
+  ...
+# Subtest: ⚠️ 平假日對比：標籤相同但實際時段不同時，不可以算差異百分比
+ok 112 - ⚠️ 平假日對比：標籤相同但實際時段不同時，不可以算差異百分比
+  ---
+  duration_ms: 16.1129
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證：實際時段相同時要照樣算得出百分比（不可以誤殺）
+ok 113 - ⚠️ 反證：實際時段相同時要照樣算得出百分比（不可以誤殺）
+  ---
+  duration_ms: 2.7015
+  type: 'test'
+  ...
+# Subtest: ⚠️ 季度變動：標籤相同但實際時段不同時，不可以算變動幅度
+ok 114 - ⚠️ 季度變動：標籤相同但實際時段不同時，不可以算變動幅度
+  ---
+  duration_ms: 2.2493
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證：季度之間實際時段相同時要照樣算（不可以誤殺）
+ok 115 - ⚠️ 反證：季度之間實際時段相同時要照樣算（不可以誤殺）
+  ---
+  duration_ms: 1.0762
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：coverageKeyOf() 與 sameSurveyCoverage() 必須等價
+ok 116 - ⚠️ 前置：coverageKeyOf() 與 sameSurveyCoverage() 必須等價
+  ---
+  duration_ms: 203.8197
+  type: 'test'
+  ...
+# Subtest: 四個核心名稱一字不差，而且一個都不能少
+ok 117 - 四個核心名稱一字不差，而且一個都不能少
+  ---
+  duration_ms: 2.141
+  type: 'test'
+  ...
+# Subtest: ⚠️ 「全調查時段尖峰」的說明不可以要求 24 小時資料
+ok 118 - ⚠️ 「全調查時段尖峰」的說明不可以要求 24 小時資料
+  ---
+  duration_ms: 0.6016
+  type: 'test'
+  ...
+# Subtest: ⚠️ 舊範本的 peak24 要能讀回來（改名的配套遷移不可以拿掉）
+ok 119 - ⚠️ 舊範本的 peak24 要能讀回來（改名的配套遷移不可以拿掉）
+  ---
+  duration_ms: 73.3961
+  type: 'test'
+  ...
+# Subtest: ⚠️ 比較報表範本的 peak24 也要讀得回來（第二個讀取端）
+ok 120 - ⚠️ 比較報表範本的 peak24 也要讀得回來（第二個讀取端）
+  ---
+  duration_ms: 14.6911
+  type: 'test'
+  ...
+# Subtest: ⚠️ 鍵名不可以再改回 peak24
+ok 121 - ⚠️ 鍵名不可以再改回 peak24
+  ---
+  duration_ms: 12.944
+  type: 'test'
+  ...
+# Subtest: 分區名稱不可以在畫面上寫死（只能走 zoneHeading）
+ok 122 - 分區名稱不可以在畫面上寫死（只能走 zoneHeading）
+  ---
+  duration_ms: 6.6339
+  type: 'test'
+  ...
+# Subtest: PAGE_ZONES 不可以再有沒人讀的 short 欄位
+ok 123 - PAGE_ZONES 不可以再有沒人讀的 short 欄位
+  ---
+  duration_ms: 1.7726
+  type: 'test'
+  ...
+# Subtest: 最上層五塊叫「分區」，手冊裡的「分頁」只能是「大分頁」
+ok 124 - 最上層五塊叫「分區」，手冊裡的「分頁」只能是「大分頁」
+  ---
+  duration_ms: 2.8844
+  type: 'test'
+  ...
+# Subtest: 還原備份時 PCU 係數要寫進 targetProjectId，不是 activeProject
+ok 125 - 還原備份時 PCU 係數要寫進 targetProjectId，不是 activeProject
+  ---
+  duration_ms: 6.4644
+  type: 'test'
+  ...
+# Subtest: 寫不進去的時候不可以回報成功
+ok 126 - 寫不進去的時候不可以回報成功
+  ---
+  duration_ms: 0.7456
+  type: 'test'
+  ...
+# Subtest: PCU 係數寫入失敗時要保留警告到還原流程結束
+ok 127 - PCU 係數寫入失敗時要保留警告到還原流程結束
+  ---
+  duration_ms: 1.9973
+  type: 'test'
+  ...
+# Subtest: 恢復預設不得用成功訊息蓋掉儲存失敗
+ok 128 - 恢復預設不得用成功訊息蓋掉儲存失敗
+  ---
+  duration_ms: 0.9446
+  type: 'test'
+  ...
+# Subtest: 設定範本已移除，程式碼裡不可以再長回來
+ok 129 - 設定範本已移除，程式碼裡不可以再長回來
+  ---
+  duration_ms: 12.0231
+  type: 'test'
+  ...
+# Subtest: coverageLabelOf 逐列說出這一列調查了多久
+ok 130 - coverageLabelOf 逐列說出這一列調查了多久
+  ---
+  duration_ms: 3.0336
+  type: 'test'
+  ...
+# Subtest: 歷季各表的欄位標題不得帶「/日」或「/調查時段」
+ok 131 - 歷季各表的欄位標題不得帶「/日」或「/調查時段」
+  ---
+  duration_ms: 1.9917
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢的單位必須看整段趨勢範圍，不可以由目前那一季決定
+ok 132 - 歷季趨勢的單位必須看整段趨勢範圍，不可以由目前那一季決定
+  ---
+  duration_ms: 8.2249
+  type: 'test'
+  ...
+# Subtest: 歷季各列自己帶著調查涵蓋
+ok 133 - 歷季各列自己帶著調查涵蓋
+  ---
+  duration_ms: 1.298
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢分開標示平日與假日的調查涵蓋
+ok 134 - 歷季趨勢分開標示平日與假日的調查涵蓋
+  ---
+  duration_ms: 1.0746
+  type: 'test'
+  ...
+# Subtest: 歷季佔比趨勢與 Excel 圖表資料都逐調查點、逐日別，不跨點合併
+ok 135 - 歷季佔比趨勢與 Excel 圖表資料都逐調查點、逐日別，不跨點合併
+  ---
+  duration_ms: 0.9546
+  type: 'test'
+  ...
+# Subtest: 舊版 .xls 匯出的歷季表也要跟著改
+ok 136 - 舊版 .xls 匯出的歷季表也要跟著改
+  ---
+  duration_ms: 0.5215
+  type: 'test'
+  ...
+# Subtest: 匯出範圍說明不得宣稱歷季全日交通量會被篩選
+ok 137 - 匯出範圍說明不得宣稱歷季全日交通量會被篩選
+  ---
+  duration_ms: 1.5963
+  type: 'test'
+  ...
+# Subtest: anomalyQuarters 用 compareQuarters，不自己補零排序
+ok 138 - anomalyQuarters 用 compareQuarters，不自己補零排序
+  ---
+  duration_ms: 0.5335
+  type: 'test'
+  ...
+# Subtest: compareQuarters 在混用民國與西元時仍排得對
+ok 139 - compareQuarters 在混用民國與西元時仍排得對
+  ---
+  duration_ms: 19.4339
+  type: 'test'
+  ...
+# Subtest: 刪除計畫會清掉依計畫存放的 localStorage
+ok 140 - 刪除計畫會清掉依計畫存放的 localStorage
+  ---
+  duration_ms: 1.6442
+  type: 'test'
+  ...
+# Subtest: 非調查日期清單要涵蓋彙整、輸出、建檔、產製
+ok 141 - 非調查日期清單要涵蓋彙整、輸出、建檔、產製
+  ---
+  duration_ms: 2.4023
+  type: 'test'
+  ...
+# Subtest: 「平日＋假日」不得把兩天相加成一列
+ok 142 - 「平日＋假日」不得把兩天相加成一列
+  ---
+  duration_ms: 39.7348
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢的單位不可寫成「合計」——它畫的是兩條各自單日的線
+ok 143 - 歷季趨勢的單位不可寫成「合計」——它畫的是兩條各自單日的線
+  ---
+  duration_ms: 0.7014
+  type: 'test'
+  ...
+# Subtest: 舊版 .xls 的平假日比較要有中文欄名、單位與完整欄位
+ok 144 - 舊版 .xls 的平假日比較要有中文欄名、單位與完整欄位
+  ---
+  duration_ms: 1.6399
+  type: 'test'
+  ...
+# Subtest: 沒做過的日別要與「做了但量是 0」分開
+ok 145 - 沒做過的日別要與「做了但量是 0」分開
+  ---
+  duration_ms: 2.1898
+  type: 'test'
+  ...
+# Subtest: 同季平假日面板的單位不可寫死
+ok 146 - 同季平假日面板的單位不可寫死
+  ---
+  duration_ms: 3.9451
+  type: 'test'
+  ...
+# Subtest: 還原備份後要把「本計畫已自訂係數」的旗標打開
+ok 147 - 還原備份後要把「本計畫已自訂係數」的旗標打開
+  ---
+  duration_ms: 0.8885
+  type: 'test'
+  ...
+# Subtest: 沒有路口資料時不可以叫使用者去看路口工作表
+ok 148 - 沒有路口資料時不可以叫使用者去看路口工作表
+  ---
+  duration_ms: 3.2738
+  type: 'test'
+  ...
+# Subtest: 兩個調查點同名時匯出的下拉與 SUMIFS 不可重複計算
+ok 149 - 兩個調查點同名時匯出的下拉與 SUMIFS 不可重複計算
+  ---
+  duration_ms: 1.3523
+  type: 'test'
+  ...
+# Subtest: 季度一律以民國年寫法寫入
+ok 150 - 季度一律以民國年寫法寫入
+  ---
+  duration_ms: 4.0302
+  type: 'test'
+  ...
+# Subtest: 要接受 .xlsm（啟用巨集的活頁簿）
+ok 151 - 要接受 .xlsm（啟用巨集的活頁簿）
+  ---
+  duration_ms: 2.4548
+  type: 'test'
+  ...
+# Subtest: 既有資料用另一種寫法存過同一季時，要擋下並說清楚
+ok 152 - 既有資料用另一種寫法存過同一季時，要擋下並說清楚
+  ---
+  duration_ms: 3.7051
+  type: 'test'
+  ...
+# Subtest: quarterInYearStyle 兩種寫法可以互轉，且不動到認不得的字串
+ok 153 - quarterInYearStyle 兩種寫法可以互轉，且不動到認不得的字串
+  ---
+  duration_ms: 2.058
+  type: 'test'
+  ...
+# Subtest: periodDisplayLabel 的月份寫法也跟著年份切換，不傳就維持舊行為
+ok 154 - periodDisplayLabel 的月份寫法也跟著年份切換，不傳就維持舊行為
+  ---
+  duration_ms: 1.5729
+  type: 'test'
+  ...
+# Subtest: 切換鈕存在，而且季度選單的值一律是儲存值
+ok 155 - 切換鈕存在，而且季度選單的值一律是儲存值
+  ---
+  duration_ms: 5.6945
+  type: 'test'
+  ...
+# Subtest: 匯出的季度欄一律走 showQuarter，沒有一處漏掉
+ok 156 - 匯出的季度欄一律走 showQuarter，沒有一處漏掉
+  ---
+  duration_ms: 1.7733
+  type: 'test'
+  ...
+# Subtest: 結論草稿的換字是可選的，不傳就維持舊輸出；篩選與數字完全不變
+ok 157 - 結論草稿的換字是可選的，不傳就維持舊輸出；篩選與數字完全不變
+  ---
+  duration_ms: 137.3825
+  type: 'test'
+  ...
+# Subtest: 超出換算範圍的四碼年份不得原樣存成季度鍵
+ok 158 - 超出換算範圍的四碼年份不得原樣存成季度鍵
+  ---
+  duration_ms: 139.5124
+  type: 'test'
+  ...
+# Subtest: 民國兩碼年份是合法寫法，不得被輸入檢查擋掉
+ok 159 - 民國兩碼年份是合法寫法，不得被輸入檢查擋掉
+  ---
+  duration_ms: 1.3882
+  type: 'test'
+  ...
+# Subtest: 寫入路徑一律走共用檢查，不得再用形狀正規式
+ok 160 - 寫入路徑一律走共用檢查，不得再用形狀正規式
+  ---
+  duration_ms: 2.152
+  type: 'test'
+  ...
+# Subtest: 平假日比較圖表的 cache 對「本季未調查」要寫 null，不可寫 0
+ok 161 - 平假日比較圖表的 cache 對「本季未調查」要寫 null，不可寫 0
+  ---
+  duration_ms: 2.9634
+  type: 'test'
+  ...
+# Subtest: 備份季度要正規化後才寫回，且壞季度不得被靜靜濾掉
+ok 162 - 備份季度要正規化後才寫回，且壞季度不得被靜靜濾掉
+  ---
+  duration_ms: 4.7807
+  type: 'test'
+  ...
+# Subtest: 季度輸入把關必須完全符合三支共用的行為契約
+ok 163 - 季度輸入把關必須完全符合三支共用的行為契約
+  ---
+  duration_ms: 9.0351
+  type: 'test'
+  ...
+# Subtest: 行為契約檔本身必須與另外兩支逐位元相同
+ok 164 - 行為契約檔本身必須與另外兩支逐位元相同
+  ---
+  duration_ms: 19.1201
+  type: 'test'
+  ...
+# Subtest: ⚠️ 稽核表 G：Excel「每小時趨勢」要逐調查點分列，而且有調查點欄
+ok 165 - ⚠️ 稽核表 G：Excel「每小時趨勢」要逐調查點分列，而且有調查點欄
+  ---
+  duration_ms: 1.2238
+  type: 'test'
+  ...
+# Subtest: 不可以宣告一個程式沒有在擋的支線數上限
+ok 166 - 不可以宣告一個程式沒有在擋的支線數上限
+  ---
+  duration_ms: 185.98
+  type: 'test'
+  ...
+# Subtest: 引用公路容量手冊 4.5.1.3 時，力度必須是「建議／鼓勵」而不是「要求／規定」
+ok 167 - 引用公路容量手冊 4.5.1.3 時，力度必須是「建議／鼓勵」而不是「要求／規定」
+  ---
+  duration_ms: 190.1949
+  type: 'test'
+  ...
+# Subtest: 路段格式：歸類回特種車，等同於原始檔本來就寫特種車
+ok 168 - 路段格式：歸類回特種車，等同於原始檔本來就寫特種車
+  ---
+  duration_ms: 10.671
+  type: 'test'
+  ...
+# Subtest: 路段格式：保留成獨立車種時，用的是使用者自己給的係數
+ok 169 - 路段格式：保留成獨立車種時，用的是使用者自己給的係數
+  ---
+  duration_ms: 0.7653
+  type: 'test'
+  ...
+# Subtest: 路口轉向格式：歸類回特種車，等同於原始檔本來就寫特種車
+ok 170 - 路口轉向格式：歸類回特種車，等同於原始檔本來就寫特種車
+  ---
+  duration_ms: 0.9046
+  type: 'test'
+  ...
+# Subtest: 路口轉向格式：保留成獨立車種時，用的是使用者自己給的轉向係數
+ok 171 - 路口轉向格式：保留成獨立車種時，用的是使用者自己給的轉向係數
+  ---
+  duration_ms: 0.3394
+  type: 'test'
+  ...
+# Subtest: 不論怎麼歸類，車輛數合計都不變
+ok 172 - 不論怎麼歸類，車輛數合計都不變
+  ---
+  duration_ms: 0.5268
+  type: 'test'
+  ...
+# Subtest: 完全沒有設定係數的自訂車種會被抓出來，不會靜靜當成 0
+ok 173 - 完全沒有設定係數的自訂車種會被抓出來，不會靜靜當成 0
+  ---
+  duration_ms: 2.4724
+  type: 'test'
+  ...
+# Subtest: 兩份 PCU 實作在每一種組合下都給出同一個答案
+ok 174 - 兩份 PCU 實作在每一種組合下都給出同一個答案
+  ---
+  duration_ms: 0.8361
+  type: 'test'
+  ...
+# Subtest: 算 PCU 只能有一份實作，period-analysis 不可以再自己寫一次
+ok 175 - 算 PCU 只能有一份實作，period-analysis 不可以再自己寫一次
+  ---
+  duration_ms: 12.022
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢的車種下拉與取值都要用歸類後的類型
+ok 176 - 歷季趨勢的車種下拉與取值都要用歸類後的類型
+  ---
+  duration_ms: 30.9223
+  type: 'test'
+  ...
+# Subtest: 需要原始車種的地方仍然要用原始車種（不可以一起改掉）
+ok 177 - 需要原始車種的地方仍然要用原始車種（不可以一起改掉）
+  ---
+  duration_ms: 19.1669
+  type: 'test'
+  ...
+# Subtest: 測試與腳本 import 的每一個套件都列在 package.json 裡
+not ok 178 - 測試與腳本 import 的每一個套件都列在 package.json 裡
+  ---
+  duration_ms: 2610.252
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2098-review-20261005\\tests\\dependency-manifest.test.mjs:80:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    有套件沒有列進依賴，換一台電腦就裝不起來
+    + actual - expected
+    
+    + [
+    +   'postcss（tests/inline-note-spacing.test.mjs）'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'postcss（tests/inline-note-spacing.test.mjs）'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2098-review-20261005/tests/dependency-manifest.test.mjs:93:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: 建置、端對端測試與 GitHub 發布來源都完整
+ok 179 - 建置、端對端測試與 GitHub 發布來源都完整
+  ---
+  duration_ms: 1001.1917
+  type: 'test'
+  ...
+# Subtest: 每一支可執行的 e2e 腳本都有正式入口
+ok 180 - 每一支可執行的 e2e 腳本都有正式入口
+  ---
+  duration_ms: 50.4958
+  type: 'test'
+  ...
+# Subtest: lock 檔和 package.json 宣告的依賴一致
+ok 181 - lock 檔和 package.json 宣告的依賴一致
+  ---
+  duration_ms: 45.7841
+  type: 'test'
+  ...
+# Subtest: Node.js 最低版本足以直接載入測試使用的 TypeScript
+ok 182 - Node.js 最低版本足以直接載入測試使用的 TypeScript
+  ---
+  duration_ms: 5.7909
+  type: 'test'
+  ...
+# Subtest: 正式 e2e 引用的每份活頁簿都能由匿名樣本產生器建立
+ok 183 - 正式 e2e 引用的每份活頁簿都能由匿名樣本產生器建立
+  ---
+  duration_ms: 260.0099
+  type: 'test'
+  ...
+# Subtest: 測試引用的固定檔案都在交付包裡（不是 .gitignore 掉的路徑）
+ok 184 - 測試引用的固定檔案都在交付包裡（不是 .gitignore 掉的路徑）
+  ---
+  duration_ms: 221.2413
+  type: 'test'
+  ...
+# Subtest: 交付包裡沒有任何試算表檔案（避免真實調查資料被提交）
+ok 185 - 交付包裡沒有任何試算表檔案（避免真實調查資料被提交）
+  ---
+  duration_ms: 13.8732
+  type: 'test'
+  ...
+# Subtest: 原始碼裡沒有實際的站號或調查點名稱
+ok 186 - 原始碼裡沒有實際的站號或調查點名稱
+  ---
+  duration_ms: 359.3641
+  type: 'test'
+  ...
+# Subtest: 內建基準資料只保留匿名識別資訊
+ok 187 - 內建基準資料只保留匿名識別資訊
+  ---
+  duration_ms: 9.1607
+  type: 'test'
+  ...
+# Subtest: 有 .gitattributes 且關閉了換行轉換
+ok 188 - 有 .gitattributes 且關閉了換行轉換
+  ---
+  duration_ms: 3.9834
+  type: 'test'
+  ...
+# Subtest: 被排除的產出目錄名稱與 .gitignore 一致
+ok 189 - 被排除的產出目錄名稱與 .gitignore 一致
+  ---
+  duration_ms: 4.3433
+  type: 'test'
+  ...
+# Subtest: 佔位值「方向A／方向B」不算使用者取過的名字
+ok 190 - 佔位值「方向A／方向B」不算使用者取過的名字
+  ---
+  duration_ms: 3.312
+  type: 'test'
+  ...
+# Subtest: 挑名字：真的取過的名字優先，佔位值排最後
+ok 191 - 挑名字：真的取過的名字優先，佔位值排最後
+  ---
+  duration_ms: 0.5009
+  type: 'test'
+  ...
+# Subtest: 合併時 A 與 B 必須取自同一條路段，不可以各挑各的
+ok 192 - 合併時 A 與 B 必須取自同一條路段，不可以各挑各的
+  ---
+  duration_ms: 1.6302
+  type: 'test'
+  ...
+# Subtest: 判斷佔位值全系統只有一套標準
+ok 193 - 判斷佔位值全系統只有一套標準
+  ---
+  duration_ms: 1.2023
+  type: 'test'
+  ...
+# Subtest: 型態不合的合併要在確認視窗之前就擋下來
+ok 194 - 型態不合的合併要在確認視窗之前就擋下來
+  ---
+  duration_ms: 0.7249
+  type: 'test'
+  ...
+# Subtest: 合併路段不再把目標的預設名稱直接送出去
+ok 195 - 合併路段不再把目標的預設名稱直接送出去
+  ---
+  duration_ms: 1.7798
+  type: 'test'
+  ...
+# Subtest: 路段管理清單的方向名稱不再用 ?? 補預設值
+ok 196 - 路段管理清單的方向名稱不再用 ?? 補預設值
+  ---
+  duration_ms: 1.2742
+  type: 'test'
+  ...
+# Subtest: 離線 API 的方向名稱預設值與線上版一致
+ok 197 - 離線 API 的方向名稱預設值與線上版一致
+  ---
+  duration_ms: 0.4407
+  type: 'test'
+  ...
+# Subtest: 離線 API 改名／合併路口時不會蓋掉支線名稱
+ok 198 - 離線 API 改名／合併路口時不會蓋掉支線名稱
+  ---
+  duration_ms: 24.3582
+  type: 'test'
+  ...
+# Subtest: isRealArmName：看起來等於佔位值的名字，一律不算「取過名字」
+ok 199 - isRealArmName：看起來等於佔位值的名字，一律不算「取過名字」
+  ---
+  duration_ms: 1.7724
+  type: 'test'
+  ...
+# Subtest: typedNameKey：吸收排版差異，不吸收大小寫
+ok 200 - typedNameKey：吸收排版差異，不吸收大小寫
+  ---
+  duration_ms: 0.999
+  type: 'test'
+  ...
+# Subtest: 這個類型有登記，而且可以人工確認（使用者堅持是對的時候要有出路）
+ok 201 - 這個類型有登記，而且可以人工確認（使用者堅持是對的時候要有出路）
+  ---
+  duration_ms: 1.9172
+  type: 'test'
+  ...
+# Subtest: 只報真的不成對的那一條，地名與正常命名都不可以誤報
+ok 202 - 只報真的不成對的那一條，地名與正常命名都不可以誤報
+  ---
+  duration_ms: 1.1288
+  type: 'test'
+  ...
+# Subtest: ⚠️ 確認不可以因為又匯入一季就失效（姊妹專案踩過的坑）
+ok 203 - ⚠️ 確認不可以因為又匯入一季就失效（姊妹專案踩過的坑）
+  ---
+  duration_ms: 0.5386
+  type: 'test'
+  ...
+# Subtest: 名稱真的改了，確認就要重新提醒（否則等於把新問題藏起來）
+ok 204 - 名稱真的改了，確認就要重新提醒（否則等於把新問題藏起來）
+  ---
+  duration_ms: 0.3529
+  type: 'test'
+  ...
+# Subtest: 前置：測資同時含有該報與不該報的，否則上面幾條會變成恆真
+ok 205 - 前置：測資同時含有該報與不該報的，否則上面幾條會變成恆真
+  ---
+  duration_ms: 0.2854
+  type: 'test'
+  ...
+# Subtest: 方向成對判定符合三支共用契約
+ok 206 - 方向成對判定符合三支共用契約
+  ---
+  duration_ms: 3.1671
+  type: 'test'
+  ...
+# Subtest: bearingOf 只認整串像方位詞的名稱（地名不可以誤判）
+ok 207 - bearingOf 只認整串像方位詞的名稱（地名不可以誤判）
+  ---
+  duration_ms: 1.8535
+  type: 'test'
+  ...
+# Subtest: 訊息要寫出原名稱與期望的方位
+ok 208 - 訊息要寫出原名稱與期望的方位
+  ---
+  duration_ms: 0.3953
+  type: 'test'
+  ...
+# Subtest: directionTextKey 吸收排版雜訊：空白、全半形、破折號、頓號、斜線
+ok 209 - directionTextKey 吸收排版雜訊：空白、全半形、破折號、頓號、斜線
+  ---
+  duration_ms: 0.2687
+  type: 'test'
+  ...
+# Subtest: directionTextKey 不吸收內容：方位與大小寫都要分得出來
+ok 210 - directionTextKey 不吸收內容：方位與大小寫都要分得出來
+  ---
+  duration_ms: 0.2963
+  type: 'test'
+  ...
+# Subtest: directionTextKey 對空值與非字串不可以炸
+ok 211 - directionTextKey 對空值與非字串不可以炸
+  ---
+  duration_ms: 0.2769
+  type: 'test'
+  ...
+# Subtest: bearingOf 走的就是 directionTextKey（不可以各自正規化一次）
+ok 212 - bearingOf 走的就是 directionTextKey（不可以各自正規化一次）
+  ---
+  duration_ms: 0.2211
+  type: 'test'
+  ...
+# Subtest: ⚠️ 正常的合併儲存格版型，兩種警告一句都不可以出現
+ok 213 - ⚠️ 正常的合併儲存格版型，兩種警告一句都不可以出現
+  ---
+  duration_ms: 8.1886
+  type: 'test'
+  ...
+# Subtest: ⚠️ 同一個方向裡「機車」出現兩次要說出來
+ok 214 - ⚠️ 同一個方向裡「機車」出現兩次要說出來
+  ---
+  duration_ms: 2.058
+  type: 'test'
+  ...
+# Subtest: ⚠️ 只有一個方向的車種順序被調換，導致兩個方向被合併成一筆時要說出來
+ok 215 - ⚠️ 只有一個方向的車種順序被調換，導致兩個方向被合併成一筆時要說出來
+  ---
+  duration_ms: 1.3496
+  type: 'test'
+  ...
+# Subtest: ⚠️ 子標題寫「右轉｜直進｜左轉」時要說出來（數字會被記到錯的轉向）
+ok 216 - ⚠️ 子標題寫「右轉｜直進｜左轉」時要說出來（數字會被記到錯的轉向）
+  ---
+  duration_ms: 0.9167
+  type: 'test'
+  ...
+# Subtest: ⚠️ 沒寫轉向子標題的版型不可以被誤報（很多舊檔就是沒寫）
+ok 217 - ⚠️ 沒寫轉向子標題的版型不可以被誤報（很多舊檔就是沒寫）
+  ---
+  duration_ms: 0.9065
+  type: 'test'
+  ...
+# Subtest: A1 ⚠️ 沒有覆寫時，PCU 必須等於手算的預設結果
+ok 218 - A1 ⚠️ 沒有覆寫時，PCU 必須等於手算的預設結果
+  ---
+  duration_ms: 2.9498
+  type: 'test'
+  ...
+# Subtest: A2 ⚠️ 不傳 scopes 與傳空陣列，結果必須完全相同
+ok 219 - A2 ⚠️ 不傳 scopes 與傳空陣列，結果必須完全相同
+  ---
+  duration_ms: 1.4965
+  type: 'test'
+  ...
+# Subtest: A3 ⚠️ 覆寫存在、但**這一筆不在範圍內**時也不可以變
+ok 220 - A3 ⚠️ 覆寫存在、但**這一筆不在範圍內**時也不可以變
+  ---
+  duration_ms: 0.5895
+  type: 'test'
+  ...
+# Subtest: B1 (這一季, 全路段) 的覆寫要吃到
+ok 221 - B1 (這一季, 全路段) 的覆寫要吃到
+  ---
+  duration_ms: 0.4561
+  type: 'test'
+  ...
+# Subtest: B2 (全季別, 這一段) 的覆寫要吃到，其他路段不受影響
+ok 222 - B2 (全季別, 這一段) 的覆寫要吃到，其他路段不受影響
+  ---
+  duration_ms: 0.3846
+  type: 'test'
+  ...
+# Subtest: B3 季別優先：(季,*) 蓋過 (*,段)
+ok 223 - B3 季別優先：(季,*) 蓋過 (*,段)
+  ---
+  duration_ms: 0.2378
+  type: 'test'
+  ...
+# Subtest: C1 路口格式讀的是轉向係數，覆寫要吃到轉向那一組
+ok 224 - C1 路口格式讀的是轉向係數，覆寫要吃到轉向那一組
+  ---
+  duration_ms: 0.4937
+  type: 'test'
+  ...
+# Subtest: C2 ⚠️ 一般係數與轉向係數必須來自**同一組**覆寫
+ok 225 - C2 ⚠️ 一般係數與轉向係數必須來自**同一組**覆寫
+  ---
+  duration_ms: 0.2014
+  type: 'test'
+  ...
+# Subtest: D1 ⚠️ 同一筆紀錄不可以出現「不同車種用了不同組係數」
+ok 226 - D1 ⚠️ 同一筆紀錄不可以出現「不同車種用了不同組係數」
+  ---
+  duration_ms: 0.4818
+  type: 'test'
+  ...
+# Subtest: E1 自訂車種讀的仍是它自己的設定，不吃範圍覆寫
+ok 227 - E1 自訂車種讀的仍是它自己的設定，不吃範圍覆寫
+  ---
+  duration_ms: 0.7822
+  type: 'test'
+  ...
+# Subtest: F1 ⚠️ 紀錄沒有 quarter／roadId 時要落回計畫預設，不可以誤命中
+ok 228 - F1 ⚠️ 紀錄沒有 quarter／roadId 時要落回計畫預設，不可以誤命中
+  ---
+  duration_ms: 0.3002
+  type: 'test'
+  ...
+# Subtest: A1 ⚠️ 沒有任何覆寫時，回傳的必須是**同一個物件**，不是複製品
+ok 229 - A1 ⚠️ 沒有任何覆寫時，回傳的必須是**同一個物件**，不是複製品
+  ---
+  duration_ms: 39.9486
+  type: 'test'
+  ...
+# Subtest: A2 沒有覆寫時，任何季別 × 任何路段都拿到同一組
+ok 230 - A2 沒有覆寫時，任何季別 × 任何路段都拿到同一組
+  ---
+  duration_ms: 0.6416
+  type: 'test'
+  ...
+# Subtest: A3 hasAnyScope 要能分辨「完全沒設定」
+ok 231 - A3 hasAnyScope 要能分辨「完全沒設定」
+  ---
+  duration_ms: 0.8655
+  type: 'test'
+  ...
+# Subtest: B1 順位 1：(這一季, 這一段) 蓋過其他全部
+ok 232 - B1 順位 1：(這一季, 這一段) 蓋過其他全部
+  ---
+  duration_ms: 0.9887
+  type: 'test'
+  ...
+# Subtest: B2 順位 2：(這一季, 全路段) 蓋過 (全季別, 這一段)——**季別優先**
+ok 233 - B2 順位 2：(這一季, 全路段) 蓋過 (全季別, 這一段)——**季別優先**
+  ---
+  duration_ms: 0.4401
+  type: 'test'
+  ...
+# Subtest: B3 順位 3：只有 (全季別, 這一段) 時就用它
+ok 234 - B3 順位 3：只有 (全季別, 這一段) 時就用它
+  ---
+  duration_ms: 0.2111
+  type: 'test'
+  ...
+# Subtest: B4 順位 4：都沒命中就回計畫預設
+ok 235 - B4 順位 4：都沒命中就回計畫預設
+  ---
+  duration_ms: 0.3741
+  type: 'test'
+  ...
+# Subtest: B5 命中的順位要講得出來（摘要與提示靠它）
+ok 236 - B5 命中的順位要講得出來（摘要與提示靠它）
+  ---
+  duration_ms: 1.8621
+  type: 'test'
+  ...
+# Subtest: C1 ⚠️ 季別之間不可以互相干擾
+ok 237 - C1 ⚠️ 季別之間不可以互相干擾
+  ---
+  duration_ms: 1.6833
+  type: 'test'
+  ...
+# Subtest: C2 ⚠️ 路段之間不可以互相干擾
+ok 238 - C2 ⚠️ 路段之間不可以互相干擾
+  ---
+  duration_ms: 1.189
+  type: 'test'
+  ...
+# Subtest: C3 ⚠️ 路段代碼是**完全比對**，不可以用前綴比對
+ok 239 - C3 ⚠️ 路段代碼是**完全比對**，不可以用前綴比對
+  ---
+  duration_ms: 0.4021
+  type: 'test'
+  ...
+# Subtest: C4 ⚠️ 計畫之間不可以互相干擾（匯出備份時）
+ok 240 - C4 ⚠️ 計畫之間不可以互相干擾（匯出備份時）
+  ---
+  duration_ms: 1.7124
+  type: 'test'
+  ...
+# Subtest: D1 兩個維度重疊時要被標成衝突
+ok 241 - D1 兩個維度重疊時要被標成衝突
+  ---
+  duration_ms: 0.7377
+  type: 'test'
+  ...
+# Subtest: D2 ⚠️ 已經有明確設定的那一格**不算**衝突
+ok 242 - D2 ⚠️ 已經有明確設定的那一格**不算**衝突
+  ---
+  duration_ms: 0.1689
+  type: 'test'
+  ...
+# Subtest: D3 沒有重疊就沒有衝突（不可以無中生有）
+ok 243 - D3 沒有重疊就沒有衝突（不可以無中生有）
+  ---
+  duration_ms: 0.2033
+  type: 'test'
+  ...
+# Subtest: D4 多對多的重疊要全部列出來
+ok 244 - D4 多對多的重疊要全部列出來
+  ---
+  duration_ms: 0.1815
+  type: 'test'
+  ...
+# Subtest: E1 ⚠️ 同一格重複寫入是**取代**，不是累加
+ok 245 - E1 ⚠️ 同一格重複寫入是**取代**，不是累加
+  ---
+  duration_ms: 0.2376
+  type: 'test'
+  ...
+# Subtest: E2 不同格各自獨立
+ok 246 - E2 不同格各自獨立
+  ---
+  duration_ms: 0.1071
+  type: 'test'
+  ...
+# Subtest: E3 刪除一格＝那一格還原成預設，其他格不受影響
+ok 247 - E3 刪除一格＝那一格還原成預設，其他格不受影響
+  ---
+  duration_ms: 0.1343
+  type: 'test'
+  ...
+# Subtest: E4 ownScope 只回「這一格自己的」，不繼承
+ok 248 - E4 ownScope 只回「這一格自己的」，不繼承
+  ---
+  duration_ms: 0.0873
+  type: 'test'
+  ...
+# Subtest: E5 upsert／remove 不可以就地改動原陣列（React state 會不更新）
+ok 249 - E5 upsert／remove 不可以就地改動原陣列（React state 會不更新）
+  ---
+  duration_ms: 0.1379
+  type: 'test'
+  ...
+# Subtest: F1 範圍標籤要看得懂，而且全系統只有一種寫法
+ok 250 - F1 範圍標籤要看得懂，而且全系統只有一種寫法
+  ---
+  duration_ms: 0.1484
+  type: 'test'
+  ...
+# Subtest: B3-1 新設定造成新的重疊時，回報那幾筆
+ok 251 - B3-1 新設定造成新的重疊時，回報那幾筆
+  ---
+  duration_ms: 0.5807
+  type: 'test'
+  ...
+# Subtest: B3-2 ★反面：已經存在的舊重疊**不可以**再問一次
+ok 252 - B3-2 ★反面：已經存在的舊重疊**不可以**再問一次
+  ---
+  duration_ms: 0.3608
+  type: 'test'
+  ...
+# Subtest: B3-3 沒有造成重疊時回空陣列（呼叫端不必問）
+ok 253 - B3-3 沒有造成重疊時回空陣列（呼叫端不必問）
+  ---
+  duration_ms: 0.153
+  type: 'test'
+  ...
+# Subtest: B3-4 那一格已經有明確設定時不算重疊
+ok 254 - B3-4 那一格已經有明確設定時不算重疊
+  ---
+  duration_ms: 0.1378
+  type: 'test'
+  ...
+# Subtest: B3-5 摘要那一段**不可以**被移除（兩者用途不同）
+ok 255 - B3-5 摘要那一段**不可以**被移除（兩者用途不同）
+  ---
+  duration_ms: 1.7469
+  type: 'test'
+  ...
+# Subtest: B3-6 確認視窗要擋在真的寫入之前
+ok 256 - B3-6 確認視窗要擋在真的寫入之前
+  ---
+  duration_ms: 2.0622
+  type: 'test'
+  ...
+# Subtest: B1-1 ★不變量：沒有設覆寫時，門檻物件是**同一個參考**
+ok 257 - B1-1 ★不變量：沒有設覆寫時，門檻物件是**同一個參考**
+  ---
+  duration_ms: 0.5792
+  type: 'test'
+  ...
+# Subtest: B1-2 設了某一季某一路段，只有那一格變
+ok 258 - B1-2 設了某一季某一路段，只有那一格變
+  ---
+  duration_ms: 0.2209
+  type: 'test'
+  ...
+# Subtest: B1-3 detectAnomalies 的新參數是**可選、放在最後**
+ok 259 - B1-3 detectAnomalies 的新參數是**可選、放在最後**
+  ---
+  duration_ms: 0.2434
+  type: 'test'
+  ...
+# Subtest: B1-4 ★零流量那一條要用**它自己那一季**的門檻
+ok 260 - B1-4 ★零流量那一條要用**它自己那一季**的門檻
+  ---
+  duration_ms: 0.3648
+  type: 'test'
+  ...
+# Subtest: 調查日期只作顯示，不得改變覆蓋判斷的身分鍵
+ok 261 - 調查日期只作顯示，不得改變覆蓋判斷的身分鍵
+  ---
+  duration_ms: 2.0936
+  type: 'test'
+  ...
+# Subtest: import validation reports append, overwrite and 24-hour completeness
+ok 262 - import validation reports append, overwrite and 24-hour completeness
+  ---
+  duration_ms: 3.2495
+  type: 'test'
+  ...
+# Subtest: quality summary retains incomplete and unmapped quantities
+ok 263 - quality summary retains incomplete and unmapped quantities
+  ---
+  duration_ms: 1.0667
+  type: 'test'
+  ...
+# Subtest: anomaly detector applies configurable quarter thresholds
+ok 264 - anomaly detector applies configurable quarter thresholds
+  ---
+  duration_ms: 23.7966
+  type: 'test'
+  ...
+# Subtest: 提醒敘述的分隔符號一律是全形斜線
+ok 265 - 提醒敘述的分隔符號一律是全形斜線
+  ---
+  duration_ms: 2.8745
+  type: 'test'
+  ...
+# Subtest: 異常提醒可以依季度區間、類型、調查點與日別篩選
+ok 266 - 異常提醒可以依季度區間、類型、調查點與日別篩選
+  ---
+  duration_ms: 2.3882
+  type: 'test'
+  ...
+# Subtest: 季度排序同時支援民國三碼與西元四碼
+ok 267 - 季度排序同時支援民國三碼與西元四碼
+  ---
+  duration_ms: 0.4337
+  type: 'test'
+  ...
+# Subtest: 方向名稱含有分隔符號時不會被截斷
+ok 268 - 方向名稱含有分隔符號時不會被截斷
+  ---
+  duration_ms: 3.9874
+  type: 'test'
+  ...
+# Subtest: 異常類型統計會列出全部類型，沒有的補 0
+ok 269 - 異常類型統計會列出全部類型，沒有的補 0
+  ---
+  duration_ms: 1.1232
+  type: 'test'
+  ...
+# Subtest: 「24 小時完整」以實際涵蓋時數判斷，不是資料列數
+ok 270 - 「24 小時完整」以實際涵蓋時數判斷，不是資料列數
+  ---
+  duration_ms: 5.4477
+  type: 'test'
+  ...
+# Subtest: 各支線車種名稱不一致時要在匯入前提醒
+ok 271 - 各支線車種名稱不一致時要在匯入前提醒
+  ---
+  duration_ms: 1.1312
+  type: 'test'
+  ...
+# Subtest: 各支線車種名稱一致時不可以誤報
+ok 272 - 各支線車種名稱一致時不可以誤報
+  ---
+  duration_ms: 0.787
+  type: 'test'
+  ...
+# Subtest: 不同調查點各自比較，不會互相誤報
+ok 273 - 不同調查點各自比較，不會互相誤報
+  ---
+  duration_ms: 0.4454
+  type: 'test'
+  ...
+# Subtest: 異常提醒寫的是顯示名稱，不是內部鍵值
+ok 274 - 異常提醒寫的是顯示名稱，不是內部鍵值
+  ---
+  duration_ms: 1.2899
+  type: 'test'
+  ...
+# Subtest: 畫面表格用的三個顯示欄位也要有值
+ok 275 - 畫面表格用的三個顯示欄位也要有值
+  ---
+  duration_ms: 0.8524
+  type: 'test'
+  ...
+# Subtest: 沒有傳 labels 時行為與舊版完全相同（向後相容）
+ok 276 - 沒有傳 labels 時行為與舊版完全相同（向後相容）
+  ---
+  duration_ms: 0.4464
+  type: 'test'
+  ...
+# Subtest: 提醒的分組與篩選仍然用鍵值，改名不會讓篩選失效
+ok 277 - 提醒的分組與篩選仍然用鍵值，改名不會讓篩選失效
+  ---
+  duration_ms: 1.4215
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43：有車但 PCU 合計為 0 要列成「PCU係數全為0」
+ok 278 - ⚠️ K43：有車但 PCU 合計為 0 要列成「PCU係數全為0」
+  ---
+  duration_ms: 0.5205
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43：係數設好但正負抵銷成 0 時，不可以報「PCU係數全為0」
+ok 279 - ⚠️ K43：係數設好但正負抵銷成 0 時，不可以報「PCU係數全為0」
+  ---
+  duration_ms: 0.2667
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43：合計是負數時同樣不算「沒設定」（負係數是使用者刻意設的）
+ok 280 - ⚠️ K43：合計是負數時同樣不算「沒設定」（負係數是使用者刻意設的）
+  ---
+  duration_ms: 0.1553
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 的另一半：逐車種真的都是 0 時，一定要報出來
+ok 281 - ⚠️ K43 的另一半：逐車種真的都是 0 時，一定要報出來
+  ---
+  duration_ms: 0.1359
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 不可以誤報：PCU 正常時不列
+ok 282 - ⚠️ K43 不可以誤報：PCU 正常時不列
+  ---
+  duration_ms: 0.1233
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 不可以誤報：整組車輛數是 0（真的沒車）時不列
+ok 283 - ⚠️ K43 不可以誤報：整組車輛數是 0（真的沒車）時不列
+  ---
+  duration_ms: 0.1302
+  type: 'test'
+  ...
+# Subtest: ⚠️ K44：時段字串解析不出起訖時要列成「調查涵蓋無法判斷」
+ok 284 - ⚠️ K44：時段字串解析不出起訖時要列成「調查涵蓋無法判斷」
+  ---
+  duration_ms: 0.249
+  type: 'test'
+  ...
+# Subtest: ⚠️ K44 不可以誤報：正常時段字串不列
+ok 285 - ⚠️ K44 不可以誤報：正常時段字串不列
+  ---
+  duration_ms: 0.2066
+  type: 'test'
+  ...
+# Subtest: ⚠️ K42：同一調查點平假日涵蓋不同要列成「平假日涵蓋不一致」
+ok 286 - ⚠️ K42：同一調查點平假日涵蓋不同要列成「平假日涵蓋不一致」
+  ---
+  duration_ms: 0.2835
+  type: 'test'
+  ...
+# Subtest: ⚠️ K42 不可以誤報：平假日涵蓋相同時不列
+ok 287 - ⚠️ K42 不可以誤報：平假日涵蓋相同時不列
+  ---
+  duration_ms: 0.3292
+  type: 'test'
+  ...
+# Subtest: ⚠️ K42 不可以誤報：只有一種日別時不列
+ok 288 - ⚠️ K42 不可以誤報：只有一種日別時不列
+  ---
+  duration_ms: 0.1961
+  type: 'test'
+  ...
+# Subtest: ⚠️ K42 不可以誤報：其中一邊「解析不出來」不算涵蓋不一致
+ok 289 - ⚠️ K42 不可以誤報：其中一邊「解析不出來」不算涵蓋不一致
+  ---
+  duration_ms: 0.1965
+  type: 'test'
+  ...
+# Subtest: ⚠️ 三種新異常都要有解決方式，而且說得出去哪一頁處理
+ok 290 - ⚠️ 三種新異常都要有解決方式，而且說得出去哪一頁處理
+  ---
+  duration_ms: 0.1802
+  type: 'test'
+  ...
+# Subtest: 駛入是重新分組不是重新計算：沒有任何已存幾何設定
+ok 291 - 駛入是重新分組不是重新計算：沒有任何已存幾何設定
+  ---
+  duration_ms: 6.4549
+  type: 'test'
+  ...
+# Subtest: 駛入是重新分組不是重新計算：舊版存的駛出目的支線指向不存在的支線（legacy 欄位已不生效）
+ok 292 - 駛入是重新分組不是重新計算：舊版存的駛出目的支線指向不存在的支線（legacy 欄位已不生效）
+  ---
+  duration_ms: 4.0275
+  type: 'test'
+  ...
+# Subtest: 駛入是重新分組不是重新計算：舊版存的駛出目的支線指向自己（legacy 欄位已不生效）
+ok 293 - 駛入是重新分組不是重新計算：舊版存的駛出目的支線指向自己（legacy 欄位已不生效）
+  ---
+  duration_ms: 0.7067
+  type: 'test'
+  ...
+# Subtest: 駛入是重新分組不是重新計算：A 的三個去向全被判成左轉（同一轉向對到 3 支）
+ok 294 - 駛入是重新分組不是重新計算：A 的三個去向全被判成左轉（同一轉向對到 3 支）
+  ---
+  duration_ms: 0.8855
+  type: 'test'
+  ...
+# Subtest: 駛入是重新分組不是重新計算：每一支線的每一個去向都被判成直行（每個轉向都對到 3 支）
+ok 295 - 駛入是重新分組不是重新計算：每一支線的每一個去向都被判成直行（每個轉向都對到 3 支）
+  ---
+  duration_ms: 17.4952
+  type: 'test'
+  ...
+# Subtest: 每個轉向都對到多支時，車流全部落到「未指定駛入路口」而不是被系統挑一支
+ok 296 - 每個轉向都對到多支時，車流全部落到「未指定駛入路口」而不是被系統挑一支
+  ---
+  duration_ms: 1.1085
+  type: 'test'
+  ...
+# Subtest: 只有一支線的轉向判定壞掉時，其餘支線照常分配，總量仍守恆
+ok 297 - 只有一支線的轉向判定壞掉時，其餘支線照常分配，總量仍守恆
+  ---
+  duration_ms: 1.0721
+  type: 'test'
+  ...
+# Subtest: 舊版紀錄：車輛數取轉向明細的原始值，不是被四捨五入過的欄位
+ok 298 - 舊版紀錄：車輛數取轉向明細的原始值，不是被四捨五入過的欄位
+  ---
+  duration_ms: 1.1082
+  type: 'test'
+  ...
+# Subtest: 舊版紀錄：駛入合計仍然等於駛出合計（不會被四捨五入的零頭灌水）
+ok 299 - 舊版紀錄：駛入合計仍然等於駛出合計（不會被四捨五入的零頭灌水）
+  ---
+  duration_ms: 10.6778
+  type: 'test'
+  ...
+# Subtest: 真的只有總量、沒有轉向明細時，差額仍然要補進未指定
+ok 300 - 真的只有總量、沒有轉向明細時，差額仍然要補進未指定
+  ---
+  duration_ms: 4.0451
+  type: 'test'
+  ...
+# Subtest: 每一列都要帶著自己的流量視角，不能退回去用工具列的視角
+ok 301 - 每一列都要帶著自己的流量視角，不能退回去用工具列的視角
+  ---
+  duration_ms: 72.8191
+  type: 'test'
+  ...
+# Subtest: glyph-guard 必須與另外兩支逐位元相同
+ok 302 - glyph-guard 必須與另外兩支逐位元相同
+  ---
+  duration_ms: 8.6271
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：e2e 鏈與磁碟上的腳本數要一致（有漏掛或有孤兒都算紅）
+ok 303 - ⚠️ 前置：e2e 鏈與磁碟上的腳本數要一致（有漏掛或有孤兒都算紅）
+  ---
+  duration_ms: 1.8
+  type: 'test'
+  ...
+# Subtest: 文件裡寫的 e2e 支數必須等於 package.json 數出來的
+ok 304 - 文件裡寫的 e2e 支數必須等於 package.json 數出來的
+  ---
+  duration_ms: 38.5343
+  type: 'test'
+  ...
+# Subtest: ⚠️ 同一份文件內部不可以自己矛盾（VALIDATION 曾經同時寫 56 與 57）
+ok 305 - ⚠️ 同一份文件內部不可以自己矛盾（VALIDATION 曾經同時寫 56 與 57）
+  ---
+  duration_ms: 8.7979
+  type: 'test'
+  ...
+# Subtest: 前置：真的用語法樹掃到 className，而且大多數 class 在樣式表裡找得到規則
+ok 306 - 前置：真的用語法樹掃到 className，而且大多數 class 在樣式表裡找得到規則
+  ---
+  duration_ms: 4.0316
+  type: 'test'
+  ...
+# Subtest: 每一個元素的 className 裡至少要有一個 class 在樣式表裡有規則
+ok 307 - 每一個元素的 className 裡至少要有一個 class 在樣式表裡有規則
+  ---
+  duration_ms: 22.4993
+  type: 'test'
+  ...
+# Subtest: INTENTIONALLY_UNSTYLED 裡的每一個名稱都要還在用，而且確實沒有規則
+ok 308 - INTENTIONALLY_UNSTYLED 裡的每一個名稱都要還在用，而且確實沒有規則
+  ---
+  duration_ms: 1.2246
+  type: 'test'
+  ...
+# Subtest: 面板裡的 .inline-note 要有左右內距與下內距，而且 .project-load-error 不可以被它蓋掉
+ok 309 - 面板裡的 .inline-note 要有左右內距與下內距，而且 .project-load-error 不可以被它蓋掉
+  ---
+  duration_ms: 46.7329
+  type: 'test'
+  ...
+# Subtest: 建置出來的樣式表也要有這兩條（改了原始碼卻沒重建資產一樣是壞的）
+ok 310 - 建置出來的樣式表也要有這兩條（改了原始碼卻沒重建資產一樣是壞的）
+  ---
+  duration_ms: 46.8196
+  type: 'test'
+  ...
+# Subtest: 樣本本身要有「各支線規模不同」的形狀，否則下面的測試驗不到東西
+ok 311 - 樣本本身要有「各支線規模不同」的形狀，否則下面的測試驗不到東西
+  ---
+  duration_ms: 4.2162
+  type: 'test'
+  ...
+# Subtest: 駛入（依終點）各支線流量與樣本真值完全相符
+ok 312 - 駛入（依終點）各支線流量與樣本真值完全相符
+  ---
+  duration_ms: 183.3301
+  type: 'test'
+  ...
+# Subtest: 駛出（依起點）也要與樣本真值相符，而且總計與駛入相同
+ok 313 - 駛出（依起點）也要與樣本真值相符，而且總計與駛入相同
+  ---
+  duration_ms: 111.3648
+  type: 'test'
+  ...
+# Subtest: 多岔路口：同一支線的左轉可以分到多個目的支線，不會被塞進同一個
+ok 314 - 多岔路口：同一支線的左轉可以分到多個目的支線，不會被塞進同一個
+  ---
+  duration_ms: 91.1203
+  type: 'test'
+  ...
+# Subtest: 沒有目的地欄位的既有格式，仍走原本的左/直/右對應（行為不變）
+ok 315 - 沒有目的地欄位的既有格式，仍走原本的左/直/右對應（行為不變）
+  ---
+  duration_ms: 1.39
+  type: 'test'
+  ...
+# Subtest: 樣本要有「各支線尖峰時段不同」的形狀，否則兩種模式驗不出差別
+ok 316 - 樣本要有「各支線尖峰時段不同」的形狀，否則兩種模式驗不出差別
+  ---
+  duration_ms: 5.7524
+  type: 'test'
+  ...
+# Subtest: 時段車種分析：路口各支線一律用「整個路口的尖峰時段」
+ok 317 - 時段車種分析：路口各支線一律用「整個路口的尖峰時段」
+  ---
+  duration_ms: 318.0739
+  type: 'test'
+  ...
+# Subtest: 切成「各方向各自認定」時，會回到各支線自己的尖峰時段
+ok 318 - 切成「各方向各自認定」時，會回到各支線自己的尖峰時段
+  ---
+  duration_ms: 211.4973
+  type: 'test'
+  ...
+# Subtest: 沒設定過的路口一定要跳出來問
+ok 319 - 沒設定過的路口一定要跳出來問
+  ---
+  duration_ms: 2.7426
+  type: 'test'
+  ...
+# Subtest: 每一支支線都設定過之後就不要再問
+ok 320 - 每一支支線都設定過之後就不要再問
+  ---
+  duration_ms: 0.6241
+  type: 'test'
+  ...
+# Subtest: 同一個路口後來多出一支新支線，還是要問
+ok 321 - 同一個路口後來多出一支新支線，還是要問
+  ---
+  duration_ms: 0.3981
+  type: 'test'
+  ...
+# Subtest: 一次匯入多個新路口時，全部都要算進去，不是只有第一個
+ok 322 - 一次匯入多個新路口時，全部都要算進去，不是只有第一個
+  ---
+  duration_ms: 0.2811
+  type: 'test'
+  ...
+# Subtest: 已設定的路口不會因為別的路口沒設定而被重複列出
+ok 323 - 已設定的路口不會因為別的路口沒設定而被重複列出
+  ---
+  duration_ms: 0.2342
+  type: 'test'
+  ...
+# Subtest: 別的計畫的設定不算數
+ok 324 - 別的計畫的設定不算數
+  ---
+  duration_ms: 0.2281
+  type: 'test'
+  ...
+# Subtest: 路段（非路口）資料不會觸發這個視窗
+ok 325 - 路段（非路口）資料不會觸發這個視窗
+  ---
+  duration_ms: 0.3197
+  type: 'test'
+  ...
+# Subtest: 匯入時不再無條件跳視窗——條件要接到未設定清單上
+ok 326 - 匯入時不再無條件跳視窗——條件要接到未設定清單上
+  ---
+  duration_ms: 48.8296
+  type: 'test'
+  ...
+# Subtest: ① 指紋一定要包含那一筆的數值
+ok 327 - ① 指紋一定要包含那一筆的數值
+  ---
+  duration_ms: 1.9267
+  type: 'test'
+  ...
+# Subtest: ② 只有「人工確認」類可以按確認
+ok 328 - ② 只有「人工確認」類可以按確認
+  ---
+  duration_ms: 1.9733
+  type: 'test'
+  ...
+# Subtest: ③ 確認之後兩個數字都要寫出來，不是把總數變小
+ok 329 - ③ 確認之後兩個數字都要寫出來，不是把總數變小
+  ---
+  duration_ms: 0.8564
+  type: 'test'
+  ...
+# Subtest: 已確認的要存進 workflow，重新整理不可以復活
+ok 330 - 已確認的要存進 workflow，重新整理不可以復活
+  ---
+  duration_ms: 0.5864
+  type: 'test'
+  ...
+# Subtest: ⚠️ 那顆鈕的名字就是「已人工確認」（使用者 2026-09-17 指名）
+ok 331 - ⚠️ 那顆鈕的名字就是「已人工確認」（使用者 2026-09-17 指名）
+  ---
+  duration_ms: 1.246
+  type: 'test'
+  ...
+# Subtest: lint 不掃 GitHub Pages、試用版與本機複查產物
+ok 332 - lint 不掃 GitHub Pages、試用版與本機複查產物
+  ---
+  duration_ms: 1.3597
+  type: 'test'
+  ...
+# Subtest: WASM fallback keeps its exact-version dependency lock entries
+ok 333 - WASM fallback keeps its exact-version dependency lock entries
+  ---
+  duration_ms: 37.1176
+  type: 'test'
+  ...
+# Subtest: ① 超過 1 小時的格子要被擋下來，而且訊息寫得出是哪一個檔、幾小時、幾格
+ok 334 - ① 超過 1 小時的格子要被擋下來，而且訊息寫得出是哪一個檔、幾小時、幾格
+  ---
+  duration_ms: 3.2522
+  type: 'test'
+  ...
+# Subtest: ⚠️ ② 反證：正常的格距一個都不可以被擋（擋錯＝使用者的檔案匯不進去）
+ok 335 - ⚠️ ② 反證：正常的格距一個都不可以被擋（擋錯＝使用者的檔案匯不進去）
+  ---
+  duration_ms: 5.7218
+  type: 'test'
+  ...
+# Subtest: ⚠️ ③ 48 格裡只有 1 格誤植成 2 小時，一樣要擋（不可以取眾數）
+ok 336 - ⚠️ ③ 48 格裡只有 1 格誤植成 2 小時，一樣要擋（不可以取眾數）
+  ---
+  duration_ms: 2.4436
+  type: 'test'
+  ...
+# Subtest: ④ 讀不出時間範圍的列不可以害整批被擋（也不可以當成通過的理由）
+ok 337 - ④ 讀不出時間範圍的列不可以害整批被擋（也不可以當成通過的理由）
+  ---
+  duration_ms: 0.8137
+  type: 'test'
+  ...
+# Subtest: ⑤ 多個檔案各自列出來，不要合成一句
+ok 338 - ⑤ 多個檔案各自列出來，不要合成一句
+  ---
+  duration_ms: 0.5216
+  type: 'test'
+  ...
+# Subtest: ⑥ 確認鈕真的被停用，而且說得出原因
+ok 339 - ⑥ 確認鈕真的被停用，而且說得出原因
+  ---
+  duration_ms: 1.7508
+  type: 'test'
+  ...
+# Subtest: ⚠️ ⑦ 舊的「這不會阻擋匯入」說法不可以留著（畫面說謊比沒寫更糟）
+ok 340 - ⚠️ ⑦ 舊的「這不會阻擋匯入」說法不可以留著（畫面說謊比沒寫更糟）
+  ---
+  duration_ms: 1.8926
+  type: 'test'
+  ...
+# Subtest: ⚠️ ⑧ 判準只能有一份（兩邊各寫一份遲早出現「畫面說擋、實際沒擋」）
+ok 341 - ⚠️ ⑧ 判準只能有一份（兩邊各寫一份遲早出現「畫面說擋、實際沒擋」）
+  ---
+  duration_ms: 10.8666
+  type: 'test'
+  ...
+# Subtest: R-8：程式裡不可以把季度欄位丟進 isFiltered
+ok 342 - R-8：程式裡不可以把季度欄位丟進 isFiltered
+  ---
+  duration_ms: 34.0412
+  type: 'test'
+  ...
+# Subtest: 前置：這條掃描真的抓得到（抓不到的話上一條恆綠）
+ok 343 - 前置：這條掃描真的抓得到（抓不到的話上一條恆綠）
+  ---
+  duration_ms: 0.6098
+  type: 'test'
+  ...
+# Subtest: isRangeWidened：起＝迄＝false（那是單季，不是拉開）
+ok 344 - isRangeWidened：起＝迄＝false（那是單季，不是拉開）
+  ---
+  duration_ms: 0.2686
+  type: 'test'
+  ...
+# Subtest: isRangeWidened：起≠迄＝true（一張卡放不下兩季，要說一聲）
+ok 345 - isRangeWidened：起≠迄＝true（一張卡放不下兩季，要說一聲）
+  ---
+  duration_ms: 0.1518
+  type: 'test'
+  ...
+# Subtest: isRangeWidened：起或迄還沒載入（空字串）時不可以說「拉開了」
+ok 346 - isRangeWidened：起或迄還沒載入（空字串）時不可以說「拉開了」
+  ---
+  duration_ms: 0.3414
+  type: 'test'
+  ...
+# Subtest: X-43：舊的「品質與定稿」視窗整塊不可以還留著
+ok 347 - X-43：舊的「品質與定稿」視窗整塊不可以還留著
+  ---
+  duration_ms: 17.6748
+  type: 'test'
+  ...
+# Subtest: X-43／X-48：資料維護的四塊都要有自己的 id，側欄才點得到
+ok 348 - X-43／X-48：資料維護的四塊都要有自己的 id，側欄才點得到
+  ---
+  duration_ms: 2.3231
+  type: 'test'
+  ...
+# Subtest: X-48：側欄要列出資料維護的四個小分頁，名稱與另外兩支逐字相同
+ok 349 - X-48：側欄要列出資料維護的四個小分頁，名稱與另外兩支逐字相同
+  ---
+  duration_ms: 0.4231
+  type: 'test'
+  ...
+# Subtest: X-44：摘要與檢查結果要等按過檢查才給數字
+ok 350 - X-44：摘要與檢查結果要等按過檢查才給數字
+  ---
+  duration_ms: 1.1213
+  type: 'test'
+  ...
+# Subtest: X-49：每一種異常都要有解決方式
+ok 351 - X-49：每一種異常都要有解決方式
+  ---
+  duration_ms: 1.031
+  type: 'test'
+  ...
+# Subtest: X-49：每一句解決方式都要講得出使用者實際要做什麼
+ok 352 - X-49：每一句解決方式都要講得出使用者實際要做什麼
+  ---
+  duration_ms: 0.3108
+  type: 'test'
+  ...
+# Subtest: X-49：不同種類的異常不可以共用同一句（那等於沒寫）
+ok 353 - X-49：不同種類的異常不可以共用同一句（那等於沒寫）
+  ---
+  duration_ms: 0.394
+  type: 'test'
+  ...
+# Subtest: X-49：解決方式是純文字，不可以留下 Markdown 粗體記號
+ok 354 - X-49：解決方式是純文字，不可以留下 Markdown 粗體記號
+  ---
+  duration_ms: 1.2364
+  type: 'test'
+  ...
+# Subtest: X-49：處理類別只能是三種之一，標成重新匯入的要真的講出重匯
+ok 355 - X-49：處理類別只能是三種之一，標成重新匯入的要真的講出重匯
+  ---
+  duration_ms: 0.6429
+  type: 'test'
+  ...
+# Subtest: X-49：檢查結果表真的畫出「解決方式」欄，而且空列的欄位數跟著加一
+ok 356 - X-49：檢查結果表真的畫出「解決方式」欄，而且空列的欄位數跟著加一
+  ---
+  duration_ms: 2.1532
+  type: 'test'
+  ...
+# Subtest: X-48：這一頁每一塊都要掛常駐的「不受主工具列影響」說明
+ok 357 - X-48：這一頁每一塊都要掛常駐的「不受主工具列影響」說明
+  ---
+  duration_ms: 2.7961
+  type: 'test'
+  ...
+# Subtest: 包裡每一份手冊副本都必須來自同一次產生
+ok 358 - 包裡每一份手冊副本都必須來自同一次產生
+  ---
+  duration_ms: 1075.5391
+  type: 'test'
+  ...
+# Subtest: 手冊不可以說「不足 24 小時就算不出尖峰」
+ok 359 - 手冊不可以說「不足 24 小時就算不出尖峰」
+  ---
+  duration_ms: 1.9369
+  type: 'test'
+  ...
+# Subtest: 手冊用的時段名稱要和系統畫面上的一致
+ok 360 - 手冊用的時段名稱要和系統畫面上的一致
+  ---
+  duration_ms: 0.6078
+  type: 'test'
+  ...
+# Subtest: 手冊說明目前的計畫導覽，不可以沿用側欄列出全部計畫的舊介面
+ok 361 - 手冊說明目前的計畫導覽，不可以沿用側欄列出全部計畫的舊介面
+  ---
+  duration_ms: 0.3672
+  type: 'test'
+  ...
+# Subtest: 這幾條真的抓得到（反面檢查，不然它們可能永遠是綠的）
+ok 362 - 這幾條真的抓得到（反面檢查，不然它們可能永遠是綠的）
+  ---
+  duration_ms: 0.2459
+  type: 'test'
+  ...
+# Subtest: 手冊不可以提到已經從畫面移除的入口名稱
+ok 363 - 手冊不可以提到已經從畫面移除的入口名稱
+  ---
+  duration_ms: 28.7806
+  type: 'test'
+  ...
+# Subtest: ANOMALY_TYPES 的每一種都要出現在手冊與 README
+ok 364 - ANOMALY_TYPES 的每一種都要出現在手冊與 README
+  ---
+  duration_ms: 37.4487
+  type: 'test'
+  ...
+# Subtest: PAGE_ZONES 的每一個項目名稱，手冊都要提到
+ok 365 - PAGE_ZONES 的每一個項目名稱，手冊都要提到
+  ---
+  duration_ms: 29.1928
+  type: 'test'
+  ...
+# Subtest: 手冊異常對照表的每一列，都必須是 ANOMALY_TYPES 裡真的有的
+ok 366 - 手冊異常對照表的每一列，都必須是 ANOMALY_TYPES 裡真的有的
+  ---
+  duration_ms: 13.9525
+  type: 'test'
+  ...
+# Subtest: 手冊叫使用者按的按鈕，必須是真正的按鈕文字
+ok 367 - 手冊叫使用者按的按鈕，必須是真正的按鈕文字
+  ---
+  duration_ms: 41.9555
+  type: 'test'
+  ...
+# Subtest: PROJECT_HANDOFF.md 不可以把「混用格長只警告」寫成現行規則
+ok 368 - PROJECT_HANDOFF.md 不可以把「混用格長只警告」寫成現行規則
+  ---
+  duration_ms: 25.5879
+  type: 'test'
+  ...
+# Subtest: 交接文件要寫明 npm test 必須整條執行、不可以拆開跑
+ok 369 - 交接文件要寫明 npm test 必須整條執行、不可以拆開跑
+  ---
+  duration_ms: 15.9101
+  type: 'test'
+  ...
+# Subtest: 手冊HTML title須為本版正式名稱及版號
+ok 370 - 手冊HTML title須為本版正式名稱及版號
+  ---
+  duration_ms: 5.3686
+  type: 'test'
+  ...
+# Subtest: 正式PDF內部Title須為本版正式名稱及版號
+ok 371 - 正式PDF內部Title須為本版正式名稱及版號
+  ---
+  duration_ms: 1123.837
+  type: 'test'
+  ...
+# Subtest: 手冊裡不得有任何一則版本變更說明
+ok 372 - 手冊裡不得有任何一則版本變更說明
+  ---
+  duration_ms: 16.5339
+  type: 'test'
+  ...
+# Subtest: 章節標題不得掛版本字樣
+ok 373 - 章節標題不得掛版本字樣
+  ---
+  duration_ms: 10.8179
+  type: 'test'
+  ...
+# Subtest: 內文不得出現維護敘事
+ok 374 - 內文不得出現維護敘事
+  ---
+  duration_ms: 18.1041
+  type: 'test'
+  ...
+# Subtest: 前置：checkPeriodAgainstDate 回的狀態字面值真的是 match／mismatch／unknown
+ok 375 - 前置：checkPeriodAgainstDate 回的狀態字面值真的是 match／mismatch／unknown
+  ---
+  duration_ms: 3.0467
+  type: 'test'
+  ...
+# Subtest: ① 全部指向同一個別季 → 不擋（那是二次確認要處理的情形）
+ok 376 - ① 全部指向同一個別季 → 不擋（那是二次確認要處理的情形）
+  ---
+  duration_ms: 0.7063
+  type: 'test'
+  ...
+# Subtest: ② 指向兩個以上不同期別 → 一定要擋，訊息要指名哪一份屬哪一季
+ok 377 - ② 指向兩個以上不同期別 → 一定要擋，訊息要指名哪一份屬哪一季
+  ---
+  duration_ms: 0.3591
+  type: 'test'
+  ...
+# Subtest: ③ 最常見的混批：一部分相符、一部分指向別季 → 一定要擋
+ok 378 - ③ 最常見的混批：一部分相符、一部分指向別季 → 一定要擋
+  ---
+  duration_ms: 5.9519
+  type: 'test'
+  ...
+# Subtest: ③-2 全部相符（同一個期別）→ 不擋
+ok 379 - ③-2 全部相符（同一個期別）→ 不擋
+  ---
+  duration_ms: 0.5309
+  type: 'test'
+  ...
+# Subtest: ④ 讀不到日期的（unknown）不參與計票
+ok 380 - ④ 讀不到日期的（unknown）不參與計票
+  ---
+  duration_ms: 0.2062
+  type: 'test'
+  ...
+# Subtest: ⑤ 沒有 dateLabel 的不參與計票；空陣列與非陣列不可以炸
+ok 381 - ⑤ 沒有 dateLabel 的不參與計票；空陣列與非陣列不可以炸
+  ---
+  duration_ms: 0.3403
+  type: 'test'
+  ...
+# Subtest: ⑥ 訊息不可以留「確認無誤」這種出口，而且要給下一步
+ok 382 - ⑥ 訊息不可以留「確認無誤」這種出口，而且要給下一步
+  ---
+  duration_ms: 0.2386
+  type: 'test'
+  ...
+# Subtest: ⑦ 與交通服務水準的訊息逐字相同（三支同步的實證）
+ok 383 - ⑦ 與交通服務水準的訊息逐字相同（三支同步的實證）
+  ---
+  duration_ms: 0.5311
+  type: 'test'
+  ...
+# Subtest: ⑧ 只算一次，而且畫面／按鈕／寫入路徑三處都讀那一份
+ok 384 - ⑧ 只算一次，而且畫面／按鈕／寫入路徑三處都讀那一份
+  ---
+  duration_ms: 4.8656
+  type: 'test'
+  ...
+# Subtest: ⑨ 混批要擋在二次確認**之前**
+ok 385 - ⑨ 混批要擋在二次確認**之前**
+  ---
+  duration_ms: 1.3582
+  type: 'test'
+  ...
+# Subtest: ⑩ 確認鈕真的會停用，而且停用時說得出原因
+ok 386 - ⑩ 確認鈕真的會停用，而且停用時說得出原因
+  ---
+  duration_ms: 1.3246
+  type: 'test'
+  ...
+# Subtest: ⑪ 混批時不可以再印「會再問一次」，也不可以給「改用檔案日期的季別」
+ok 387 - ⑪ 混批時不可以再印「會再問一次」，也不可以給「改用檔案日期的季別」
+  ---
+  duration_ms: 2.6563
+  type: 'test'
+  ...
+# Subtest: ⑫ 那句錯的註解已經更正，而且留了向前指標
+ok 388 - ⑫ 那句錯的註解已經更正，而且留了向前指標
+  ---
+  duration_ms: 1.0203
+  type: 'test'
+  ...
+# Subtest: scripts/ 底下不可以有 .png（探針與 e2e 的輸出，不是交付內容）
+ok 389 - scripts/ 底下不可以有 .png（探針與 e2e 的輸出，不是交付內容）
+  ---
+  duration_ms: 46.9776
+  type: 'test'
+  ...
+# Subtest: \#24 Excel 的 PCU係數表要印出季別×路段覆寫，而且有覆寫時不可以再說「目前套用」
+ok 390 - \#24 Excel 的 PCU係數表要印出季別×路段覆寫，而且有覆寫時不可以再說「目前套用」
+  ---
+  duration_ms: 3.7758
+  type: 'test'
+  ...
+# Subtest: native ratio trend uses percent axis and cache formats, without changing values
+ok 391 - native ratio trend uses percent axis and cache formats, without changing values
+  ---
+  duration_ms: 3.4157
+  type: 'test'
+  ...
+# Subtest: native line charts have visible connecting strokes, retaining blank-point gaps
+ok 392 - native line charts have visible connecting strokes, retaining blank-point gaps
+  ---
+  duration_ms: 0.7375
+  type: 'test'
+  ...
+# Subtest: native count bars preserve count formatting and borderless design
+ok 393 - native count bars preserve count formatting and borderless design
+  ---
+  duration_ms: 0.4503
+  type: 'test'
+  ...
+# Subtest: native doughnut uses legend and data table without cache-dependent inline labels
+ok 394 - native doughnut uses legend and data table without cache-dependent inline labels
+  ---
+  duration_ms: 0.4332
+  type: 'test'
+  ...
+# Subtest: ⚠️「調查日期不只一個」不可以有「前往…」按鈕
+ok 395 - ⚠️「調查日期不只一個」不可以有「前往…」按鈕
+  ---
+  duration_ms: 1.5173
+  type: 'test'
+  ...
+# Subtest: ⚠️ 其餘的「前往…」按鈕不可以被順手清掉
+ok 396 - ⚠️ 其餘的「前往…」按鈕不可以被順手清掉
+  ---
+  duration_ms: 0.5883
+  type: 'test'
+  ...
+# Subtest: 不可回頭清單沒有被單獨改過（三支必須一起改）
+ok 397 - 不可回頭清單沒有被單獨改過（三支必須一起改）
+  ---
+  duration_ms: 20.6935
+  type: 'test'
+  ...
+# Subtest: 這支程式的原始碼裡沒有出現任何「錯誤說法」
+ok 398 - 這支程式的原始碼裡沒有出現任何「錯誤說法」
+  ---
+  duration_ms: 60.2407
+  type: 'test'
+  ...
+# Subtest: 每一列都寫得出「改回去會怎樣」
+ok 399 - 每一列都寫得出「改回去會怎樣」
+  ---
+  duration_ms: 1.3142
+  type: 'test'
+  ...
+# Subtest: 原始碼裡不可以有寫死的開發者機器路徑
+ok 400 - 原始碼裡不可以有寫死的開發者機器路徑
+  ---
+  duration_ms: 1466.7367
+  type: 'test'
+  ...
+# Subtest: 這一條真的抓得到（反面檢查，不然它可能永遠是綠的）
+ok 401 - 這一條真的抓得到（反面檢查，不然它可能永遠是綠的）
+  ---
+  duration_ms: 3.0018
+  type: 'test'
+  ...
+# Subtest: 文件提到的 .mjs／.test.ts 必須在包裡，或明文說它不在
+ok 402 - 文件提到的 .mjs／.test.ts 必須在包裡，或明文說它不在
+  ---
+  duration_ms: 294.6567
+  type: 'test'
+  ...
+# Subtest: ① 分界固定在 12:00
+ok 403 - ① 分界固定在 12:00
+  ---
+  duration_ms: 2.324
+  type: 'test'
+  ...
+# Subtest: ① 逐分鐘窮舉：判定規則與 v20.67 以前完全相同
+ok 404 - ① 逐分鐘窮舉：判定規則與 v20.67 以前完全相同
+  ---
+  duration_ms: 25.6734
+  type: 'test'
+  ...
+# Subtest: ① 起訖分鐘數解析與「這一格自己跨不跨中午」
+ok 405 - ① 起訖分鐘數解析與「這一格自己跨不跨中午」
+  ---
+  duration_ms: 2.3879
+  type: 'test'
+  ...
+# Subtest: ⚠️ ② 跨中午而且比上午、下午都大的一小時，要被列成問題
+ok 406 - ⚠️ ② 跨中午而且比上午、下午都大的一小時，要被列成問題
+  ---
+  duration_ms: 52.1863
+  type: 'test'
+  ...
+# Subtest: ⚠️ ② 沒有回答時，數字與 v20.67 以前逐格相同（新機制不可以改到既有結果）
+ok 407 - ⚠️ ② 沒有回答時，數字與 v20.67 以前逐格相同（新機制不可以改到既有結果）
+  ---
+  duration_ms: 13.9949
+  type: 'test'
+  ...
+# Subtest: ⚠️ ② 回答「算上午」之後，上午尖峰換成那個跨中午的視窗
+ok 408 - ⚠️ ② 回答「算上午」之後，上午尖峰換成那個跨中午的視窗
+  ---
+  duration_ms: 7.4336
+  type: 'test'
+  ...
+# Subtest: ⚠️ ② 回答「算下午」之後，換成下午尖峰；上午維持 07:00–08:00
+ok 409 - ⚠️ ② 回答「算下午」之後，換成下午尖峰；上午維持 07:00–08:00
+  ---
+  duration_ms: 6.1143
+  type: 'test'
+  ...
+# Subtest: ⚠️ ② 回答「忽略這個時段」＝照原本的 12:00 分界算（與沒回答同一個結果）
+ok 410 - ⚠️ ② 回答「忽略這個時段」＝照原本的 12:00 分界算（與沒回答同一個結果）
+  ---
+  duration_ms: 40.4993
+  type: 'test'
+  ...
+# Subtest: ② 全調查時段與全調查時段尖峰完全不受回答影響
+ok 411 - ② 全調查時段與全調查時段尖峰完全不受回答影響
+  ---
+  duration_ms: 38.6185
+  type: 'test'
+  ...
+# Subtest: ⚠️ ⑤ 跨中午但比兩邊都小 → 不要問（問了也不會改變任何數字）
+ok 412 - ⚠️ ⑤ 跨中午但比兩邊都小 → 不要問（問了也不會改變任何數字）
+  ---
+  duration_ms: 19.4122
+  type: 'test'
+  ...
+# Subtest: ⑤ 每小時一格、整點對齊的資料不會產生問題（這是絕大多數真實檔）
+ok 413 - ⑤ 每小時一格、整點對齊的資料不會產生問題（這是絕大多數真實檔）
+  ---
+  duration_ms: 3.2635
+  type: 'test'
+  ...
+# Subtest: ⑤ 原始檔本身就寫成跨中午的整點格（11:30～12:30）也抓得到
+ok 414 - ⑤ 原始檔本身就寫成跨中午的整點格（11:30～12:30）也抓得到
+  ---
+  duration_ms: 1.9377
+  type: 'test'
+  ...
+# Subtest: ⑥ buildPeriodRows 仍然只回傳列，而且與 buildPeriodAnalysis 同一份
+ok 415 - ⑥ buildPeriodRows 仍然只回傳列，而且與 buildPeriodAnalysis 同一份
+  ---
+  duration_ms: 8.6845
+  type: 'test'
+  ...
+# Subtest: K40 前置：被指派給上午的視窗，確實含有「起始時間在 12:00 之後」的格子
+ok 416 - K40 前置：被指派給上午的視窗，確實含有「起始時間在 12:00 之後」的格子
+  ---
+  duration_ms: 5.058
+  type: 'test'
+  ...
+# Subtest: K40：主工具列那三處不可以只看起始時間，必須走 sideOfRecord
+ok 417 - K40：主工具列那三處不可以只看起始時間，必須走 sideOfRecord
+  ---
+  duration_ms: 47.8609
+  type: 'test'
+  ...
+# Subtest: app/number-field.tsx 與契約寫死的雜湊相同
+ok 418 - app/number-field.tsx 與契約寫死的雜湊相同
+  ---
+  duration_ms: 11.9307
+  type: 'test'
+  ...
+# Subtest: 畫面上沒有任何『受控數字框 ＋ Number(e.target.value)』的寫法
+ok 419 - 畫面上沒有任何『受控數字框 ＋ Number(e.target.value)』的寫法
+  ---
+  duration_ms: 10.0285
+  type: 'test'
+  ...
+# Subtest: 掃描器本身沒有壞掉（掃到的數字欄位數＝純字串計數）
+ok 420 - 掃描器本身沒有壞掉（掃到的數字欄位數＝純字串計數）
+  ---
+  duration_ms: 5.3514
+  type: 'test'
+  ...
+# Subtest: 六個會被改壞的欄位確實已經改用 NumberField
+ok 421 - 六個會被改壞的欄位確實已經改用 NumberField
+  ---
+  duration_ms: 2.1676
+  type: 'test'
+  ...
+# Subtest: NumberField 本身不可以把空字串送出去（那就等於 Number("") === 0）
+ok 422 - NumberField 本身不可以把空字串送出去（那就等於 Number("") === 0）
+  ---
+  duration_ms: 11.0493
+  type: 'test'
+  ...
+# Subtest: NumberField 離開欄位時不可以把值改成 0
+ok 423 - NumberField 離開欄位時不可以把值改成 0
+  ---
+  duration_ms: 2.7758
+  type: 'test'
+  ...
+# Subtest: ⚠️ 外面把值換掉時，正在編輯的字串要丟掉
+ok 424 - ⚠️ 外面把值換掉時，正在編輯的字串要丟掉
+  ---
+  duration_ms: 9.8782
+  type: 'test'
+  ...
+# Subtest: ⚠️ 樣式表不可以向外部網站要字型或圖片
+ok 425 - ⚠️ 樣式表不可以向外部網站要字型或圖片
+  ---
+  duration_ms: 10.1388
+  type: 'test'
+  ...
+# Subtest: 前置：真的有掃到樣式表（掃不到的話上一條會變成恆真）
+ok 426 - 前置：真的有掃到樣式表（掃不到的話上一條會變成恆真）
+  ---
+  duration_ms: 0.5753
+  type: 'test'
+  ...
+# Subtest: 這一條真的抓得到（反面檢查）
+ok 427 - 這一條真的抓得到（反面檢查）
+  ---
+  duration_ms: 0.4577
+  type: 'test'
+  ...
+# Subtest: 前置：檔案讀得到而且有內容
+ok 428 - 前置：檔案讀得到而且有內容
+  ---
+  duration_ms: 1.2541
+  type: 'test'
+  ...
+# Subtest: 有清孤兒的函式，而且只在按下執行檢查時才清
+ok 429 - 有清孤兒的函式，而且只在按下執行檢查時才清
+  ---
+  duration_ms: 2.8924
+  type: 'test'
+  ...
+# Subtest: ⚠️ 只清孤兒，不可以整批清掉
+ok 430 - ⚠️ 只清孤兒，不可以整批清掉
+  ---
+  duration_ms: 5.4444
+  type: 'test'
+  ...
+# Subtest: ⚠️ 沒有孤兒時不可以寫存檔（否則每按一次就製造一個空變更）
+ok 431 - ⚠️ 沒有孤兒時不可以寫存檔（否則每按一次就製造一個空變更）
+  ---
+  duration_ms: 0.9851
+  type: 'test'
+  ...
+# Subtest: ⚠️ 白名單要用**全部**的異常，不可以用畫面上篩過的那一份
+ok 432 - ⚠️ 白名單要用**全部**的異常，不可以用畫面上篩過的那一份
+  ---
+  duration_ms: 4.1348
+  type: 'test'
+  ...
+# Subtest: A-1 同一個編號、兩個不同期別 ⇒ 兩個不同的鍵（不覆蓋）
+ok 433 - A-1 同一個編號、兩個不同期別 ⇒ 兩個不同的鍵（不覆蓋）
+  ---
+  duration_ms: 1.6716
+  type: 'test'
+  ...
+# Subtest: A-2 兩個不同編號、同一個期別、同一條路 ⇒ 由 roadId 決定，不受編號寫法影響
+ok 434 - A-2 兩個不同編號、同一個期別、同一條路 ⇒ 由 roadId 決定，不受編號寫法影響
+  ---
+  duration_ms: 0.6214
+  type: 'test'
+  ...
+# Subtest: A-3 trafficIdentity 的欄位清單裡一定要有 quarter
+ok 435 - A-3 trafficIdentity 的欄位清單裡一定要有 quarter
+  ---
+  duration_ms: 35.5298
+  type: 'test'
+  ...
+# Subtest: B-1 舊新日期不同才算衝突
+ok 436 - B-1 舊新日期不同才算衝突
+  ---
+  duration_ms: 0.7219
+  type: 'test'
+  ...
+# Subtest: B-2 日期相同不算衝突——那是同一次調查的重匯，本來就該覆蓋
+ok 437 - B-2 日期相同不算衝突——那是同一次調查的重匯，本來就該覆蓋
+  ---
+  duration_ms: 0.261
+  type: 'test'
+  ...
+# Subtest: B-3 只有一邊讀得出日期不算衝突——沒有證據就擋是假的紅
+ok 438 - B-3 只有一邊讀得出日期不算衝突——沒有證據就擋是假的紅
+  ---
+  duration_ms: 0.2402
+  type: 'test'
+  ...
+# Subtest: B-4 訊息要說出「編號一樣不代表是同一份資料」
+ok 439 - B-4 訊息要說出「編號一樣不代表是同一份資料」
+  ---
+  duration_ms: 0.2544
+  type: 'test'
+  ...
+# Subtest: B-5 沒有衝突時回空字串
+ok 440 - B-5 沒有衝突時回空字串
+  ---
+  duration_ms: 0.1643
+  type: 'test'
+  ...
+# Subtest: B-6 把關要擋在 setBusy(true) 與任何 API 上傳之前
+ok 441 - B-6 把關要擋在 setBusy(true) 與任何 API 上傳之前
+  ---
+  duration_ms: 2.3482
+  type: 'test'
+  ...
+# Subtest: B-7 身分鍵要用「改過季別之後」的季別去算
+ok 442 - B-7 身分鍵要用「改過季別之後」的季別去算
+  ---
+  duration_ms: 2.0174
+  type: 'test'
+  ...
+# Subtest: B-8 復原說明要是這一支自己的（還原點），不可以抄別支的字
+ok 443 - B-8 復原說明要是這一支自己的（還原點），不可以抄別支的字
+  ---
+  duration_ms: 4.3186
+  type: 'test'
+  ...
+# Subtest: 時段寫成單位數小時或 en dash 時不會整列被丟掉
+ok 444 - 時段寫成單位數小時或 en dash 時不會整列被丟掉
+  ---
+  duration_ms: 7.6358
+  type: 'test'
+  ...
+# Subtest: 合併儲存格造成的重複車種標題會被當成左／直／右三欄，不是三個車種
+ok 445 - 合併儲存格造成的重複車種標題會被當成左／直／右三欄，不是三個車種
+  ---
+  duration_ms: 2.8358
+  type: 'test'
+  ...
+# Subtest: 一般（未重複）的路口標題行為不變
+ok 446 - 一般（未重複）的路口標題行為不變
+  ---
+  duration_ms: 0.6819
+  type: 'test'
+  ...
+# Subtest: 解析各種時段寫法
+ok 447 - 解析各種時段寫法
+  ---
+  duration_ms: 4.1221
+  type: 'test'
+  ...
+# Subtest: 單格長度取眾數，偶爾出現的合併列不影響判定
+ok 448 - 單格長度取眾數，偶爾出現的合併列不影響判定
+  ---
+  duration_ms: 2.848
+  type: 'test'
+  ...
+# Subtest: 完整 24 小時不會被判成部分時段
+ok 449 - 完整 24 小時不會被判成部分時段
+  ---
+  duration_ms: 1.0851
+  type: 'test'
+  ...
+# Subtest: 上下午各兩小時會被判成部分時段，且分成兩個區塊
+ok 450 - 上下午各兩小時會被判成部分時段，且分成兩個區塊
+  ---
+  duration_ms: 0.8954
+  type: 'test'
+  ...
+# Subtest: 每小時一列的資料沿用原本做法：取最大的那一列
+ok 451 - 每小時一列的資料沿用原本做法：取最大的那一列
+  ---
+  duration_ms: 0.5052
+  type: 'test'
+  ...
+# Subtest: 15 分鐘資料改用連續 4 格的滾動視窗（重現使用者回報的七叉路口上午尖峰）
+ok 452 - 15 分鐘資料改用連續 4 格的滾動視窗（重現使用者回報的七叉路口上午尖峰）
+  ---
+  duration_ms: 0.4677
+  type: 'test'
+  ...
+# Subtest: 下午尖峰同樣以滾動視窗求得（同一份調查的下午）
+ok 453 - 下午尖峰同樣以滾動視窗求得（同一份調查的下午）
+  ---
+  duration_ms: 0.3821
+  type: 'test'
+  ...
+# Subtest: 滾動視窗不會跨越上午與下午之間的空隙
+ok 454 - 滾動視窗不會跨越上午與下午之間的空隙
+  ---
+  duration_ms: 0.3209
+  type: 'test'
+  ...
+# Subtest: 上午與下午尖峰可以各自求得
+ok 455 - 上午與下午尖峰可以各自求得
+  ---
+  duration_ms: 0.8802
+  type: 'test'
+  ...
+# Subtest: 連續資料湊不滿一小時時回「資料不足」（與路口轉向同一口徑）
+ok 456 - 連續資料湊不滿一小時時回「資料不足」（與路口轉向同一口徑）
+  ---
+  duration_ms: 5.4725
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反過來也要成立：完全沒有資料時標籤仍然是「—」
+ok 457 - ⚠️ 反過來也要成立：完全沒有資料時標籤仍然是「—」
+  ---
+  duration_ms: 0.6236
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：剛好湊滿 60 分鐘的仍然算得出來（上一條不可以修過頭）
+ok 458 - ⚠️ 前置：剛好湊滿 60 分鐘的仍然算得出來（上一條不可以修過頭）
+  ---
+  duration_ms: 0.2697
+  type: 'test'
+  ...
+# Subtest: 2 小時一格仍然回「資料不足」（這一次的改動不影響它）
+ok 459 - 2 小時一格仍然回「資料不足」（這一次的改動不影響它）
+  ---
+  duration_ms: 0.1066
+  type: 'test'
+  ...
+# Subtest: ⚠️ 45 分鐘一格而且都量到 0 輛時，仍然要標「資料不足」
+ok 460 - ⚠️ 45 分鐘一格而且都量到 0 輛時，仍然要標「資料不足」
+  ---
+  duration_ms: 0.8938
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反過來也要成立：完全沒有格子的日別不會出現在結果裡
+ok 461 - ⚠️ 反過來也要成立：完全沒有格子的日別不會出現在結果裡
+  ---
+  duration_ms: 0.1918
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：有量到車的 45 分鐘一格照樣是「資料不足」（不可以修壞原本對的那一半）
+ok 462 - ⚠️ 前置：有量到車的 45 分鐘一格照樣是「資料不足」（不可以修壞原本對的那一半）
+  ---
+  duration_ms: 0.2454
+  type: 'test'
+  ...
+# Subtest: ⚠️ peakFromBuckets 對全 0 的 45 分鐘也要回 not-enough，不是 none
+ok 463 - ⚠️ peakFromBuckets 對全 0 的 45 分鐘也要回 not-enough，不是 none
+  ---
+  duration_ms: 0.8523
+  type: 'test'
+  ...
+# Subtest: 空資料與無法解析的時段不會造成例外
+ok 464 - 空資料與無法解析的時段不會造成例外
+  ---
+  duration_ms: 0.2822
+  type: 'test'
+  ...
+# Subtest: 平假日只有調查時段完全相同才可直接比較
+ok 465 - 平假日只有調查時段完全相同才可直接比較
+  ---
+  duration_ms: 0.5219
+  type: 'test'
+  ...
+# Subtest: 5 分鐘與 30 分鐘資料也能正確湊成一小時
+ok 466 - 5 分鐘與 30 分鐘資料也能正確湊成一小時
+  ---
+  duration_ms: 0.4215
+  type: 'test'
+  ...
+# Subtest: peakFromBuckets：15 分鐘分桶要回傳滾動一小時，不是最大的那一格
+ok 467 - peakFromBuckets：15 分鐘分桶要回傳滾動一小時，不是最大的那一格
+  ---
+  duration_ms: 2.3768
+  type: 'test'
+  ...
+# Subtest: peakFromBuckets：平日與假日分開的鍵不會被併成同一個滾動視窗
+ok 468 - peakFromBuckets：平日與假日分開的鍵不會被併成同一個滾動視窗
+  ---
+  duration_ms: 0.5351
+  type: 'test'
+  ...
+# Subtest: peakFromBuckets：每小時一列的資料維持原本行為
+ok 469 - peakFromBuckets：每小時一列的資料維持原本行為
+  ---
+  duration_ms: 0.3389
+  type: 'test'
+  ...
+# Subtest: 上午尖峰不會挑到跨越中午的視窗
+ok 470 - 上午尖峰不會挑到跨越中午的視窗
+  ---
+  duration_ms: 0.648
+  type: 'test'
+  ...
+# Subtest: 下午尖峰的視窗不會超過上界（23:00）
+ok 471 - 下午尖峰的視窗不會超過上界（23:00）
+  ---
+  duration_ms: 1.0303
+  type: 'test'
+  ...
+# Subtest: A27 同一格的係數設定狀態等於逐筆非零 PCU 的邏輯或（含範圍覆寫）
+ok 472 - A27 同一格的係數設定狀態等於逐筆非零 PCU 的邏輯或（含範圍覆寫）
+  ---
+  duration_ms: 35.9914
+  type: 'test'
+  ...
+# Subtest: 四大類車種的 PCU 當量係數不得變動
+ok 473 - 四大類車種的 PCU 當量係數不得變動
+  ---
+  duration_ms: 2.6547
+  type: 'test'
+  ...
+# Subtest: 逐轉向的 PCU 當量係數不得變動
+ok 474 - 逐轉向的 PCU 當量係數不得變動
+  ---
+  duration_ms: 0.6438
+  type: 'test'
+  ...
+# Subtest: 新車種的預設當量維持 1
+ok 475 - 新車種的預設當量維持 1
+  ---
+  duration_ms: 0.4704
+  type: 'test'
+  ...
+# Subtest: 尖峰小時口徑：十種情境的結果與共用契約表完全一致
+ok 476 - 尖峰小時口徑：十種情境的結果與共用契約表完全一致
+  ---
+  duration_ms: 16.909
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：契約表要有足夠的情境（表被掏空的話上一條恆真）
+ok 477 - ⚠️ 前置：契約表要有足夠的情境（表被掏空的話上一條恆真）
+  ---
+  duration_ms: 0.5743
+  type: 'test'
+  ...
+# Subtest: 尖峰小時口徑契約表的雜湊必須與另一支程式相同
+ok 478 - 尖峰小時口徑契約表的雜湊必須與另一支程式相同
+  ---
+  duration_ms: 7.5014
+  type: 'test'
+  ...
+#   結論草稿：200 筆 248.8ms → 2000 筆 557.9ms（2.2 倍）
+#   結論草稿（單一時段）：200 筆 4.5ms → 2000 筆 51.9ms（11.6 倍）
+#   （反證）刻意寫壞的平方寫法：10000 筆 466.1ms → 100000 筆 47531.9ms（102.0 倍）
+#   （反證）正常的線性寫法：300000 筆 12.5ms → 3000000 筆 95.3ms（7.6 倍）
+# Subtest: ⚠️ 結論草稿（四個時段 × 全部指標）：資料 ×10 時間不可以 ×100
+ok 479 - ⚠️ 結論草稿（四個時段 × 全部指標）：資料 ×10 時間不可以 ×100
+  ---
+  duration_ms: 6119.1587
+  type: 'test'
+  ...
+# Subtest: ⚠️ 結論草稿（只勾一個時段）：資料 ×10 時間不可以 ×100
+ok 480 - ⚠️ 結論草稿（只勾一個時段）：資料 ×10 時間不可以 ×100
+  ---
+  duration_ms: 417.9708
+  type: 'test'
+  ...
+# Subtest: ⚠️ 這一支真的抓得到平方成長（反證，不然門檻訂錯也沒人知道）
+ok 481 - ⚠️ 這一支真的抓得到平方成長（反證，不然門檻訂錯也沒人知道）
+  ---
+  duration_ms: 320569.7863
+  type: 'test'
+  ...
+# Subtest: 時段字串可解析出起始小時
+ok 482 - 時段字串可解析出起始小時
+  ---
+  duration_ms: 2.9311
+  type: 'test'
+  ...
+# Subtest: 上午尖峰只看12點前、下午尖峰只看12點後，且以PCU判定
+ok 483 - 上午尖峰只看12點前、下午尖峰只看12點後，且以PCU判定
+  ---
+  duration_ms: 20.5171
+  type: 'test'
+  ...
+# Subtest: 混用 15 分鐘與 60 分鐘時間格時，全日欄位的時數要算對
+ok 484 - 混用 15 分鐘與 60 分鐘時間格時，全日欄位的時數要算對
+  ---
+  duration_ms: 2.6472
+  type: 'test'
+  ...
+# Subtest: 完整 24 小時調查的全日欄位仍標示為 24 小時
+ok 485 - 完整 24 小時調查的全日欄位仍標示為 24 小時
+  ---
+  duration_ms: 6.8876
+  type: 'test'
+  ...
+# Subtest: 預設：整個調查點取同一個尖峰時段，各方向相加等於合計
+ok 486 - 預設：整個調查點取同一個尖峰時段，各方向相加等於合計
+  ---
+  duration_ms: 1.4847
+  type: 'test'
+  ...
+# Subtest: peakScope: "direction" 時，每個方向各自認定自己的尖峰小時
+ok 487 - peakScope: "direction" 時，每個方向各自認定自己的尖峰小時
+  ---
+  duration_ms: 1.6891
+  type: 'test'
+  ...
+# Subtest: 百分比以車輛數為基準且四種車以外的新增車種一併計算
+ok 488 - 百分比以車輛數為基準且四種車以外的新增車種一併計算
+  ---
+  duration_ms: 1.1176
+  type: 'test'
+  ...
+# Subtest: 路口格式以轉向係數計算各車種PCU
+ok 489 - 路口格式以轉向係數計算各車種PCU
+  ---
+  duration_ms: 2.1945
+  type: 'test'
+  ...
+# Subtest: 沒有上午資料時上午尖峰為空白而不是誤抓下午
+ok 490 - 沒有上午資料時上午尖峰為空白而不是誤抓下午
+  ---
+  duration_ms: 2.8055
+  type: 'test'
+  ...
+# Subtest: 平日＋假日：一天一列，各自算自己的尖峰與全調查時段
+ok 491 - 平日＋假日：一天一列，各自算自己的尖峰與全調查時段
+  ---
+  duration_ms: 1.9825
+  type: 'test'
+  ...
+# Subtest: 單一日別：行為與升級前逐格相同（一列、不帶日別）
+ok 492 - 單一日別：行為與升級前逐格相同（一列、不帶日別）
+  ---
+  duration_ms: 2.9104
+  type: 'test'
+  ...
+# Subtest: 匯出結構依勾選的時段／方向／指標動態產生
+ok 493 - 匯出結構依勾選的時段／方向／指標動態產生
+  ---
+  duration_ms: 6.9104
+  type: 'test'
+  ...
+# Subtest: 報表範本設定可安全還原舊版或損壞資料
+ok 494 - 報表範本設定可安全還原舊版或損壞資料
+  ---
+  duration_ms: 0.7228
+  type: 'test'
+  ...
+# Subtest: 全日欄位的單位是每日，尖峰欄位才是每小時
+ok 495 - 全日欄位的單位是每日，尖峰欄位才是每小時
+  ---
+  duration_ms: 0.7258
+  type: 'test'
+  ...
+# Subtest: 完整 24 小時的資料，全日欄位才標成 PCU/日
+ok 496 - 完整 24 小時的資料，全日欄位才標成 PCU/日
+  ---
+  duration_ms: 4.725
+  type: 'test'
+  ...
+# Subtest: 同一小時用不同分隔符寫也算同一個時段
+ok 497 - 同一小時用不同分隔符寫也算同一個時段
+  ---
+  duration_ms: 5.3339
+  type: 'test'
+  ...
+# Subtest: 時段字串無法解析的資料不納入分析
+ok 498 - 時段字串無法解析的資料不納入分析
+  ---
+  duration_ms: 1.6531
+  type: 'test'
+  ...
+# Subtest: 完全沒有車流時不會拿第一筆冒充尖峰
+ok 499 - 完全沒有車流時不會拿第一筆冒充尖峰
+  ---
+  duration_ms: 1.5506
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 未確認時：PCU 全為 0 的尖峰格寫「待設定 PCU 係數」，不給時段
+ok 500 - ⚠️ K43 未確認時：PCU 全為 0 的尖峰格寫「待設定 PCU 係數」，不給時段
+  ---
+  duration_ms: 0.5969
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 未確認時：「全調查時段」那一格照樣寫得出車輛數（不可以連它一起遮）
+ok 501 - ⚠️ K43 未確認時：「全調查時段」那一格照樣寫得出車輛數（不可以連它一起遮）
+  ---
+  duration_ms: 0.5985
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 已確認之後：才改以車輛數判定尖峰（原本的處理方式保留）
+ok 502 - ⚠️ K43 已確認之後：才改以車輛數判定尖峰（原本的處理方式保留）
+  ---
+  duration_ms: 1.8289
+  type: 'test'
+  ...
+# Subtest: ⚠️ K43 不可以誤傷：PCU 正常時尖峰照舊，pcuUnset 為 false
+ok 503 - ⚠️ K43 不可以誤傷：PCU 正常時尖峰照舊，pcuUnset 為 false
+  ---
+  duration_ms: 6.0855
+  type: 'test'
+  ...
+# Subtest: 負的自訂 PCU 係數不可誤報為『PCU 係數全為 0』
+ok 504 - 負的自訂 PCU 係數不可誤報為『PCU 係數全為 0』
+  ---
+  duration_ms: 4.7785
+  type: 'test'
+  ...
+# Subtest: 正負 PCU 抵銷為零也不可誤報為所有係數都零
+ok 505 - 正負 PCU 抵銷為零也不可誤報為所有係數都零
+  ---
+  duration_ms: 3.5141
+  type: 'test'
+  ...
+# Subtest: 同名調查點的列會各自成群，合計列緊接著自己的方向
+ok 506 - 同名調查點的列會各自成群，合計列緊接著自己的方向
+  ---
+  duration_ms: 2.3611
+  type: 'test'
+  ...
+# Subtest: 方向代碼剛好叫 ALL 時不會被重複計算
+ok 507 - 方向代碼剛好叫 ALL 時不會被重複計算
+  ---
+  duration_ms: 1.7754
+  type: 'test'
+  ...
+# Subtest: 非數值的車輛數不會讓 PCU 變成 NaN
+ok 508 - 非數值的車輛數不會讓 PCU 變成 NaN
+  ---
+  duration_ms: 0.9224
+  type: 'test'
+  ...
+# Subtest: 匯出設定會保存尖峰時段認定與路口流量視角，且能被還原
+ok 509 - 匯出設定會保存尖峰時段認定與路口流量視角，且能被還原
+  ---
+  duration_ms: 0.4387
+  type: 'test'
+  ...
+# Subtest: ⚠️ 2 小時一格：尖峰欄要「資料不足」，全調查時段照樣算得出來
+ok 510 - ⚠️ 2 小時一格：尖峰欄要「資料不足」，全調查時段照樣算得出來
+  ---
+  duration_ms: 0.9716
+  type: 'test'
+  ...
+# Subtest: ⚠️ 前置：整點一格（剛好 60 分鐘）不可以被上一條連帶弄壞
+ok 511 - ⚠️ 前置：整點一格（剛好 60 分鐘）不可以被上一條連帶弄壞
+  ---
+  duration_ms: 0.6405
+  type: 'test'
+  ...
+# Subtest: ⚠️ 45 分鐘一格：尖峰欄是「資料不足」，不是「—」
+ok 512 - ⚠️ 45 分鐘一格：尖峰欄是「資料不足」，不是「—」
+  ---
+  duration_ms: 0.565
+  type: 'test'
+  ...
+# Subtest: 45 分鐘零車流紀錄在時段分析仍是資料不足
+ok 513 - 45 分鐘零車流紀錄在時段分析仍是資料不足
+  ---
+  duration_ms: 0.3688
+  type: 'test'
+  ...
+# Subtest: 負 PCU 細格與零車流完整時段並存時，不可誤說資料不足
+ok 514 - 負 PCU 細格與零車流完整時段並存時，不可誤說資料不足
+  ---
+  duration_ms: 1.0425
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反過來也要成立：那一段完全沒有資料時仍然是「—」
+ok 515 - ⚠️ 反過來也要成立：那一段完全沒有資料時仍然是「—」
+  ---
+  duration_ms: 0.6065
+  type: 'test'
+  ...
+# Subtest: ⚠️ 格長混用（整點 ＋ 尖峰拆 15 分鐘）：尖峰要走累計分鐘數，不可以逐格比大小
+ok 516 - ⚠️ 格長混用（整點 ＋ 尖峰拆 15 分鐘）：尖峰要走累計分鐘數，不可以逐格比大小
+  ---
+  duration_ms: 1.7959
+  type: 'test'
+  ...
+# Subtest: ⚠️ 混用了 2 小時格（眾數仍是 60）：那一格不可以被挑成尖峰
+ok 517 - ⚠️ 混用了 2 小時格（眾數仍是 60）：那一格不可以被挑成尖峰
+  ---
+  duration_ms: 2.1785
+  type: 'test'
+  ...
+# Subtest: 期別字串解析（含月期別 11501）
+ok 518 - 期別字串解析（含月期別 11501）
+  ---
+  duration_ms: 19.1096
+  type: 'test'
+  ...
+# Subtest: 表頭日期判讀與「日期：」標示
+ok 519 - 表頭日期判讀與「日期：」標示
+  ---
+  duration_ms: 3.5088
+  type: 'test'
+  ...
+# Subtest: 期別 × 日期 判定
+ok 520 - 期別 × 日期 判定
+  ---
+  duration_ms: 5.365
+  type: 'test'
+  ...
+# Subtest: 有標示的儲存格優先於位置較前、沒有標示的那一格
+ok 521 - 有標示的儲存格優先於位置較前、沒有標示的那一格
+  ---
+  duration_ms: 0.4631
+  type: 'test'
+  ...
+# Subtest: 完全沒有標示時退而採用第一個像日期的，並標記為推測
+ok 522 - 完全沒有標示時退而採用第一個像日期的，並標記為推測
+  ---
+  duration_ms: 0.9189
+  type: 'test'
+  ...
+# Subtest: 讀不到日期時不阻擋——status 是 unknown，訊息用使用者指定的字句
+ok 523 - 讀不到日期時不阻擋——status 是 unknown，訊息用使用者指定的字句
+  ---
+  duration_ms: 2.1421
+  type: 'test'
+  ...
+# Subtest: 不一致時的二次確認文字要說得出來源儲存格與兩邊的期別
+ok 524 - 不一致時的二次確認文字要說得出來源儲存格與兩邊的期別
+  ---
+  duration_ms: 0.6825
+  type: 'test'
+  ...
+# Subtest: 全部相符時不跳確認框，也沒有提醒
+ok 525 - 全部相符時不跳確認框，也沒有提醒
+  ---
+  duration_ms: 0.2387
+  type: 'test'
+  ...
+# Subtest: 期別顯示切換：季別維持原樣，月份模式列出實際調查月份
+ok 526 - 期別顯示切換：季別維持原樣，月份模式列出實際調查月份
+  ---
+  duration_ms: 1.1832
+  type: 'test'
+  ...
+# Subtest: 沒有日期可用時月份模式退回季別，不會編出月份也不會留空白
+ok 527 - 沒有日期可用時月份模式退回季別，不會編出月份也不會留空白
+  ---
+  duration_ms: 0.6421
+  type: 'test'
+  ...
+# Subtest: 季度輸入欄不得用瀏覽器 pattern 阻擋共用契約接受的全形與空白
+ok 528 - 季度輸入欄不得用瀏覽器 pattern 阻擋共用契約接受的全形與空白
+  ---
+  duration_ms: 83.8166
+  type: 'test'
+  ...
+# Subtest: C1 尖峰欄位永遠是流率，不受任何選項影響
+ok 529 - C1 尖峰欄位永遠是流率，不受任何選項影響
+  ---
+  duration_ms: 1.9035
+  type: 'test'
+  ...
+# Subtest: C2 全調查時段：滿 24 小時寫「日」，不足寫「調查時段」
+ok 530 - C2 全調查時段：滿 24 小時寫「日」，不足寫「調查時段」
+  ---
+  duration_ms: 0.2925
+  type: 'test'
+  ...
+# Subtest: C3 「平日＋假日」是兩天的加總，不可以標成「每日」
+ok 531 - C3 「平日＋假日」是兩天的加總，不可以標成「每日」
+  ---
+  duration_ms: 0.1742
+  type: 'test'
+  ...
+# Subtest: C4 ⚠️ separateDays 不可以把 partial 吃掉（舊版真的發生過）
+ok 532 - C4 ⚠️ separateDays 不可以把 partial 吃掉（舊版真的發生過）
+  ---
+  duration_ms: 0.1695
+  type: 'test'
+  ...
+# Subtest: C5 百分比永遠是 %，不跟時段走
+ok 533 - C5 百分比永遠是 %，不跟時段走
+  ---
+  duration_ms: 0.1692
+  type: 'test'
+  ...
+# Subtest: C6 ⚠️ 不足 24 小時時，任何一個單位都不可以出現「/日」
+ok 534 - C6 ⚠️ 不足 24 小時時，任何一個單位都不可以出現「/日」
+  ---
+  duration_ms: 1.3537
+  type: 'test'
+  ...
+# Subtest: 前置：這個掃描器真的抓得到違規字串（抓不到的話下一項會恆綠）
+ok 535 - 前置：這個掃描器真的抓得到違規字串（抓不到的話下一項會恆綠）
+  ---
+  duration_ms: 11.6004
+  type: 'test'
+  ...
+# Subtest: 前置：白名單檔案真的在用 boldParts（不然白名單就是在放水）
+ok 536 - 前置：白名單檔案真的在用 boldParts（不然白名單就是在放水）
+  ---
+  duration_ms: 100.1618
+  type: 'test'
+  ...
+# Subtest: 前置：純文字掃描範圍涵蓋 app/ 全部原始檔（不是挑幾個）
+ok 537 - 前置：純文字掃描範圍涵蓋 app/ 全部原始檔（不是挑幾個）
+  ---
+  duration_ms: 0.3594
+  type: 'test'
+  ...
+# Subtest: 純文字去處的字串不可以留下 Markdown 粗體記號
+ok 538 - 純文字去處的字串不可以留下 Markdown 粗體記號
+  ---
+  duration_ms: 75.9452
+  type: 'test'
+  ...
+# Subtest: 畫面上直接印出來的字串（不經 boldParts）也不可以有粗體記號
+ok 539 - 畫面上直接印出來的字串（不經 boldParts）也不可以有粗體記號
+  ---
+  duration_ms: 16.6486
+  type: 'test'
+  ...
+# Subtest: 倍率句不可以寫成「原來的 N 倍／N%」（沒有主詞）
+ok 540 - 倍率句不可以寫成「原來的 N 倍／N%」（沒有主詞）
+  ---
+  duration_ms: 105.5681
+  type: 'test'
+  ...
+# Subtest: 前置：這條掃描抓得到沒有主詞的寫法（不然它是恆真的）
+ok 541 - 前置：這條掃描抓得到沒有主詞的寫法（不然它是恆真的）
+  ---
+  duration_ms: 0.5137
+  type: 'test'
+  ...
+# Subtest: 比較基準一定要有主詞（不可以寫「比以前」「比原來」這類）
+ok 542 - 比較基準一定要有主詞（不可以寫「比以前」「比原來」這類）
+  ---
+  duration_ms: 660.9229
+  type: 'test'
+  ...
+# Subtest: 前置：這條掃描抓得到沒有主詞的寫法（不然它是恆真的）
+ok 543 - 前置：這條掃描抓得到沒有主詞的寫法（不然它是恆真的）
+  ---
+  duration_ms: 0.743
+  type: 'test'
+  ...
+# Subtest: 上限本身要是實際案名放得下的長度
+ok 544 - 上限本身要是實際案名放得下的長度
+  ---
+  duration_ms: 1.2832
+  type: 'test'
+  ...
+# Subtest: 新輸入超過上限會被擋下來
+ok 545 - 新輸入超過上限會被擋下來
+  ---
+  duration_ms: 0.3882
+  type: 'test'
+  ...
+# Subtest: 上限以內的輸入一字不動
+ok 546 - 上限以內的輸入一字不動
+  ---
+  duration_ms: 0.1746
+  type: 'test'
+  ...
+# Subtest: 既有的超長內容不可以被截斷（這是會靜靜掉資料的那一項）
+ok 547 - 既有的超長內容不可以被截斷（這是會靜靜掉資料的那一項）
+  ---
+  duration_ms: 0.2979
+  type: 'test'
+  ...
+# Subtest: 既有的超長內容也不可以再變得更長
+ok 548 - 既有的超長內容也不可以再變得更長
+  ---
+  duration_ms: 0.2998
+  type: 'test'
+  ...
+# Subtest: 輸入框同時掛上 maxLength 與 capText，且改名框的 maxLength 不擋既有長度
+ok 549 - 輸入框同時掛上 maxLength 與 capText，且改名框的 maxLength 不擋既有長度
+  ---
+  duration_ms: 9.3389
+  type: 'test'
+  ...
+# Subtest: 換行那一半：CSS 要同時處理彈性軌道與元素本身
+ok 550 - 換行那一半：CSS 要同時處理彈性軌道與元素本身
+  ---
+  duration_ms: 24.739
+  type: 'test'
+  ...
+# Subtest: package.json 與 package-lock.json 的版本號和程式顯示的一致
+ok 551 - package.json 與 package-lock.json 的版本號和程式顯示的一致
+  ---
+  duration_ms: 52.0829
+  type: 'test'
+  ...
+# Subtest: 畫面上的手冊連結檔名帶著目前版本
+ok 552 - 畫面上的手冊連結檔名帶著目前版本
+  ---
+  duration_ms: 32.0839
+  type: 'test'
+  ...
+# Subtest: 手冊裡有本版的更新說明區塊
+ok 553 - 手冊裡有本版的更新說明區塊
+  ---
+  duration_ms: 14.2911
+  type: 'test'
+  ...
+# Subtest: GitHub Pages 根目錄建置產物與目前版本一致
+ok 554 - GitHub Pages 根目錄建置產物與目前版本一致
+  ---
+  duration_ms: 24.904
+  type: 'test'
+  ...
+# Subtest: 驗證報告檔名與目前版本一致，不得殘留舊版
+ok 555 - 驗證報告檔名與目前版本一致，不得殘留舊版
+  ---
+  duration_ms: 83.0175
+  type: 'test'
+  ...
+# Subtest: 更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名
+ok 556 - 更新說明的「如何更新」段落沒有殘留舊版號與舊資產檔名
+  ---
+  duration_ms: 87.1597
+  type: 'test'
+  ...
+# Subtest: 更新說明裡寫出來的每一個 SHA-256 都要與實際檔案相符
+ok 557 - 更新說明裡寫出來的每一個 SHA-256 都要與實際檔案相符
+  ---
+  duration_ms: 217.8469
+  type: 'test'
+  ...
+# Subtest: 更新說明與驗證報告都不可以有兩段共用同一個版號
+ok 558 - 更新說明與驗證報告都不可以有兩段共用同一個版號
+  ---
+  duration_ms: 27.823
+  type: 'test'
+  ...
+#   ℹ️ 與最後一次建置逐位元相同、時間戳不列入比較：index-D4xu9QK7.js、index-CTPKCkkc.css
+#   ℹ️ 主程式與樣式兩個產物都與最後一次建置逐位元相同，不需要再比 mtime（逐位元相同是比時間更強的證據）。
+# Subtest: 根目錄的建置產物不可以比原始碼舊
+ok 559 - 根目錄的建置產物不可以比原始碼舊
+  ---
+  duration_ms: 334.3971
+  type: 'test'
+  ...
+#   ℹ️ v20.97 已正式發布，本版直接建在它之上，沒有「未發布候選區間」可寫——改成要求現況文件寫明前一正式版是哪一版。
+# Subtest: 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+ok 560 - 未發布候選版的區間與數量，三份現況文件都要寫到本版前一版
+  ---
+  duration_ms: 69.0297
+  type: 'test'
+  ...
+# Subtest: 驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時跳過並說明）
+ok 561 - 驗證報告寫的手冊頁數與字元數要與 PDF 相符（缺工具時跳過並說明）
+  ---
+  duration_ms: 1707.0633
+  type: 'test'
+  ...
+# Subtest: 文件寫的測試條數必須等於那支檔案裡 test() 的數量
+ok 562 - 文件寫的測試條數必須等於那支檔案裡 test() 的數量
+  ---
+  duration_ms: 338.5488
+  type: 'test'
+  ...
+# Subtest: 每一頁都看得到的共用區塊：品牌、版號、工具列、篩選列
+ok 563 - 每一頁都看得到的共用區塊：品牌、版號、工具列、篩選列
+  ---
+  duration_ms: 1787.6789
+  type: 'test'
+  ...
+# Subtest: 分區導覽要有五顆，而且預設停在第一個分區
+ok 564 - 分區導覽要有五顆，而且預設停在第一個分區
+  ---
+  duration_ms: 171.3306
+  type: 'test'
+  ...
+# Subtest: 換頁之後，別頁的內容不可以還留在 DOM 裡（否則等於沒換頁）
+ok 565 - 換頁之後，別頁的內容不可以還留在 DOM 裡（否則等於沒換頁）
+  ---
+  duration_ms: 161.9731
+  type: 'test'
+  ...
+# Subtest: 時段分析面板獨立於既有表單，且說明有引用公路容量手冊依據
+ok 566 - 時段分析面板獨立於既有表單，且說明有引用公路容量手冊依據
+  ---
+  duration_ms: 21.8944
+  type: 'test'
+  ...
+# Subtest: 新手手冊只出 PDF，而且畫面上的連結指向真的存在的那一份
+ok 567 - 新手手冊只出 PDF，而且畫面上的連結指向真的存在的那一份
+  ---
+  duration_ms: 12.5638
+  type: 'test'
+  ...
+# Subtest: keeps configurable factors, legacy Excel and all editable chart datasets
+ok 568 - keeps configurable factors, legacy Excel and all editable chart datasets
+  ---
+  duration_ms: 26.2972
+  type: 'test'
+  ...
+# Subtest: normalizes the same road across quarterly survey batch codes
+ok 569 - normalizes the same road across quarterly survey batch codes
+  ---
+  duration_ms: 2.3938
+  type: 'test'
+  ...
+# Subtest: 每一個匯出勾選項目都有對應的草稿段落，反之亦然
+ok 570 - 每一個匯出勾選項目都有對應的草稿段落，反之亦然
+  ---
+  duration_ms: 21.6668
+  type: 'test'
+  ...
+# Subtest: 匯出中心的勾選清單直接取用共用常數，不另外維護一份
+ok 571 - 匯出中心的勾選清單直接取用共用常數，不另外維護一份
+  ---
+  duration_ms: 39.5904
+  type: 'test'
+  ...
+# Subtest: 全部勾選時，每一個段落都會出現在草稿裡
+ok 572 - 全部勾選時，每一個段落都會出現在草稿裡
+  ---
+  duration_ms: 38.941
+  type: 'test'
+  ...
+# Subtest: 沒有勾選的段落不會出現
+ok 573 - 沒有勾選的段落不會出現
+  ---
+  duration_ms: 0.6382
+  type: 'test'
+  ...
+# Subtest: 勾選了但沒有資料的段落會明講，而不是靜靜消失
+ok 574 - 勾選了但沒有資料的段落會明講，而不是靜靜消失
+  ---
+  duration_ms: 0.8647
+  type: 'test'
+  ...
+# Subtest: 平假日比較會算出正負向的變動
+ok 575 - 平假日比較會算出正負向的變動
+  ---
+  duration_ms: 1.3857
+  type: 'test'
+  ...
+# Subtest: 平日＋假日的整體總結分日敘述，不把兩天偽裝成一個日交通量
+ok 576 - 平日＋假日的整體總結分日敘述，不把兩天偽裝成一個日交通量
+  ---
+  duration_ms: 0.9418
+  type: 'test'
+  ...
+# Subtest: 部分時段調查的說明會寫進範圍段落
+ok 577 - 部分時段調查的說明會寫進範圍段落
+  ---
+  duration_ms: 0.4441
+  type: 'test'
+  ...
+# Subtest: 異常提醒超過 20 項時會截斷並說明還有幾項
+ok 578 - 異常提醒超過 20 項時會截斷並說明還有幾項
+  ---
+  duration_ms: 0.7753
+  type: 'test'
+  ...
+# Subtest: 未指定駛入的「輛」不會被當成待確認的「項」相加
+ok 579 - 未指定駛入的「輛」不會被當成待確認的「項」相加
+  ---
+  duration_ms: 0.8557
+  type: 'test'
+  ...
+# Subtest: 各調查點分項結果會逐點、逐時段寫出，並帶著條件說明
+ok 580 - 各調查點分項結果會逐點、逐時段寫出，並帶著條件說明
+  ---
+  duration_ms: 0.7619
+  type: 'test'
+  ...
+# Subtest: 全日的單位是「輛/日」，不會被寫成每小時
+ok 581 - 全日的單位是「輛/日」，不會被寫成每小時
+  ---
+  duration_ms: 0.4274
+  type: 'test'
+  ...
+# Subtest: 沒有資料的時段會照樣列出並標示，不會靜靜跳過
+ok 582 - 沒有資料的時段會照樣列出並標示，不會靜靜跳過
+  ---
+  duration_ms: 0.3547
+  type: 'test'
+  ...
+# Subtest: 車種超過五種時只列前五種，其餘併成一句
+ok 583 - 車種超過五種時只列前五種，其餘併成一句
+  ---
+  duration_ms: 0.366
+  type: 'test'
+  ...
+# Subtest: 整體總結與各調查點分項結果可以各自勾選，互不影響
+ok 584 - 整體總結與各調查點分項結果可以各自勾選，互不影響
+  ---
+  duration_ms: 1.1661
+  type: 'test'
+  ...
+# Subtest: 沒有調查點資料時，勾了分項結果會明講
+ok 585 - 沒有調查點資料時，勾了分項結果會明講
+  ---
+  duration_ms: 0.3235
+  type: 'test'
+  ...
+# Subtest: 有資料但算不出數字時，不會謊稱「此時段無資料」，也不會叫使用者去勾已經勾了的選項
+ok 586 - 有資料但算不出數字時，不會謊稱「此時段無資料」，也不會叫使用者去勾已經勾了的選項
+  ---
+  duration_ms: 0.2453
+  type: 'test'
+  ...
+# Subtest: 分項結果會先說明「單位以本文為準」，避免與 Excel 欄名看起來矛盾
+ok 587 - 分項結果會先說明「單位以本文為準」，避免與 Excel 欄名看起來矛盾
+  ---
+  duration_ms: 0.4627
+  type: 'test'
+  ...
+# Subtest: 調查點超過上限時會說明還有幾個點未列出
+ok 588 - 調查點超過上限時會說明還有幾個點未列出
+  ---
+  duration_ms: 0.4283
+  type: 'test'
+  ...
+# Subtest: 時段車種分析沒有啟用時，該段落會標示沒有資料
+ok 589 - 時段車種分析沒有啟用時，該段落會標示沒有資料
+  ---
+  duration_ms: 0.2522
+  type: 'test'
+  ...
+# Subtest: 尖峰視窗不足一小時時，草稿不會標成 PCU/hr
+ok 590 - 尖峰視窗不足一小時時，草稿不會標成 PCU/hr
+  ---
+  duration_ms: 0.4691
+  type: 'test'
+  ...
+# Subtest: 多個調查點時，逐點那一行的單位也不可以寫死成 PCU/hr
+ok 591 - 多個調查點時，逐點那一行的單位也不可以寫死成 PCU/hr
+  ---
+  duration_ms: 3.5988
+  type: 'test'
+  ...
+# Subtest: 逐點的單位讀不到時，要少講而不是多講
+ok 592 - 逐點的單位讀不到時，要少講而不是多講
+  ---
+  duration_ms: 0.8142
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢：前一季為 0 時不寫「增加 0.0%」
+ok 593 - 歷季趨勢：前一季為 0 時不寫「增加 0.0%」
+  ---
+  duration_ms: 0.5651
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢：前一季讀不到時明講讀不到，不寫成持平
+ok 594 - 歷季趨勢：前一季讀不到時明講讀不到，不寫成持平
+  ---
+  duration_ms: 0.4174
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢那一行要寫明指標與單位
+ok 595 - 歷季趨勢那一行要寫明指標與單位
+  ---
+  duration_ms: 0.9631
+  type: 'test'
+  ...
+# Subtest: 歷季趨勢的平日＋假日要分列，且沿用所選指標與單位
+ok 596 - 歷季趨勢的平日＋假日要分列，且沿用所選指標與單位
+  ---
+  duration_ms: 2.2751
+  type: 'test'
+  ...
+# Subtest: 平假日比較：平日為 0 時不寫「增加 0.0%」
+ok 597 - 平假日比較：平日為 0 時不寫「增加 0.0%」
+  ---
+  duration_ms: 26.7152
+  type: 'test'
+  ...
+# Subtest: 平假日比較：平日讀不到時明講，不寫成持平
+ok 598 - 平假日比較：平日讀不到時明講，不寫成持平
+  ---
+  duration_ms: 1.202
+  type: 'test'
+  ...
+# Subtest: 各調查點尖峰小時不同時，不寫合計而是寫最高者並說明原因
+ok 599 - 各調查點尖峰小時不同時，不寫合計而是寫最高者並說明原因
+  ---
+  duration_ms: 0.7356
+  type: 'test'
+  ...
+# Subtest: 同一個尖峰時段時仍然寫合計，並標明單位
+ok 600 - 同一個尖峰時段時仍然寫合計，並標明單位
+  ---
+  duration_ms: 0.4265
+  type: 'test'
+  ...
+# Subtest: X-30 多個調查點：逐點敘述，而且「合計」那個數字整個不出現
+ok 601 - X-30 多個調查點：逐點敘述，而且「合計」那個數字整個不出現
+  ---
+  duration_ms: 0.804
+  type: 'test'
+  ...
+# Subtest: X-30 多個調查點：不再重複「交通量最高的調查點依序為」（逐點敘述已涵蓋）
+ok 602 - X-30 多個調查點：不再重複「交通量最高的調查點依序為」（逐點敘述已涵蓋）
+  ---
+  duration_ms: 0.4418
+  type: 'test'
+  ...
+# Subtest: X-30 點位數超過上限時，一個調查點一行
+ok 603 - X-30 點位數超過上限時，一個調查點一行
+  ---
+  duration_ms: 1.3742
+  type: 'test'
+  ...
+# Subtest: X-30 只有一個調查點時，寫法與升級前完全相同
+ok 604 - X-30 只有一個調查點時，寫法與升級前完全相同
+  ---
+  duration_ms: 1.3452
+  type: 'test'
+  ...
+# Subtest: X-30 平日＋假日：一個調查點兩個數字並列，不加總
+ok 605 - X-30 平日＋假日：一個調查點兩個數字並列，不加總
+  ---
+  duration_ms: 0.9177
+  type: 'test'
+  ...
+# Subtest: X-31 時段車種分析：多個調查點逐點一句，合計那個數字不出現
+ok 606 - X-31 時段車種分析：多個調查點逐點一句，合計那個數字不出現
+  ---
+  duration_ms: 0.7025
+  type: 'test'
+  ...
+# Subtest: X-31 尖峰小時各點時段不同時，除了逐點還要繼續講出時間也加不起來
+ok 607 - X-31 尖峰小時各點時段不同時，除了逐點還要繼續講出時間也加不起來
+  ---
+  duration_ms: 0.4409
+  type: 'test'
+  ...
+# Subtest: X-31 只有一個調查點時，不硬加「不列合計」的說明
+ok 608 - X-31 只有一個調查點時，不硬加「不列合計」的說明
+  ---
+  duration_ms: 0.3678
+  type: 'test'
+  ...
+# Subtest: X-31 調查點超過上限時，一個調查點一行
+ok 609 - X-31 調查點超過上限時，一個調查點一行
+  ---
+  duration_ms: 1.6359
+  type: 'test'
+  ...
+# Subtest: X-32 平假日比較：多個調查點逐點一句，跨點合計不出現
+ok 610 - X-32 平假日比較：多個調查點逐點一句，跨點合計不出現
+  ---
+  duration_ms: 0.9275
+  type: 'test'
+  ...
+# Subtest: X-32 只有一個調查點時，平假日比較維持原本寫法
+ok 611 - X-32 只有一個調查點時，平假日比較維持原本寫法
+  ---
+  duration_ms: 0.627
+  type: 'test'
+  ...
+# Subtest: X-32 多個調查點時，尖峰那一句要跟畫面一樣不給數字
+ok 612 - X-32 多個調查點時，尖峰那一句要跟畫面一樣不給數字
+  ---
+  duration_ms: 0.2736
+  type: 'test'
+  ...
+# Subtest: 無分隔符的檔名要切得出乾淨的路段名稱
+ok 613 - 無分隔符的檔名要切得出乾淨的路段名稱
+  ---
+  duration_ms: 5.9115
+  type: 'test'
+  ...
+# Subtest: 有分隔符的舊寫法維持原本行為，不可被新規則影響
+ok 614 - 有分隔符的舊寫法維持原本行為，不可被新規則影響
+  ---
+  duration_ms: 0.3702
+  type: 'test'
+  ...
+# Subtest: 路名裡的數字不可以被誤認成案號而剝掉
+ok 615 - 路名裡的數字不可以被誤認成案號而剝掉
+  ---
+  duration_ms: 0.3611
+  type: 'test'
+  ...
+# Subtest: 同一條路在下一季（場次號 +1）要被認成同一條
+ok 616 - 同一條路在下一季（場次號 +1）要被認成同一條
+  ---
+  duration_ms: 0.7461
+  type: 'test'
+  ...
+# Subtest: 平日與假日不可以收斂成同一個名稱
+ok 617 - 平日與假日不可以收斂成同一個名稱
+  ---
+  duration_ms: 0.3914
+  type: 'test'
+  ...
+# Subtest: 調查點編號刻意維持原樣——它是紀錄的鍵，不得順手改掉
+ok 618 - 調查點編號刻意維持原樣——它是紀錄的鍵，不得順手改掉
+  ---
+  duration_ms: 0.7766
+  type: 'test'
+  ...
+# Subtest: 只有代號、沒有路名的檔名要被認出是「還沒取名字」
+ok 619 - 只有代號、沒有路名的檔名要被認出是「還沒取名字」
+  ---
+  duration_ms: 0.7436
+  type: 'test'
+  ...
+# Subtest: 真實附件目錄使用原生路徑，不可因 Windows file URL 而錯誤略過
+ok 620 - 真實附件目錄使用原生路徑，不可因 Windows file URL 而錯誤略過
+  ---
+  duration_ms: 0.3227
+  type: 'test'
+  ...
+# Subtest: 全部真實檔名：名稱剝得乾淨、不空白、不互撞、跨季全部對得上
+ok 621 - 全部真實檔名：名稱剝得乾淨、不空白、不互撞、跨季全部對得上 # SKIP 這台機器上沒有真實調查檔（找過 D:\\Users\\95108\\AppData\\Local\\Temp\\realdata）
+  ---
+  duration_ms: 0.7917
+  type: 'test'
+  ...
+# Subtest: ⚠️ TS 與 T 兩種寫法都要剝得乾淨（四條規則一致）
+ok 622 - ⚠️ TS 與 T 兩種寫法都要剝得乾淨（四條規則一致）
+  ---
+  duration_ms: 0.9069
+  type: 'test'
+  ...
+# Subtest: ⚠️ 既有檔名寫法算出來的 roadId 不可以改變
+ok 623 - ⚠️ 既有檔名寫法算出來的 roadId 不可以改變
+  ---
+  duration_ms: 0.4923
+  type: 'test'
+  ...
+# Subtest: 車種組成的抬頭讀的是這一塊自己的條件，不是主工具列
+ok 624 - 車種組成的抬頭讀的是這一塊自己的條件，不是主工具列
+  ---
+  duration_ms: 4.4733
+  type: 'test'
+  ...
+# Subtest: 下載的 PNG 檔名逐塊算，不可以整批套主工具列那一行
+ok 625 - 下載的 PNG 檔名逐塊算，不可以整批套主工具列那一行
+  ---
+  duration_ms: 0.9743
+  type: 'test'
+  ...
+# Subtest: 24 小時型態的說明與匯出圖，讀的都是圖上那一份紀錄
+ok 626 - 24 小時型態的說明與匯出圖，讀的都是圖上那一份紀錄
+  ---
+  duration_ms: 0.9553
+  type: 'test'
+  ...
+# Subtest: 匯出的「目前車種組成」快取值與 SUMIFS 算的是同一件事
+ok 627 - 匯出的「目前車種組成」快取值與 SUMIFS 算的是同一件事
+  ---
+  duration_ms: 0.7389
+  type: 'test'
+  ...
+# Subtest: 結論草稿的車種組成與平假日比較，標籤與數字都照主工具列
+ok 628 - 結論草稿的車種組成與平假日比較，標籤與數字都照主工具列
+  ---
+  duration_ms: 1.2018
+  type: 'test'
+  ...
+# Subtest: 平假日比較：畫面與匯出各算一份，公式只有一支
+ok 629 - 平假日比較：畫面與匯出各算一份，公式只有一支
+  ---
+  duration_ms: 1.3217
+  type: 'test'
+  ...
+# Subtest: 兩張可追溯明細的欄位單位與部分時段提醒，照自己那一塊的涵蓋算
+ok 630 - 兩張可追溯明細的欄位單位與部分時段提醒，照自己那一塊的涵蓋算
+  ---
+  duration_ms: 2.4891
+  type: 'test'
+  ...
+# Subtest: 時段車種分析的欄位單位跟著這一塊自己的日別
+ok 631 - 時段車種分析的欄位單位跟著這一塊自己的日別
+  ---
+  duration_ms: 1.0543
+  type: 'test'
+  ...
+# Subtest: classification coefficient warning must not claim negative PCU is zeroed
+ok 632 - classification coefficient warning must not claim negative PCU is zeroed
+  ---
+  duration_ms: 1.9791
+  type: 'test'
+  ...
+# Subtest: threshold scopes travel in both single and all-project backup exports
+ok 633 - threshold scopes travel in both single and all-project backup exports
+  ---
+  duration_ms: 0.4505
+  type: 'test'
+  ...
+# Subtest: both restore routes validate and restore threshold scopes to the destination
+ok 634 - both restore routes validate and restore threshold scopes to the destination
+  ---
+  duration_ms: 0.4897
+  type: 'test'
+  ...
+# Subtest: formal xlsx exports classification warnings and the scoped mapping table
+ok 635 - formal xlsx exports classification warnings and the scoped mapping table
+  ---
+  duration_ms: 0.3636
+  type: 'test'
+  ...
+# Subtest: long intervals are blocked before confirmations or writes
+ok 636 - long intervals are blocked before confirmations or writes
+  ---
+  duration_ms: 0.2231
+  type: 'test'
+  ...
+# Subtest: the import report uses the same long-interval rule as the write guard
+ok 637 - the import report uses the same long-interval rule as the write guard
+  ---
+  duration_ms: 0.2237
+  type: 'test'
+  ...
+# Subtest: 前置：真的掃到腳本，而且其中有一定數量寫了「用法」
+ok 638 - 前置：真的掃到腳本，而且其中有一定數量寫了「用法」
+  ---
+  duration_ms: 1.6568
+  type: 'test'
+  ...
+# Subtest: 檔頭的「用法」如果點名某一支 scripts/*.mjs，那一支必須是自己
+ok 639 - 檔頭的「用法」如果點名某一支 scripts/*.mjs，那一支必須是自己
+  ---
+  duration_ms: 2.9023
+  type: 'test'
+  ...
+# Subtest: 檔頭的方框標題不可以與別支腳本一字不差地相同
+ok 640 - 檔頭的方框標題不可以與別支腳本一字不差地相同
+  ---
+  duration_ms: 4.9709
+  type: 'test'
+  ...
+# Subtest: 共用契約案例表 direction-pair-contract.mjs 逐位元相同
+ok 641 - 共用契約案例表 direction-pair-contract.mjs 逐位元相同
+  ---
+  duration_ms: 3.6911
+  type: 'test'
+  ...
+# Subtest: 共用契約案例表 chart-levels-contract.mjs 逐位元相同
+ok 642 - 共用契約案例表 chart-levels-contract.mjs 逐位元相同
+  ---
+  duration_ms: 3.1839
+  type: 'test'
+  ...
+# Subtest: 這一條真的抓得到（反面檢查）
+ok 643 - 這一條真的抓得到（反面檢查）
+  ---
+  duration_ms: 0.8483
+  type: 'test'
+  ...
+# Subtest: SheetJS 套件固定使用收錄於專案的官方 0.20.3 檔案
+ok 644 - SheetJS 套件固定使用收錄於專案的官方 0.20.3 檔案
+  ---
+  duration_ms: 15.535
+  type: 'test'
+  ...
+# Subtest: SheetJS 官方壓縮檔雜湊不得被替換
+ok 645 - SheetJS 官方壓縮檔雜湊不得被替換
+  ---
+  duration_ms: 69.5602
+  type: 'test'
+  ...
+# Subtest: 實際安裝的 SheetJS 版本是 0.20.3
+ok 646 - 實際安裝的 SheetJS 版本是 0.20.3
+  ---
+  duration_ms: 2.0802
+  type: 'test'
+  ...
+# Subtest: 有一把專屬的儲存鍵，而且真的寫得進去
+ok 647 - 有一把專屬的儲存鍵，而且真的寫得進去
+  ---
+  duration_ms: 3.5957
+  type: 'test'
+  ...
+# Subtest: ⚠️ 讀不到設定時預設是「開」，不是「關」
+ok 648 - ⚠️ 讀不到設定時預設是「開」，不是「關」
+  ---
+  duration_ms: 0.6064
+  type: 'test'
+  ...
+# Subtest: ⚠️ 畫面只能透過會保存的那一支改狀態
+ok 649 - ⚠️ 畫面只能透過會保存的那一支改狀態
+  ---
+  duration_ms: 1.9582
+  type: 'test'
+  ...
+# Subtest: ⚠️ 單一計畫備份不可以帶這個偏好（那份是給別人的）
+ok 650 - ⚠️ 單一計畫備份不可以帶這個偏好（那份是給別人的）
+  ---
+  duration_ms: 0.8347
+  type: 'test'
+  ...
+# Subtest: ⚠️ 個人全部計畫包必須帶這個偏好，而且還原要讀回來
+ok 651 - ⚠️ 個人全部計畫包必須帶這個偏好，而且還原要讀回來
+  ---
+  duration_ms: 1.7615
+  type: 'test'
+  ...
+# Subtest: 測試裡寫的側欄色票，必須就是本程式真正用的那一個
+ok 652 - 測試裡寫的側欄色票，必須就是本程式真正用的那一個
+  ---
+  duration_ms: 2.1374
+  type: 'test'
+  ...
+# Subtest: 三支程式的側欄文字在各自底色上都要達 AAA（7:1）
+ok 653 - 三支程式的側欄文字在各自底色上都要達 AAA（7:1）
+  ---
+  duration_ms: 2.7485
+  type: 'test'
+  ...
+# Subtest: 已選取要比未選取更亮，否則「現在在哪一頁」看不出來
+ok 654 - 已選取要比未選取更亮，否則「現在在哪一頁」看不出來
+  ---
+  duration_ms: 0.5748
+  type: 'test'
+  ...
+# Subtest: 三支程式的側欄底色必須彼此分得出來
+ok 655 - 三支程式的側欄底色必須彼此分得出來
+  ---
+  duration_ms: 0.7788
+  type: 'test'
+  ...
+# Subtest: 側欄字級要嚴格遞減：大分頁 > 小分頁
+ok 656 - 側欄字級要嚴格遞減：大分頁 > 小分頁
+  ---
+  duration_ms: 0.5667
+  type: 'test'
+  ...
+# Subtest: 日期格式的儲存格計為 0，不得變成 epoch 毫秒
+ok 657 - 日期格式的儲存格計為 0，不得變成 epoch 毫秒
+  ---
+  duration_ms: 2.3787
+  type: 'test'
+  ...
+# Subtest: 既有的數值行為完全不變
+ok 658 - 既有的數值行為完全不變
+  ---
+  duration_ms: 0.9104
+  type: 'test'
+  ...
+# Subtest: isUnusableCount 只標記「有內容但不是數字」的格子
+ok 659 - isUnusableCount 只標記「有內容但不是數字」的格子
+  ---
+  duration_ms: 0.7875
+  type: 'test'
+  ...
+# Subtest: 日期／非數字計數格會保留來源警告，合法占位符不會誤報
+ok 660 - 日期／非數字計數格會保留來源警告，合法占位符不會誤報
+  ---
+  duration_ms: 10.817
+  type: 'test'
+  ...
+# Subtest: 同一日別有多張工作表時要全部讀，不能只讀第一張
+ok 661 - 同一日別有多張工作表時要全部讀，不能只讀第一張
+  ---
+  duration_ms: 1.5106
+  type: 'test'
+  ...
+# Subtest: 略過的工作表與讀出 0 列的檔案要被指名
+ok 662 - 略過的工作表與讀出 0 列的檔案要被指名
+  ---
+  duration_ms: 1.5366
+  type: 'test'
+  ...
+# Subtest: 日別退回檔名判定時要提醒使用者
+ok 663 - 日別退回檔名判定時要提醒使用者
+  ---
+  duration_ms: 1.2732
+  type: 'test'
+  ...
+# Subtest: 匯入失敗訊息要逐檔說明原因
+ok 664 - 匯入失敗訊息要逐檔說明原因
+  ---
+  duration_ms: 1.2619
+  type: 'test'
+  ...
+# Subtest: 全形數字要正確讀出，不可以靜靜變成 0
+ok 665 - 全形數字要正確讀出，不可以靜靜變成 0
+  ---
+  duration_ms: 0.4454
+  type: 'test'
+  ...
+# Subtest: 布林值計為 0，訊息才不會與實際行為不符
+ok 666 - 布林值計為 0，訊息才不會與實際行為不符
+  ---
+  duration_ms: 0.4568
+  type: 'test'
+  ...
+# Subtest: 合法的占位符不可誤報
+ok 667 - 合法的占位符不可誤報
+  ---
+  duration_ms: 0.2853
+  type: 'test'
+  ...
+# Subtest: 「製表日期」不可以蓋掉真正的調查日期
+ok 668 - 「製表日期」不可以蓋掉真正的調查日期
+  ---
+  duration_ms: 1.8121
+  type: 'test'
+  ...
+# Subtest: findAllSurveyDates 符合三支共用契約
+ok 669 - findAllSurveyDates 符合三支共用契約
+  ---
+  duration_ms: 18.7535
+  type: 'test'
+  ...
+# Subtest: 前置：測資同時含有該報與不該報的情形
+ok 670 - 前置：測資同時含有該報與不該報的情形
+  ---
+  duration_ms: 1.7151
+  type: 'test'
+  ...
+# Subtest: 這個類型有登記，而且是人工確認（系統不可以自己挑）
+ok 671 - 這個類型有登記，而且是人工確認（系統不可以自己挑）
+  ---
+  duration_ms: 0.4708
+  type: 'test'
+  ...
+# Subtest: 一張表只報一筆，候選都列出來；只有一個日期或沒有日期的不報
+ok 672 - 一張表只報一筆，候選都列出來；只有一個日期或沒有日期的不報
+  ---
+  duration_ms: 1.6633
+  type: 'test'
+  ...
+# Subtest: ⚠️ 分組鍵是「季別｜檔名｜工作表」，不是調查點
+ok 673 - ⚠️ 分組鍵是「季別｜檔名｜工作表」，不是調查點
+  ---
+  duration_ms: 0.4121
+  type: 'test'
+  ...
+# Subtest: ⚠️ 指紋要含候選清單：候選變了要重新提醒，候選沒變就不可以失效
+ok 674 - ⚠️ 指紋要含候選清單：候選變了要重新提醒，候選沒變就不可以失效
+  ---
+  duration_ms: 0.777
+  type: 'test'
+  ...
+# Subtest: ⚠️ 舊的五種異常的指紋不可以因為多了 choices 欄位而改變
+ok 675 - ⚠️ 舊的五種異常的指紋不可以因為多了 choices 欄位而改變
+  ---
+  duration_ms: 0.236
+  type: 'test'
+  ...
+# Subtest: 指定哪一個才對之後，顯示要跟著走；沒指定時用判讀到的
+ok 676 - 指定哪一個才對之後，顯示要跟著走；沒指定時用判讀到的
+  ---
+  duration_ms: 0.3072
+  type: 'test'
+  ...
+# Subtest: ⚠️ 覆寫值不在候選裡就不採用（備份被手改、或重新匯入後候選變了）
+ok 677 - ⚠️ 覆寫值不在候選裡就不採用（備份被手改、或重新匯入後候選變了）
+  ---
+  duration_ms: 0.1627
+  type: 'test'
+  ...
+# Subtest: ⚠️ 重新匯入後候選清單消失時，舊覆寫不得繼續套用
+ok 678 - ⚠️ 重新匯入後候選清單消失時，舊覆寫不得繼續套用
+  ---
+  duration_ms: 0.4651
+  type: 'test'
+  ...
+# Subtest: 指定過之後，訊息要寫明「你指定的」，而且採用的就是那一個
+ok 679 - 指定過之後，訊息要寫明「你指定的」，而且採用的就是那一個
+  ---
+  duration_ms: 0.8103
+  type: 'test'
+  ...
+# Subtest: 新的工作流程狀態要帶著覆寫表，舊備份沒有這一欄也不可以壞掉
+ok 680 - 新的工作流程狀態要帶著覆寫表，舊備份沒有這一欄也不可以壞掉
+  ---
+  duration_ms: 0.3915
+  type: 'test'
+  ...
+# Subtest: 這個類型登記在 ANOMALY_TYPES，而且有解決方式
+ok 681 - 這個類型登記在 ANOMALY_TYPES，而且有解決方式
+  ---
+  duration_ms: 1.8435
+  type: 'test'
+  ...
+# Subtest: ⚠️ 整點（60 分鐘）不可以判成異常
+ok 682 - ⚠️ 整點（60 分鐘）不可以判成異常
+  ---
+  duration_ms: 2.6
+  type: 'test'
+  ...
+# Subtest: ⚠️ 15 分鐘格不可以判成異常（手冊 4.5.1.3 鼓勵的做法）
+ok 683 - ⚠️ 15 分鐘格不可以判成異常（手冊 4.5.1.3 鼓勵的做法）
+  ---
+  duration_ms: 0.5121
+  type: 'test'
+  ...
+# Subtest: ⚠️ 20 與 30 分鐘格也不可以判成異常（README 寫著都支援）
+ok 684 - ⚠️ 20 與 30 分鐘格也不可以判成異常（README 寫著都支援）
+  ---
+  duration_ms: 0.312
+  type: 'test'
+  ...
+# Subtest: 2 小時一格要報出來，而且寫出實際格距與格數
+ok 685 - 2 小時一格要報出來，而且寫出實際格距與格數
+  ---
+  duration_ms: 0.7255
+  type: 'test'
+  ...
+# Subtest: ⚠️ 48 格裡只有 1 格誤植也要抓出來（眾數會把它蓋掉）
+ok 686 - ⚠️ 48 格裡只有 1 格誤植也要抓出來（眾數會把它蓋掉）
+  ---
+  duration_ms: 0.4838
+  type: 'test'
+  ...
+# Subtest: 一張表報一筆，不是一格報一筆
+ok 687 - 一張表報一筆，不是一格報一筆
+  ---
+  duration_ms: 0.2877
+  type: 'test'
+  ...
+# Subtest: 不同工作表各報一筆（格距是整張表的屬性）
+ok 688 - 不同工作表各報一筆（格距是整張表的屬性）
+  ---
+  duration_ms: 1.2495
+  type: 'test'
+  ...
+# Subtest: 讀不出時段的列不會讓它丟例外，也不會被當成異常
+ok 689 - 讀不出時段的列不會讓它丟例外，也不會被當成異常
+  ---
+  duration_ms: 0.9953
+  type: 'test'
+  ...
+# Subtest: ⚠️ 指紋不含 text：同一張表不會因為又匯入一季就讓確認失效
+ok 690 - ⚠️ 指紋不含 text：同一張表不會因為又匯入一季就讓確認失效
+  ---
+  duration_ms: 1.7846
+  type: 'test'
+  ...
+# Subtest: ⚠️ 混用整點與 15 分鐘格要列成異常，而且與匯入警告同一份判準
+ok 691 - ⚠️ 混用整點與 15 分鐘格要列成異常，而且與匯入警告同一份判準
+  ---
+  duration_ms: 15.0547
+  type: 'test'
+  ...
+# Subtest: ⚠️ 一次性的跳號不算「另一種規律」（不可以誤報）
+ok 692 - ⚠️ 一次性的跳號不算「另一種規律」（不可以誤報）
+  ---
+  duration_ms: 0.6341
+  type: 'test'
+  ...
+# Subtest: ⚠️ 統計卡要列得出「調查格距混用」（0 筆也要在）
+ok 693 - ⚠️ 統計卡要列得出「調查格距混用」（0 筆也要在）
+  ---
+  duration_ms: 0.2521
+  type: 'test'
+  ...
+# Subtest: 斑馬紋的底色必須淡到「分得出行」而不是「看起來有顏色」
+ok 694 - 斑馬紋的底色必須淡到「分得出行」而不是「看起來有顏色」
+  ---
+  duration_ms: 1.9309
+  type: 'test'
+  ...
+# Subtest: 斑馬列與 hover 列上的文字對比都要過 AA
+ok 695 - 斑馬列與 hover 列上的文字對比都要過 AA
+  ---
+  duration_ms: 0.6899
+  type: 'test'
+  ...
+# Subtest: hover 要壓得過斑馬紋，否則偶數列 hover 時看不出反應
+ok 696 - hover 要壓得過斑馬紋，否則偶數列 hover 時看不出反應
+  ---
+  duration_ms: 2.1747
+  type: 'test'
+  ...
+# Subtest: 數字欄要用等寬數字，這一項不加任何顏色卻解決同一個問題
+ok 697 - 數字欄要用等寬數字，這一項不加任何顏色卻解決同一個問題
+  ---
+  duration_ms: 0.6759
+  type: 'test'
+  ...
+# Subtest: 刻意不做「整張表換一個顏色」
+ok 698 - 刻意不做「整張表換一個顏色」
+  ---
+  duration_ms: 0.6154
+  type: 'test'
+  ...
+# Subtest: 字串中的scripts/*.mjs不可以吞掉真正test呼叫
+ok 699 - 字串中的scripts/*.mjs不可以吞掉真正test呼叫
+  ---
+  duration_ms: 13.4228
+  type: 'test'
+  ...
+# Subtest: 字串、正規式、註解中的假test呼叫不計入
+ok 700 - 字串、正規式、註解中的假test呼叫不計入
+  ---
+  duration_ms: 3.72
+  type: 'test'
+  ...
+# Subtest: 實際script-header-usage守門包含三項，不能誤數成二項
+ok 701 - 實際script-header-usage守門包含三項，不能誤數成二項
+  ---
+  duration_ms: 20.7369
+  type: 'test'
+  ...
+# Subtest: human-readable test diagnostics stay off Node's serialized stdout channel
+ok 702 - human-readable test diagnostics stay off Node's serialized stdout channel
+  ---
+  duration_ms: 227.6479
+  type: 'test'
+  ...
+# Subtest: 淺底上的每一個文字色都要 ≥ 4.5:1（整份樣式表掃過，不是抽樣）
+ok 703 - 淺底上的每一個文字色都要 ≥ 4.5:1（整份樣式表掃過，不是抽樣）
+  ---
+  duration_ms: 12.8827
+  type: 'test'
+  ...
+# Subtest: 豁免清單本身要合理：不可以把整份樣式表都豁免掉
+ok 704 - 豁免清單本身要合理：不可以把整份樣式表都豁免掉
+  ---
+  duration_ms: 17.5897
+  type: 'test'
+  ...
+# Subtest: 有色底上的文字也要 ≥ 4.5:1（豁免不等於可以不管）
+ok 705 - 有色底上的文字也要 ≥ 4.5:1（豁免不等於可以不管）
+  ---
+  duration_ms: 1.2163
+  type: 'test'
+  ...
+# Subtest: 前置：上面那一條真的算得出低對比（不然它是恆真的）
+ok 706 - 前置：上面那一條真的算得出低對比（不然它是恆真的）
+  ---
+  duration_ms: 0.2927
+  type: 'test'
+  ...
+# Subtest: 前置：樣本就是真實三岔檔的形狀與總量
+ok 707 - 前置：樣本就是真實三岔檔的形狀與總量
+  ---
+  duration_ms: 1.5638
+  type: 'test'
+  ...
+# Subtest: 設定好支線角度之後，三岔路口不會有任何車掉進 UNMAPPED
+ok 708 - 設定好支線角度之後，三岔路口不會有任何車掉進 UNMAPPED
+  ---
+  duration_ms: 12.6873
+  type: 'test'
+  ...
+# Subtest: 三岔路口不會冒出重複或憑空的目的地紀錄
+ok 709 - 三岔路口不會冒出重複或憑空的目的地紀錄
+  ---
+  duration_ms: 1.2582
+  type: 'test'
+  ...
+# Subtest: 沒設定角度時，車流會掉進 UNMAPPED——這就是匯入時要跳確認視窗的理由
+ok 710 - 沒設定角度時，車流會掉進 UNMAPPED——這就是匯入時要跳確認視窗的理由
+  ---
+  duration_ms: 0.7098
+  type: 'test'
+  ...
+# Subtest: 前置：真的讀到那兩個檔（讀成空字串的話下面全部恆綠）
+ok 711 - 前置：真的讀到那兩個檔（讀成空字串的話下面全部恆綠）
+  ---
+  duration_ms: 1.0799
+  type: 'test'
+  ...
+# Subtest: ① 門檻覆寫真的被傳進 detectAnomalies
+ok 712 - ① 門檻覆寫真的被傳進 detectAnomalies
+  ---
+  duration_ms: 3.2281
+  type: 'test'
+  ...
+# Subtest: ② 儲存鍵有列進「刪計畫要一起清掉」的清單
+ok 713 - ② 儲存鍵有列進「刪計畫要一起清掉」的清單
+  ---
+  duration_ms: 0.7925
+  type: 'test'
+  ...
+# Subtest: ③ 存檔驗證的欄位清單與 AnomalyThresholds 完全一致
+ok 714 - ③ 存檔驗證的欄位清單與 AnomalyThresholds 完全一致
+  ---
+  duration_ms: 2.3692
+  type: 'test'
+  ...
+# Subtest: ④ 空陣列不可以留在儲存區
+ok 715 - ④ 空陣列不可以留在儲存區
+  ---
+  duration_ms: 2.4214
+  type: 'test'
+  ...
+# Subtest: ⑤ 全季別×全路段時改的是計畫預設，不是建立一筆覆寫
+ok 716 - ⑤ 全季別×全路段時改的是計畫預設，不是建立一筆覆寫
+  ---
+  duration_ms: 1.9657
+  type: 'test'
+  ...
+# Subtest: ⑥ 建立新的專屬門檻時要問「這一筆會新增哪些重疊」，不是問總數
+ok 717 - ⑥ 建立新的專屬門檻時要問「這一筆會新增哪些重疊」，不是問總數
+  ---
+  duration_ms: 0.7463
+  type: 'test'
+  ...
+# Subtest: ⑦ 有專屬門檻時要給得掉（移除按鈕）
+ok 718 - ⑦ 有專屬門檻時要給得掉（移除按鈕）
+  ---
+  duration_ms: 1.692
+  type: 'test'
+  ...
+# Subtest: 原雙向路段格式維持 A/B 方向與四車種
+ok 719 - 原雙向路段格式維持 A/B 方向與四車種
+  ---
+  duration_ms: 17.2279
+  type: 'test'
+  ...
+# Subtest: 原11路段基準資料的平日總量與PCU維持不變
+ok 720 - 原11路段基準資料的平日總量與PCU維持不變
+  ---
+  duration_ms: 0.8207
+  type: 'test'
+  ...
+# Subtest: 五車種雙向路段會保留大貨車、大客車及聯結車為獨立原始車種
+ok 721 - 五車種雙向路段會保留大貨車、大客車及聯結車為獨立原始車種
+  ---
+  duration_ms: 1.8805
+  type: 'test'
+  ...
+# Subtest: 車種數量不固定，七車種也會全部保留而非只讀前五種
+ok 722 - 車種數量不固定，七車種也會全部保留而非只讀前五種
+  ---
+  duration_ms: 1.5168
+  type: 'test'
+  ...
+# Subtest: 路口格式會將每支線的左轉直進右轉加總並保留 A-D
+ok 723 - 路口格式會將每支線的左轉直進右轉加總並保留 A-D
+  ---
+  duration_ms: 5.7212
+  type: 'test'
+  ...
+# Subtest: 不規則多岔路格式可保留最多七個來源支線
+ok 724 - 不規則多岔路格式可保留最多七個來源支線
+  ---
+  duration_ms: 6.1875
+  type: 'test'
+  ...
+# Subtest: 目的支線分欄格式（往B、往C…）：一張工作表一條支線，支線數不限
+ok 725 - 目的支線分欄格式（往B、往C…）：一張工作表一條支線，支線數不限
+  ---
+  duration_ms: 1.9411
+  type: 'test'
+  ...
+# Subtest: 車種標題因合併儲存格重複時，仍以目的支線的重複週期正確分組
+ok 726 - 車種標題因合併儲存格重複時，仍以目的支線的重複週期正確分組
+  ---
+  duration_ms: 1.7162
+  type: 'test'
+  ...
+# Subtest: 「--」等非數值一律當成 0，不會讓整列變成 NaN
+ok 727 - 「--」等非數值一律當成 0，不會讓整列變成 NaN
+  ---
+  duration_ms: 0.9139
+  type: 'test'
+  ...
+# Subtest: 既有的左轉／直進／右轉格式不受影響，也不會產生 destinationCounts
+ok 728 - 既有的左轉／直進／右轉格式不受影響，也不會產生 destinationCounts
+  ---
+  duration_ms: 7.0233
+  type: 'test'
+  ...
+# Subtest: 目的支線分欄格式：全形時間與冒號旁空白都要讀得到
+ok 729 - 目的支線分欄格式：全形時間與冒號旁空白都要讀得到
+  ---
+  duration_ms: 2.3137
+  type: 'test'
+  ...
+# Subtest: 表頭日期不論放在哪一欄、哪一列都讀得到，而且位址正確
+ok 730 - 表頭日期不論放在哪一欄、哪一列都讀得到，而且位址正確
+  ---
+  duration_ms: 1.8585
+  type: 'test'
+  ...
+# Subtest: 第 13 列以後的日期不算表頭，不會被誤採
+ok 731 - 第 13 列以後的日期不算表頭，不會被誤採
+  ---
+  duration_ms: 0.2393
+  type: 'test'
+  ...
+# Subtest: 表頭有多個日期時，有「日期：」標示的那一格勝出
+ok 732 - 表頭有多個日期時，有「日期：」標示的那一格勝出
+  ---
+  duration_ms: 0.2371
+  type: 'test'
+  ...
+# Subtest: 「製表日期」不是調查日期，不可以拿來比對期別
+ok 733 - 「製表日期」不是調查日期，不可以拿來比對期別
+  ---
+  duration_ms: 0.1588
+  type: 'test'
+  ...
+# Subtest: 「歷季趨勢」工作表的欄位要跟著實際幾條線走，不可以寫死平日／假日兩欄
+ok 734 - 「歷季趨勢」工作表的欄位要跟著實際幾條線走，不可以寫死平日／假日兩欄
+  ---
+  duration_ms: 2.5279
+  type: 'test'
+  ...
+# Subtest: Excel 原生折線圖引用的欄位要跟著工作表算，不可以寫死 B、C 兩欄
+ok 735 - Excel 原生折線圖引用的欄位要跟著工作表算，不可以寫死 B、C 兩欄
+  ---
+  duration_ms: 0.9636
+  type: 'test'
+  ...
+# Subtest: 結論草稿的歷季段落要用圖上那幾條線，不可以回頭讀合計
+ok 736 - 結論草稿的歷季段落要用圖上那幾條線，不可以回頭讀合計
+  ---
+  duration_ms: 0.7298
+  type: 'test'
+  ...
+# Subtest: 給了 seriesLines 時，講稿講的是那幾條線，合計的數字一個都不出現
+ok 737 - 給了 seriesLines 時，講稿講的是那幾條線，合計的數字一個都不出現
+  ---
+  duration_ms: 33.3927
+  type: 'test'
+  ...
+# Subtest: 沒給 seriesLines 時，輸出與升級前逐字相同（平日／假日兩條）
+ok 738 - 沒給 seriesLines 時，輸出與升級前逐字相同（平日／假日兩條）
+  ---
+  duration_ms: 1.1155
+  type: 'test'
+  ...
+# Subtest: 逐點分列時，缺值的那幾季要照「哪幾條線缺」講，不是照平日／假日講
+ok 739 - 逐點分列時，缺值的那幾季要照「哪幾條線缺」講，不是照平日／假日講
+  ---
+  duration_ms: 0.8972
+  type: 'test'
+  ...
+# Subtest: 每一個指標都要有意義說明，否則講稿第一段會開天窗
+ok 740 - 每一個指標都要有意義說明，否則講稿第一段會開天窗
+  ---
+  duration_ms: 3.3248
+  type: 'test'
+  ...
+# Subtest: 指標名稱要帶出選到的車種，圖標題、檔名與講稿才不會各寫各的
+ok 741 - 指標名稱要帶出選到的車種，圖標題、檔名與講稿才不會各寫各的
+  ---
+  duration_ms: 0.8016
+  type: 'test'
+  ...
+# Subtest: 縱軸一律寫成「名稱（單位）」，沒有單位就不掛空括號
+ok 742 - 縱軸一律寫成「名稱（單位）」，沒有單位就不掛空括號
+  ---
+  duration_ms: 2.859
+  type: 'test'
+  ...
+# Subtest: 百分比不空格、其餘空一格；算不出來一律「－」
+ok 743 - 百分比不空格、其餘空一格；算不出來一律「－」
+  ---
+  duration_ms: 45.3691
+  type: 'test'
+  ...
+# Subtest: 變化要先給變化量再給倍數，而且倍數句一定帶主詞
+ok 744 - 變化要先給變化量再給倍數，而且倍數句一定帶主詞
+  ---
+  duration_ms: 2.1509
+  type: 'test'
+  ...
+# Subtest: 講稿裡的數字必須逐字等於 points 的值
+ok 745 - 講稿裡的數字必須逐字等於 points 的值
+  ---
+  duration_ms: 2.6401
+  type: 'test'
+  ...
+# Subtest: 整季都沒有資料時，講稿要主動講出是哪一季
+ok 746 - 整季都沒有資料時，講稿要主動講出是哪一季
+  ---
+  duration_ms: 1.7266
+  type: 'test'
+  ...
+# Subtest: 只做了平日的季度，要講出「那一條線會斷開」而不是講成假日歸零
+ok 747 - 只做了平日的季度，要講出「那一條線會斷開」而不是講成假日歸零
+  ---
+  duration_ms: 1.1954
+  type: 'test'
+  ...
+# Subtest: 沒有問題時，注意事項不可以亂講一句
+ok 748 - 沒有問題時，注意事項不可以亂講一句
+  ---
+  duration_ms: 1.581
+  type: 'test'
+  ...
+# Subtest: 尖峰小時指標一定要講出「各季尖峰不一定是同一個小時」
+ok 749 - 尖峰小時指標一定要講出「各季尖峰不一定是同一個小時」
+  ---
+  duration_ms: 2.8036
+  type: 'test'
+  ...
+# Subtest: 只有一季有資料時，不可以講成「上升」或「下降」
+ok 750 - 只有一季有資料時，不可以講成「上升」或「下降」
+  ---
+  duration_ms: 0.7813
+  type: 'test'
+  ...
+# Subtest: 寬度夠時全部印、寬度不夠時要間隔印
+ok 751 - 寬度夠時全部印、寬度不夠時要間隔印
+  ---
+  duration_ms: 0.4136
+  type: 'test'
+  ...
+# Subtest: 間隔印時最後一格一定要印，而且倒數幾格要讓位（不可以疊在一起）
+ok 752 - 間隔印時最後一格一定要印，而且倒數幾格要讓位（不可以疊在一起）
+  ---
+  duration_ms: 0.2064
+  type: 'test'
+  ...
+# Subtest: 平日與假日永遠是兩條各自的線，任何一季都不可以把兩者加起來
+ok 753 - 平日與假日永遠是兩條各自的線，任何一季都不可以把兩者加起來
+  ---
+  duration_ms: 0.9965
+  type: 'test'
+  ...
+# Subtest: 頭尾之間整季沒有資料時要補成空格，X 軸間距才對應真實時間
+ok 754 - 頭尾之間整季沒有資料時要補成空格，X 軸間距才對應真實時間
+  ---
+  duration_ms: 1.7556
+  type: 'test'
+  ...
+# Subtest: 看不懂的期別、民國與西元混用時寧可不補，不可以亂猜寫法
+ok 755 - 看不懂的期別、民國與西元混用時寧可不補，不可以亂猜寫法
+  ---
+  duration_ms: 0.5906
+  type: 'test'
+  ...
+# Subtest: 縱軸每一格的間距要是好讀的整數，軸頂一定不低於資料最大值
+ok 756 - 縱軸每一格的間距要是好讀的整數，軸頂一定不低於資料最大值
+  ---
+  duration_ms: 12.3014
+  type: 'test'
+  ...
+# Subtest: 軸頂要嚴格高於資料最大值，最高的點才不會貼著頂線被切掉
+ok 757 - 軸頂要嚴格高於資料最大值，最高的點才不會貼著頂線被切掉
+  ---
+  duration_ms: 0.4284
+  type: 'test'
+  ...
+# Subtest: 看不懂或非正的最大值不可以讓軸整個壞掉
+ok 758 - 看不懂或非正的最大值不可以讓軸整個壞掉
+  ---
+  duration_ms: 0.1859
+  type: 'test'
+  ...
+# Subtest: 前置：預設是系統依角度判定，每一格都標成 angle
+ok 759 - 前置：預設是系統依角度判定，每一格都標成 angle
+  ---
+  duration_ms: 3.9486
+  type: 'test'
+  ...
+# Subtest: 改 B 的角度，不會抹掉 A 身上人工修正過的格子
+ok 760 - 改 B 的角度，不會抹掉 A 身上人工修正過的格子
+  ---
+  duration_ms: 0.8735
+  type: 'test'
+  ...
+# Subtest: 「依角度重新判定」按鈕（force）連人工格也一起重算
+ok 761 - 「依角度重新判定」按鈕（force）連人工格也一起重算
+  ---
+  duration_ms: 0.4603
+  type: 'test'
+  ...
+# Subtest: 舊版「駛出目的支線」存過的值，會被當成人工判定併進轉向判定
+ok 762 - 舊版「駛出目的支線」存過的值，會被當成人工判定併進轉向判定
+  ---
+  duration_ms: 0.9079
+  type: 'test'
+  ...
+# Subtest: 同一轉向對到兩支 → 報異常，而且指得出是哪一支線的哪一個轉向
+ok 763 - 同一轉向對到兩支 → 報異常，而且指得出是哪一支線的哪一個轉向
+  ---
+  duration_ms: 1.1492
+  type: 'test'
+  ...
+# Subtest: 衝突的量全部進「未指定駛入路口」，不可以被系統挑給其中一支
+ok 764 - 衝突的量全部進「未指定駛入路口」，不可以被系統挑給其中一支
+  ---
+  duration_ms: 1.1993
+  type: 'test'
+  ...
+# Subtest: 某轉向有車量、卻沒有任何支線被判成它 → 也要報異常
+ok 765 - 某轉向有車量、卻沒有任何支線被判成它 → 也要報異常
+  ---
+  duration_ms: 0.4972
+  type: 'test'
+  ...
+# Subtest: 沒有車量的轉向不可以報異常（三岔路口本來就缺一個轉向）
+ok 766 - 沒有車量的轉向不可以報異常（三岔路口本來就缺一個轉向）
+  ---
+  duration_ms: 0.4116
+  type: 'test'
+  ...
+# Subtest: 目的地逐欄記錄（往B、往C…）的檔案，多支同轉向是正常的，不報異常
+ok 767 - 目的地逐欄記錄（往B、往C…）的檔案，多支同轉向是正常的，不報異常
+  ---
+  duration_ms: 2.1657
+  type: 'test'
+  ...
+# Subtest: turnTargets 如實回報「有幾支」，不像舊版默默挑一支
+ok 768 - turnTargets 如實回報「有幾支」，不像舊版默默挑一支
+  ---
+  duration_ms: 0.6655
+  type: 'test'
+  ...
+# Subtest: K14 載入用的 isValidPcu() 會拒絕字串／null／布林（下游一律當 0）
+ok 769 - K14 載入用的 isValidPcu() 會拒絕字串／null／布林（下游一律當 0）
+  ---
+  duration_ms: 1.634
+  type: 'test'
+  ...
+# Subtest: K14 ⚠️ 兩條還原路徑都必須呼叫 isValidPcu／isValidTurnPcu，不可以各寫一份
+ok 770 - K14 ⚠️ 兩條還原路徑都必須呼叫 isValidPcu／isValidTurnPcu，不可以各寫一份
+  ---
+  duration_ms: 2.45
+  type: 'test'
+  ...
+# Subtest: K14 ⚠️ 被拒絕時一定要告訴使用者，不可以靜靜退回預設值
+ok 771 - K14 ⚠️ 被拒絕時一定要告訴使用者，不可以靜靜退回預設值
+  ---
+  duration_ms: 1.3488
+  type: 'test'
+  ...
+# Subtest: K16 匯入檢核要抓到空白格，而且不可以把空白累計成 0 輛
+ok 772 - K16 匯入檢核要抓到空白格，而且不可以把空白累計成 0 輛
+  ---
+  duration_ms: 60.7222
+  type: 'test'
+  ...
+# Subtest: K23 ⚠️ 前置：解析不出時段的標籤，coverageKeyOf() 回空字串
+ok 773 - K23 ⚠️ 前置：解析不出時段的標籤，coverageKeyOf() 回空字串
+  ---
+  duration_ms: 0.8279
+  type: 'test'
+  ...
+# Subtest: K23 涵蓋指紋算不出來時，不可以退回比顯示標籤
+ok 774 - K23 涵蓋指紋算不出來時，不可以退回比顯示標籤
+  ---
+  duration_ms: 1.787
+  type: 'test'
+  ...
+# Subtest: K31 草稿不可以把讀不到的數值講成 0（成長與平假日對比兩處）
+ok 775 - K31 草稿不可以把讀不到的數值講成 0（成長與平假日對比兩處）
+  ---
+  duration_ms: 2.5455
+  type: 'test'
+  ...
+# Subtest: K32 ⚠️ 前置：平日與假日的時段聯集起來真的會變成「完整 24 小時」
+ok 776 - K32 ⚠️ 前置：平日與假日的時段聯集起來真的會變成「完整 24 小時」
+  ---
+  duration_ms: 0.8624
+  type: 'test'
+  ...
+# Subtest: K32 涵蓋判斷的分組鍵必須帶季別與日別（三處都要）
+ok 777 - K32 涵蓋判斷的分組鍵必須帶季別與日別（三處都要）
+  ---
+  duration_ms: 3.1413
+  type: 'test'
+  ...
+# Subtest: J1 湊不滿 60 分鐘一律回「資料不足」（與路口轉向同一口徑）
+ok 778 - J1 湊不滿 60 分鐘一律回「資料不足」（與路口轉向同一口徑）
+  ---
+  duration_ms: 1.3333
+  type: 'test'
+  ...
+# Subtest: 五個原始車種可全部獨立分析且總量守恆
+ok 779 - 五個原始車種可全部獨立分析且總量守恆
+  ---
+  duration_ms: 42.1293
+  type: 'test'
+  ...
+# Subtest: 新增車種可合併回四大類且不改寫原始數量
+ok 780 - 新增車種可合併回四大類且不改寫原始數量
+  ---
+  duration_ms: 0.787
+  type: 'test'
+  ...
+# Subtest: 外部PCU係數改動後，歸類到四大類的鎖定列會同步顯示同一數值
+ok 781 - 外部PCU係數改動後，歸類到四大類的鎖定列會同步顯示同一數值
+  ---
+  duration_ms: 0.8254
+  type: 'test'
+  ...
+#     （記錄）紅綠色盲視角最差配對 \#009E73↔\#D81B60 ΔE 4.0
+# Subtest: 前置：讀得到色表（讀到 0 個就是恆真）
+ok 782 - 前置：讀得到色表（讀到 0 個就是恆真）
+  ---
+  duration_ms: 3.8369
+  type: 'test'
+  ...
+# Subtest: 前置：算式真的抓得出使用者回報的舊配對（機車 \#148C8C ↔ 大型車 \#5B8DB8）
+ok 783 - 前置：算式真的抓得出使用者回報的舊配對（機車 \#148C8C ↔ 大型車 \#5B8DB8）
+  ---
+  duration_ms: 11.76
+  type: 'test'
+  ...
+# Subtest: （僅記錄，不擋）紅綠色盲視角下的最差配對是多少
+ok 784 - （僅記錄，不擋）紅綠色盲視角下的最差配對是多少
+  ---
+  duration_ms: 2.2359
+  type: 'test'
+  ...
+# Subtest: 前 6 個車種兩兩之間、之後相鄰，一般視覺下也要有明顯差距（ΔE ≥ 15）
+ok 785 - 前 6 個車種兩兩之間、之後相鄰，一般視覺下也要有明顯差距（ΔE ≥ 15）
+  ---
+  duration_ms: 17.7319
+  type: 'test'
+  ...
+# Subtest: 每個車種顏色在白底上都要看得見（大面積色塊門檻 2:1）
+ok 786 - 每個車種顏色在白底上都要看得見（大面積色塊門檻 2:1）
+  ---
+  duration_ms: 2.5006
+  type: 'test'
+  ...
+# Subtest: 色表沒有重複的顏色（兩個車種同色＝永遠分不出來）
+ok 787 - 色表沒有重複的顏色（兩個車種同色＝永遠分不出來）
+  ---
+  duration_ms: 0.312
+  type: 'test'
+  ...
+# Subtest: 顏色只有這一份（畫面與 Excel 不可以各抄一份）
+ok 788 - 顏色只有這一份（畫面與 Excel 不可以各抄一份）
+  ---
+  duration_ms: 44.6955
+  type: 'test'
+  ...
+# Subtest: 圖例不可以拿掉——類別多的時候顏色撐不住識別
+ok 789 - 圖例不可以拿掉——類別多的時候顏色撐不住識別
+  ---
+  duration_ms: 17.591
+  type: 'test'
+  ...
+# Subtest: ⚠️ 黃金值自己沒有被改過（字串與雜湊必須相符）
+ok 790 - ⚠️ 黃金值自己沒有被改過（字串與雜湊必須相符）
+  ---
+  duration_ms: 2.7402
+  type: 'test'
+  ...
+# Subtest: 沒有任何季別／路段覆寫時，所有下游輸出與改版前逐位元相同
+ok 791 - 沒有任何季別／路段覆寫時，所有下游輸出與改版前逐位元相同
+  ---
+  duration_ms: 2.7699
+  type: 'test'
+  ...
+# Subtest: 設定上的 quarter／roadId 是空字串或 undefined 時，等同於沒有寫
+ok 792 - 設定上的 quarter／roadId 是空字串或 undefined 時，等同於沒有寫
+  ---
+  duration_ms: 0.8929
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證：黃金值比較真的在比（把一筆設定改掉就必須轉紅）
+ok 793 - ⚠️ 反證：黃金值比較真的在比（把一筆設定改掉就必須轉紅）
+  ---
+  duration_ms: 0.7798
+  type: 'test'
+  ...
+# Subtest: 前置：真的讀到那幾個檔（讀成空字串的話下面全部恆綠）
+ok 794 - 前置：真的讀到那幾個檔（讀成空字串的話下面全部恆綠）
+  ---
+  duration_ms: 1.7821
+  type: 'test'
+  ...
+# Subtest: ① 畫面：兩張受影響的圖都掛上標註（車種組成、歷季趨勢）
+ok 795 - ① 畫面：兩張受影響的圖都掛上標註（車種組成、歷季趨勢）
+  ---
+  duration_ms: 2.2734
+  type: 'test'
+  ...
+# Subtest: ① 標註的文字與計算來自同一份（不可以在畫面上自己寫一套）
+ok 796 - ① 標註的文字與計算來自同一份（不可以在畫面上自己寫一套）
+  ---
+  duration_ms: 0.5569
+  type: 'test'
+  ...
+# Subtest: ① 沒有不一致時整塊不畫（恆亮的警告等於沒有警告）
+ok 797 - ① 沒有不一致時整塊不畫（恆亮的警告等於沒有警告）
+  ---
+  duration_ms: 0.5529
+  type: 'test'
+  ...
+# Subtest: ② Excel：說明寫在一旁的欄位，而且沒有不一致時整欄不加
+ok 798 - ② Excel：說明寫在一旁的欄位，而且沒有不一致時整欄不加
+  ---
+  duration_ms: 1.5643
+  type: 'test'
+  ...
+# Subtest: ② Excel：有覆寫時「車種歸類設定」要看得出套用季別與路段
+ok 799 - ② Excel：有覆寫時「車種歸類設定」要看得出套用季別與路段
+  ---
+  duration_ms: 0.7426
+  type: 'test'
+  ...
+# Subtest: ★③ 高解析圖檔：重畫圖檔的程式裡不可以有這段說明文字
+ok 800 - ★③ 高解析圖檔：重畫圖檔的程式裡不可以有這段說明文字
+  ---
+  duration_ms: 1.3657
+  type: 'test'
+  ...
+# Subtest: ★③ 前置：那四支真的抓到了，而且真的是在畫圖（否則上一條恆綠）
+ok 801 - ★③ 前置：那四支真的抓到了，而且真的是在畫圖（否則上一條恆綠）
+  ---
+  duration_ms: 2.0959
+  type: 'test'
+  ...
+# Subtest: ④ 報告草稿：歸類不一致要寫進報告，而且空的時候一個字都不寫
+ok 802 - ④ 報告草稿：歸類不一致要寫進報告，而且空的時候一個字都不寫
+  ---
+  duration_ms: 0.829
+  type: 'test'
+  ...
+# Subtest: ⑤ 標註有自己的樣式（寫了 class 卻沒有規則＝看不見的警告）
+ok 803 - ⑤ 標註有自己的樣式（寫了 class 卻沒有規則＝看不見的警告）
+  ---
+  duration_ms: 0.6953
+  type: 'test'
+  ...
+# Subtest: 順位：季別×路段 > 季別 > 路段 > 計畫預設
+ok 804 - 順位：季別×路段 > 季別 > 路段 > 計畫預設
+  ---
+  duration_ms: 8.2126
+  type: 'test'
+  ...
+# Subtest: ⚠️ 順位必須與 PCU 係數（factor-scope）一致：季別優先，不是路段優先
+ok 805 - ⚠️ 順位必須與 PCU 係數（factor-scope）一致：季別優先，不是路段優先
+  ---
+  duration_ms: 1.2261
+  type: 'test'
+  ...
+# Subtest: 空字串與沒有這個欄位等義（舊存檔讀進來是 undefined，畫面上選「全部」是空字串）
+ok 806 - 空字串與沒有這個欄位等義（舊存檔讀進來是 undefined，畫面上選「全部」是空字串）
+  ---
+  duration_ms: 2.7656
+  type: 'test'
+  ...
+# Subtest: 同分時取先出現的那一筆（與改版前 find() 的行為相同）
+ok 807 - 同分時取先出現的那一筆（與改版前 find() 的行為相同）
+  ---
+  duration_ms: 0.4685
+  type: 'test'
+  ...
+# Subtest: 顯示名稱的順位必須與數字的順位相同
+ok 808 - 顯示名稱的順位必須與數字的順位相同
+  ---
+  duration_ms: 0.8469
+  type: 'test'
+  ...
+# Subtest: 兩路段跨季互換歸類：兩個維度都必須警告，不可只比較集合
+ok 809 - 兩路段跨季互換歸類：兩個維度都必須警告，不可只比較集合
+  ---
+  duration_ms: 15.822
+  type: 'test'
+  ...
+# Subtest: ★ 跨季別歸類不同時，偵測得出來，而且說得出「不可以直接比較」
+ok 810 - ★ 跨季別歸類不同時，偵測得出來，而且說得出「不可以直接比較」
+  ---
+  duration_ms: 1.9912
+  type: 'test'
+  ...
+# Subtest: ★ 同一季裡不同路段歸類不同時，說成跨路段，不可以說成跨季別
+ok 811 - ★ 同一季裡不同路段歸類不同時，說成跨路段，不可以說成跨季別
+  ---
+  duration_ms: 1.0808
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證一：歸類一致時**不可以**有任何標註（恆亮的標註等於沒有標註）
+ok 812 - ⚠️ 反證一：歸類一致時**不可以**有任何標註（恆亮的標註等於沒有標註）
+  ---
+  duration_ms: 0.815
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證二：完全沒有設定時也不可以標（沒有設定＝自成一類，不是歸類變更）
+ok 813 - ⚠️ 反證二：完全沒有設定時也不可以標（沒有設定＝自成一類，不是歸類變更）
+  ---
+  duration_ms: 1.1423
+  type: 'test'
+  ...
+# Subtest: ⚠️ 反證三：只有一筆資料時不可以標
+ok 814 - ⚠️ 反證三：只有一筆資料時不可以標
+  ---
+  duration_ms: 0.4565
+  type: 'test'
+  ...
+# Subtest: 兩個原始車種同時變過時，兩個都要列出來
+ok 815 - 兩個原始車種同時變過時，兩個都要列出來
+  ---
+  duration_ms: 1.2939
+  type: 'test'
+  ...
+# Subtest: \#14-1 複製按鈕做在共用的 ChartNote 裡，不是逐張圖各貼一顆
+ok 816 - \#14-1 複製按鈕做在共用的 ChartNote 裡，不是逐張圖各貼一顆
+  ---
+  duration_ms: 3.2183
+  type: 'test'
+  ...
+# Subtest: \#14-2 複製出去的是純文字，不可以帶 ** 星號
+ok 817 - \#14-2 複製出去的是純文字，不可以帶 ** 星號
+  ---
+  duration_ms: 0.602
+  type: 'test'
+  ...
+# Subtest: \#14-3 剪貼簿不能用時要有退路，而且不可以寫成可選鏈短路的那種寫法
+ok 818 - \#14-3 剪貼簿不能用時要有退路，而且不可以寫成可選鏈短路的那種寫法
+  ---
+  duration_ms: 0.5217
+  type: 'test'
+  ...
+# Subtest: \#14-4 複製按鈕要放在 data-chart-note 裡面（跟著說明一起被排除在圖外）
+ok 819 - \#14-4 複製按鈕要放在 data-chart-note 裡面（跟著說明一起被排除在圖外）
+  ---
+  duration_ms: 0.2267
+  type: 'test'
+  ...
+# Subtest: \#44-1 跳轉落點要逐塊量，不可以只取第一個
+ok 820 - \#44-1 跳轉落點要逐塊量，不可以只取第一個
+  ---
+  duration_ms: 0.45
+  type: 'test'
+  ...
+# Subtest: \#44-1b 要逐分區走一遍，不可以只停在一頁掃
+ok 821 - \#44-1b 要逐分區走一遍，不可以只停在一頁掃
+  ---
+  duration_ms: 0.1883
+  type: 'test'
+  ...
+# Subtest: \#44-2 要有「落點不只一個」的前置檢查
+ok 822 - \#44-2 要有「落點不只一個」的前置檢查
+  ---
+  duration_ms: 0.2639
+  type: 'test'
+  ...
+# Subtest: \#44-3 要先印每一塊的實測值再斷言
+ok 823 - \#44-3 要先印每一塊的實測值再斷言
+  ---
+  duration_ms: 0.1734
+  type: 'test'
+  ...
+# Subtest: W-0e-1 數字卡與下面那一列之間要有間距
+ok 824 - W-0e-1 數字卡與下面那一列之間要有間距
+  ---
+  duration_ms: 0.6532
+  type: 'test'
+  ...
+# Subtest: W-0e-2 不可以直接給 .two-col 加 margin-top（視窗裡的兩欄表單會多一段）
+ok 825 - W-0e-2 不可以直接給 .two-col 加 margin-top（視窗裡的兩欄表單會多一段）
+  ---
+  duration_ms: 0.9694
+  type: 'test'
+  ...
+# Subtest: \#24-2-1 有覆寫時，開頭那句要改成「本計畫預設」而不是「本計畫採用」
+ok 826 - \#24-2-1 有覆寫時，開頭那句要改成「本計畫預設」而不是「本計畫採用」
+  ---
+  duration_ms: 0.3153
+  type: 'test'
+  ...
+# Subtest: \#24-2-2 要寫出「那不是計算錯誤」
+ok 827 - \#24-2-2 要寫出「那不是計算錯誤」
+  ---
+  duration_ms: 1.727
+  type: 'test'
+  ...
+# Subtest: \#24-2-3 覆寫只列與預設不同的車種
+ok 828 - \#24-2-3 覆寫只列與預設不同的車種
+  ---
+  duration_ms: 0.7034
+  type: 'test'
+  ...
+# Subtest: \#24-2-4 適用範圍要用 pcuScopeLabel（畫面上那個一模一樣的字）
+ok 829 - \#24-2-4 適用範圍要用 pcuScopeLabel（畫面上那個一模一樣的字）
+  ---
+  duration_ms: 0.5805
+  type: 'test'
+  ...
+# Subtest: 前置：掃描器抓得到違規句、註解不誤判
+ok 830 - 前置：掃描器抓得到違規句、註解不誤判
+  ---
+  duration_ms: 1.8015
+  type: 'test'
+  ...
+# Subtest: 使用者看得到的字串不可以用右邊／左邊／上面的／下面的／這邊那邊這類位置代稱
+ok 831 - 使用者看得到的字串不可以用右邊／左邊／上面的／下面的／這邊那邊這類位置代稱
+  ---
+  duration_ms: 119.5622
+  type: 'test'
+  ...
+# Subtest: 連續三次存檔，最後留下的是最後一次的內容（即使 open 的回應順序顛倒）
+ok 832 - 連續三次存檔，最後留下的是最後一次的內容（即使 open 的回應順序顛倒）
+  ---
+  duration_ms: 292.1164
+  type: 'test'
+  ...
+# Subtest: 存檔與刪除交錯時也照呼叫順序執行
+ok 833 - 存檔與刪除交錯時也照呼叫順序執行
+  ---
+  duration_ms: 77.254
+  type: 'test'
+  ...
+# Subtest: 沒有 indexedDB 時不會拋例外（伺服器端算繪與封鎖儲存空間的情形）
+ok 834 - 沒有 indexedDB 時不會拋例外（伺服器端算繪與封鎖儲存空間的情形）
+  ---
+  duration_ms: 0.7977
+  type: 'test'
+  ...
+# Subtest: 前一次寫入失敗後，佇列不會斷掉，下一次仍可成功保存
+ok 835 - 前一次寫入失敗後，佇列不會斷掉，下一次仍可成功保存
+  ---
+  duration_ms: 3.5259
+  type: 'test'
+  ...
+# Subtest: 尚有寫入時立刻讀取同一計畫，必須等到最新資料落地
+ok 836 - 尚有寫入時立刻讀取同一計畫，必須等到最新資料落地
+  ---
+  duration_ms: 74.301
+  type: 'test'
+  ...
+# Subtest: 排隊前即固定狀態快照，等待期間的外部改動不會偷換存檔內容
+ok 837 - 排隊前即固定狀態快照，等待期間的外部改動不會偷換存檔內容
+  ---
+  duration_ms: 45.5647
+  type: 'test'
+  ...
+# Subtest: 切換計畫時只允許已完成該計畫載入的 workflow 寫回
+ok 838 - 切換計畫時只允許已完成該計畫載入的 workflow 寫回
+  ---
+  duration_ms: 14.7105
+  type: 'test'
+  ...
+# Subtest: 含 templates 的舊 workflow 必須讀得回來，其餘欄位不可被洗掉
+ok 839 - 含 templates 的舊 workflow 必須讀得回來，其餘欄位不可被洗掉
+  ---
+  duration_ms: 32.6421
+  type: 'test'
+  ...
+# Subtest: 解析選項關掉了公式、內嵌 HTML 與 VBA
+ok 840 - 解析選項關掉了公式、內嵌 HTML 與 VBA
+  ---
+  duration_ms: 3.1803
+  type: 'test'
+  ...
+# Subtest: 匯入真的走的是那一組安全解析選項
+ok 841 - 匯入真的走的是那一組安全解析選項
+  ---
+  duration_ms: 12.2124
+  type: 'test'
+  ...
+# Subtest: 原型被污染時會被抓出來、清乾淨並中止
+ok 842 - 原型被污染時會被抓出來、清乾淨並中止
+  ---
+  duration_ms: 2.4294
+  type: 'test'
+  ...
+# Subtest: 沒有被污染時什麼都不做
+ok 843 - 沒有被污染時什麼都不做
+  ---
+  duration_ms: 0.5424
+  type: 'test'
+  ...
+1..843
+# tests 843
+# suites 0
+# pass 841
+# fail 1
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 329823.0766
