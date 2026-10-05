@@ -1,0 +1,22 @@
+
+> traffic-volume-vehicle-composition@20.97.0 build:pages
+> node node_modules/vite/bin/vite.js build --config github-pages/vite.config.ts
+
+vite v8.0.13 building client environment for production...
+[2K
+transforming...✓ 45 modules transformed.
+rendering chunks...
+computing gzip size...
+github-pages/dist/index.html                        0.52 kB │ gzip:   0.36 kB
+github-pages/dist/assets/index-b_09kH_a.css        90.54 kB │ gzip:  17.96 kB
+github-pages/dist/assets/jszip.min-CeKCovvZ.js     95.87 kB │ gzip:  28.44 kB
+github-pages/dist/assets/xlsx-BSoArgVj.js         493.28 kB │ gzip: 160.68 kB
+github-pages/dist/assets/index-DSS-yyDk.js        853.92 kB │ gzip: 215.99 kB
+github-pages/dist/assets/exceljs.min-DQuAn8yo.js  929.91 kB │ gzip: 256.42 kB
+
+✓ built in 1.44s
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

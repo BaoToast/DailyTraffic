@@ -1,8 +1,129 @@
-# 全日交通量及車種組成 v20.96 驗證報告
+# 全日交通量及車種組成 v20.97 驗證報告
 
-前一正式版：v20.95（GPT 2026-10-04 已發布，commit `1b21e1a8352b1221313de549c1325972d24578a0`）
+前一正式版：v20.96（GPT 2026-10-04 已發布，commit `90743ae705df3e4f521ed6b6341ece2497050dfb`）
 
 > ⚠️ 下面每一段各自寫著「那一版的前一正式版」，不要拿本行去覆蓋歷史段落。
+
+## GPT v20.97 獨立複查（2026-10-05；尚未發布）
+
+正式Repository為D:\Users\95108\Documents\Codex\DailyTraffic，BaoToast/DailyTraffic／main。
+起始HEAD、origin/main、GitHub main均為f977e23e6e559a5b346ed6d7d0a801ed96a74ee1，
+乾淨；該HEAD CI37192646396／Pages37192646147均success。
+使用者20261005說明ZIP已完整讀取；來源完整專案SHA-256
+7a4e5bbc385134f6f7f9067ae6e32046f992c10b3f391e35e87b79178c0a9e4c，
+說明ZIP 49074dfb261d8d5e324ea1575b0fed179f5e2ae3b0ed65199bcce8ae6bfa7bf1，
+Pages ZIP de04c3b156478b214e1208084ef023dac585db12cbb128cfd37351b7a8848a32。
+
+### 風險、實際差異與修正
+
+相對已發布v20.96為低風險註解／測試增量，不以Claude宣稱代替gates。
+原包三檔第一個註解後的程式本體完全未變；Dashboard全檔只差兩個手冊檔名，
+221個其他原app／scripts／tests檔案逐位元相同。package僅version，lock僅兩處version。
+四個禁止變更檔SHA完全維持；anyPcu、交通計算、匯入保存、匯出均未修改。
+LAST_RELEASED=96正確，不能在v20.97包改成97。
+原包Pages九檔與完整專案一致；乾淨Pages build五個資產與候選一致。
+三個JS正規化版號、日期及互相引用hash檔名後與v20.96完全一致；CSS／xlsx原位元相同。
+根index只比dist多兩個?v=20.97，保留既定快取參數。
+
+1. 新script-header-usage守門對正式v20.96舊腳本實跑1pass／2fail，
+   指名用法指向capture-baseline及方框標題重複；新版三項通過。
+2. GPT核對實作發現探針實際只切六類條件，不切調查點／方向面板，
+   且測資是本檔roadBook／intersectionBook直接產生，不是讀make-samples。
+   E2E也是切六類、另驗八條件宣告聯集，不是逐一操作八條件。
+   計畫名稱守門實際前六項涵蓋上限／輸入框掛載，最後一項是CSS靜態檢查，
+   不是瀏覽器像素量測；該註解亦精確化。僅修正註解，未改執行邏輯或放寬判準。
+3. 原包HTML及PDF內部Title留在v20.96，封面與檔名雖是v20.97仍不完整。
+   新manual-title兩項守門修前0pass／2fail、修後2pass／0fail。
+   HTML title已同步；PDF僅同長中繼資料一個位元組改動，xref及頁面stream未動，
+   35頁完整文字相同，35頁重渲染PNG均逐位元相同；已逐頁渲染目視核對。
+   現行PDF SHA-256 f2b74095ce5ff6dfa30495242f38a2e586719b93474fb2cdff23c8fbb11e2e9c，
+   两正式副本相同，頁數／字元仍35頁／26,604字元。原包a094…只屬候選歷史SHA。
+4. 第一次字面npm test：835項／832pass／2fail／1缺真實附件skip，exit1。
+   一項為上述PDF修後SHA尚未同步；已更正更新說明。
+   另一項為既有release-metadata以regex刪註解誤吃字串scripts/*.mjs，
+   把實際三項header守門數成二項。不能把文件改寫成二項迎合錯誤計數。
+   改用現有TypeScript語法樹辨識直接test()呼叫；未增加依賴。
+   新test-call-count三案例涵蓋字串內註解符號、假test文字及實際header檔。
+   隔離副本換回原regex計數實跑2pass／1fail、exit1（實際header檔被數成二項）；修後三項通過。
+   修後發布／標題／檔頭／計數相關20項全部通過。
+   第二次完整驗證曾由lint抓到GPT新增fixture的兩個多餘跳脫；已修正，
+   保留complete-test-lint-red.log，以下完整綠燈是修後重新執行的字面命令結果。
+
+### 完整封關及證據界線
+
+Node22.23.3／npm11.6.2，預設heap；乾淨npm ci成功。
+修後字面npm test exit0：838項／837pass／0fail／1缺真實附件conditional skip，
+含lint零warnings、TypeScript、字形守門及production build。
+效能平方反證96.6倍（10,000→100,000），線性6.4倍（300,000→3,000,000），門檻30不變。
+完整測試中的原11路段案例已驗黃金值688,205輛／日、530,122PCU／日不變。
+字面npm run e2e退出碼0：59/59支正式脚本串行通過，日誌1,438 ✅／0 ❌。
+本輪未並行E2E；61個e2e命名檔含59支正式腳本、nav共用helper及未執行的tryout smoke。
+完成後五個Pages資產仍與根目錄相同，四個禁止變更檔及四份正式／建置PDF副本再次核對。
+當前已完成本機封關，GitHub推送及線上發布另行實測後補記；不沿用Claude封關數字。
+最新audit完整樹16high／6moderate，production2moderate／0high／critical，兩條exit1。
+沒有真實公司附件，不能把條件略過稱通過；本輪未重新用Microsoft Office實開，
+也未在WASM平台實際建置。不執行、不產生、不交付試用版HTML；原有腳本保留。
+下方Claude本版封關及過去版本是交付／歷史紀錄，不取代GPT的本輪實測。
+
+---
+
+## v20.97（2026-10-05）：三處檔頭／註解與實際不符——**只改註解**
+
+**本版沒有任何程式行為改變。** 改動範圍：
+
+| 檔 | 改了什麼 |
+| --- | --- |
+| `scripts/probe-filter-matrix.mjs` | 檔頭整段原本是 `scripts/capture-baseline.mjs` 的（標題與「用法」都是別支的）。改寫成這一支真正做的事：**用手跑的探針**，不在任何 npm script 裡，逐一切換每個篩選條件、印出每個分區的「變／註／✗」矩陣 |
+| `scripts/e2e-filter-coverage.mjs` | 檔頭同一個錯。改寫成：**守門**，在 `npm run e2e` 鏈上，驗「每一塊都要對八個篩選條件逐一表態」 |
+| `tests/project-name-limit.test.mjs` | 說明段落把「換行」那一半說成由一支**專案外的暫存腳本**實測；那個目錄早就不存在，而換行的守門已經在同一支測試的最後一個 `test()` 裡。改寫成「兩半都在這一支」 |
+
+⚠️ 依「Claude 一改就要升一個 patch」升版 v20.96 → v20.97，連帶改的是版號四處
+（`app/system-release.ts`、`package.json`、`package-lock.json` 兩處 version 欄位、
+`app/DashboardClient.tsx` 的手冊連結）＋ `scripts/manual/manual.html` 封面戳記
+＋ 重建資產與重新產生手冊。**升版逐處指定，沒有用整檔字串取代。**
+
+### 新增守門：`tests/script-header-usage.test.mjs`（3 項）
+
+⚠️ **為什麼一定要加**：這三處是「檔頭敘述與實際不符」，而**原本沒有任何守門在管這件事**，
+所以「舊版會紅」這項證據拿不出來——那等於修了也擋不住它再回來。依
+「守門該加就加，不可以拿要重跑測試當藉口」補上這一支。
+
+| 判準 | 內容 |
+| --- | --- |
+| ① 前置 | 真的掃到 ≥ 40 支 `scripts/*.mjs`，而且其中 ≥ 2 支寫了「用法」——**防正規式改壞之後抓到 0 行、安靜恆綠** |
+| ② 用法行 | 檔頭的「用法」如果**點名**某一支 `scripts/*.mjs`，那一支**必須是自己** |
+| ③ 方框標題 | 夾在兩行 `═` 之間的標題，**不可以與別支腳本一字不差地相同**（整段抄過去忘了改的典型） |
+
+**反證（在另一份複本上做，不是在封關樹上）**：把兩支的檔頭換回原本那一段
+（別支的方框標題 ＋ 別支的用法行）→ **判準 ② 與 ③ 各自紅**，1 pass／2 fail，
+訊息逐一指名是哪一支指向哪一支；還原後 **3 pass／0 fail**。
+
+⚠️ 判準 ③ 第一版取的是「檔頭第一個有中文的註解行」，結果抓到
+`e2e-period.mjs` 與 `e2e-report-draft.mjs` **共用的一句操作備註**（兩支都真的需要寫的話）
+——那是**假的紅**。改成只取方框標題之後才對。照實記下來，因為這正是
+「量錯對象的測試比沒有測試更糟」那一條。
+
+### 這一版「行為沒變」的證據
+
+| 項 | 結果 |
+| --- | --- |
+| 樣式表 `index-b_09kH_a.css` | **檔名與雜湊都與 v20.96 逐位元相同**（`6aa79bb8…`） |
+| xlsx chunk `xlsx-BSoArgVj.js` | **檔名與雜湊都相同**（`4a22ccda…`） |
+| 主程式 bundle | 換名（`index-Dtfgu8Vw.js` → `index-DSS-yyDk.js`），原因是**版號字串改變**；bundle 內含 `v20.97`、**0 處 `v20.96`** |
+| `exceljs` / `jszip` 兩個 chunk | 跟著主檔雜湊換名（它們第一行 import 主檔），**不是換了套件版本** |
+| `package.json` | **僅 `version` 欄位不同，其餘欄位相同** |
+| `package-lock.json` | **僅兩處 `version` 欄位不同，依賴樹一個節點都沒動** |
+| 手冊 | **35 頁 / 26,604 字元**——與 v20.96 相同（內容沒改，只有封面戳記與頁尾版號日期），SHA-256 `a094e0129f573129e23699a982db0e2a3d4a4cdbed4696588a4a61d3efde4c16`（pdftotext -enc UTF-8、換行統一為 LF、NFKC、含空白；在 Claude 的容器量） |
+
+### 證據界線（照實寫）
+
+- **本版沒有做線上驗證**：`WebFetch` 連得上 `baotoast.github.io`，但它會把頁面轉成
+  markdown 而濾掉 `<script>`／`<link>`，看不到資產檔名；抓資產網址要使用者授權。
+  **CI／Pages 與線上雜湊要等 GPT 發布後以他的證據為準。**
+- **沒有真實調查附件**，條件式測試的略過**不等於通過**。
+- 沒有在真的 Microsoft Office 裡開過 Excel／Word。
+- 上面的資產與手冊雜湊是在 **Claude 的容器**建出來的；GPT 重新建置後**以他那一份為準**。
+
 
 ## GPT v20.96 獨立複查並發布（2026-10-04）
 

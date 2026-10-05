@@ -1,0 +1,76 @@
+TAP version 13
+# Subtest: WASM fallback keeps its exact-version dependency lock entries
+ok 1 - WASM fallback keeps its exact-version dependency lock entries
+  ---
+  duration_ms: 6.2197
+  type: 'test'
+  ...
+# Subtest: 上限本身要是實際案名放得下的長度
+ok 2 - 上限本身要是實際案名放得下的長度
+  ---
+  duration_ms: 0.6095
+  type: 'test'
+  ...
+# Subtest: 新輸入超過上限會被擋下來
+ok 3 - 新輸入超過上限會被擋下來
+  ---
+  duration_ms: 0.1324
+  type: 'test'
+  ...
+# Subtest: 上限以內的輸入一字不動
+ok 4 - 上限以內的輸入一字不動
+  ---
+  duration_ms: 0.0771
+  type: 'test'
+  ...
+# Subtest: 既有的超長內容不可以被截斷（這是會靜靜掉資料的那一項）
+ok 5 - 既有的超長內容不可以被截斷（這是會靜靜掉資料的那一項）
+  ---
+  duration_ms: 0.1235
+  type: 'test'
+  ...
+# Subtest: 既有的超長內容也不可以再變得更長
+ok 6 - 既有的超長內容也不可以再變得更長
+  ---
+  duration_ms: 0.1947
+  type: 'test'
+  ...
+# Subtest: 輸入框同時掛上 maxLength 與 capText，且改名框的 maxLength 不擋既有長度
+ok 7 - 輸入框同時掛上 maxLength 與 capText，且改名框的 maxLength 不擋既有長度
+  ---
+  duration_ms: 3.6984
+  type: 'test'
+  ...
+# Subtest: 換行那一半：CSS 要同時處理彈性軌道與元素本身
+ok 8 - 換行那一半：CSS 要同時處理彈性軌道與元素本身
+  ---
+  duration_ms: 4.2127
+  type: 'test'
+  ...
+# Subtest: 前置：真的掃到腳本，而且其中有一定數量寫了「用法」
+ok 9 - 前置：真的掃到腳本，而且其中有一定數量寫了「用法」
+  ---
+  duration_ms: 0.6603
+  type: 'test'
+  ...
+# Subtest: 檔頭的「用法」如果點名某一支 scripts/*.mjs，那一支必須是自己
+ok 10 - 檔頭的「用法」如果點名某一支 scripts/*.mjs，那一支必須是自己
+  ---
+  duration_ms: 1.4085
+  type: 'test'
+  ...
+# Subtest: 檔頭的方框標題不可以與別支腳本一字不差地相同
+ok 11 - 檔頭的方框標題不可以與別支腳本一字不差地相同
+  ---
+  duration_ms: 2.237
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 346.3001

@@ -1,0 +1,83 @@
+TAP version 13
+# Subtest: 前置：真的掃到腳本，而且其中有一定數量寫了「用法」
+ok 1 - 前置：真的掃到腳本，而且其中有一定數量寫了「用法」
+  ---
+  duration_ms: 0.6136
+  type: 'test'
+  ...
+# Subtest: 檔頭的「用法」如果點名某一支 scripts/*.mjs，那一支必須是自己
+not ok 2 - 檔頭的「用法」如果點名某一支 scripts/*.mjs，那一支必須是自己
+  ---
+  duration_ms: 2.6269
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2097-header-negative\\tests\\script-header-usage.test.mjs:72:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    有腳本的檔頭「用法」指向別支腳本——照它跑會跑錯東西：
+      scripts/e2e-filter-coverage.mjs 的用法行指向 scripts/capture-baseline.mjs
+      scripts/probe-filter-matrix.mjs 的用法行指向 scripts/capture-baseline.mjs
+    + actual - expected
+    
+    + [
+    +   'scripts/e2e-filter-coverage.mjs 的用法行指向 scripts/capture-baseline.mjs',
+    +   'scripts/probe-filter-matrix.mjs 的用法行指向 scripts/capture-baseline.mjs'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'scripts/e2e-filter-coverage.mjs 的用法行指向 scripts/capture-baseline.mjs'
+    1: 'scripts/probe-filter-matrix.mjs 的用法行指向 scripts/capture-baseline.mjs'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2097-header-negative/tests/script-header-usage.test.mjs:86:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: 檔頭的方框標題不可以與別支腳本一字不差地相同
+not ok 3 - 檔頭的方框標題不可以與別支腳本一字不差地相同
+  ---
+  duration_ms: 2.1106
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2097-header-negative\\tests\\script-header-usage.test.mjs:94:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    有兩支以上的腳本方框標題一字不差地相同——通常代表整段抄過去忘了改：
+      「升級前後逐格比對用的「數字基準」（全日交通量）」→ capture-baseline.mjs、e2e-filter-coverage.mjs、probe-filter-matrix.mjs
+    + actual - expected
+    
+    + [
+    +   '「升級前後逐格比對用的「數字基準」（全日交通量）」→ capture-baseline.mjs、e2e-filter-coverage.mjs、probe-filter-matrix.mjs'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: '「升級前後逐格比對用的「數字基準」（全日交通量）」→ capture-baseline.mjs、e2e-filter-coverage.mjs、probe-filter-matrix.mjs'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2097-header-negative/tests/script-header-usage.test.mjs:128:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 1
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 216.0986

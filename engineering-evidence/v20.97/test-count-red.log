@@ -1,0 +1,48 @@
+TAP version 13
+# Subtest: 字串中的scripts/*.mjs不可以吞掉真正test呼叫
+ok 1 - 字串中的scripts/*.mjs不可以吞掉真正test呼叫
+  ---
+  duration_ms: 0.6935
+  type: 'test'
+  ...
+# Subtest: 字串、正規式、註解中的假test呼叫不計入
+ok 2 - 字串、正規式、註解中的假test呼叫不計入
+  ---
+  duration_ms: 0.1263
+  type: 'test'
+  ...
+# Subtest: 實際script-header-usage守門包含三項，不能誤數成二項
+not ok 3 - 實際script-header-usage守門包含三項，不能誤數成二項
+  ---
+  duration_ms: 1.7769
+  type: 'test'
+  location: 'D:\\Users\\95108\\AppData\\Local\\Temp\\dailytraffic-v2097-count-negative\\tests\\test-call-count.test.mjs:14:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    2 !== 3
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 3
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Users/95108/AppData/Local/Temp/dailytraffic-v2097-count-negative/tests/test-call-count.test.mjs:16:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 2
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 85.6485

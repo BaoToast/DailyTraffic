@@ -1,5 +1,29 @@
 # 全日交通量及車種組成：工程交接基準
 
+> **GPT v20.97 獨立複查進行中（2026-10-05，尚未發布）**：起始正式HEAD
+> f977e23e6e559a5b346ed6d7d0a801ed96a74ee1，低風險註解／測試增量。
+> GPT修正檔頭六類操作／八條件宣告範圍及內建測資來源、手冊HTML／PDF內部Title，
+> 補兩項實跑紅綠守門；PDF正文、35頁渲染不變。另修復既有regex測試條數誤計，
+> 改用語法樹並加三項實跑反證。未改交通計算／保存／匯出或四個禁止變更檔。
+> 本機字面npm test退出0：837pass／0fail／1缺真實附件略過；59/59正式E2E串行
+> 通過，1,438 ✅／0 ❌。本機封關完成，正式推送／線上發布尚待核對；
+> 證據見VALIDATION_v20.97.md與engineering-evidence/v20.97，下方Claude為原包紀錄。
+
+> **Claude v20.97 交付候選（2026-10-05，尚未發布）**：只改三處**註解**——
+> `scripts/probe-filter-matrix.mjs` 與 `scripts/e2e-filter-coverage.mjs` 的檔頭
+> 原本整段是 `scripts/capture-baseline.mjs` 的（標題與用法都指向別支）、
+> `tests/project-name-limit.test.mjs` 把「換行」那一半說成由一支已不存在的
+> 專案外暫存腳本實測（實際上那個守門就在同一支測試的最後一個 `test()`）。
+> **程式行為、計算、畫面、依賴宣告一個字都沒有動**；樣式表與 xlsx chunk
+> 檔名與雜湊與 v20.96 **逐位元相同**，主程式 bundle 只因版號字串改變而重建。
+> 依「Claude 一改就要升一個 patch」升版。詳見 `VALIDATION_v20.97.md`。
+>
+> **前一正式版：v20.96**（GPT 2026-10-04 已發布上線，
+> commit `90743ae705df3e4f521ed6b6341ece2497050dfb`）。本包建在它之上，
+> **目前沒有任何未發布的候選區間**——v20.97 是這一刻唯一的候選。
+>
+> ── 以下是前一正式版 v20.96 的紀錄（歷史）──
+>
 > **GPT v20.96 本輪封關並發布（2026-10-04）**：起始正式 HEAD
 > `955ef6b5c75460439f81868bcd3168f340dbec83`；中風險依賴／建置鏈複查。
 > 已補回兩個 WASM 必要鎖定節點，新守門對原包與 runtime 隔離破壞均實跑紅燈、
@@ -8,7 +32,7 @@
 > 五資產乾淨重建與候選包一致，三個JS正規化發布中繼資料後與v20.95相同；
 > 不修改交通計算、保存、匯出，黃金值維持。35頁手冊已渲染核對。
 > production 2 moderate，完整樹16 high／6 moderate；audit仍非零退出。
-> 尚未重做真實附件／Office／WASM平台實際建置；完整證據見 VALIDATION_v20.96.md。
+> 尚未重做真實附件／Office／WASM平台實際建置；完整證據見 VALIDATION_v20.97.md（v20.96 那一輪的證據在同一份檔案的歷史段落）。
 > 程式 release `90743ae705df3e4f521ed6b6341ece2497050dfb` 已推送 main，
 > CI `37192254007`／Pages `37192253728` 均 success；線上九檔 SHA 相符、
 > 五個舊版專屬 URL 為404，實際瀏覽器顯示v20.96且無JavaScript錯誤。
@@ -31,7 +55,7 @@
 > ⚠️ `npm audit --omit=dev` 前後都是 2 moderate；完整樹 30 → **22 項（6 moderate／16 high）**。
 > 封關：字面 `npm test` 離開碼 0；字面 `npm run e2e` 離開碼 0。
 > ⚠️ **沒有線上發布證據**（Claude 的容器連不到 GitHub Pages），要等 GPT 發布。
-> 詳見 `VALIDATION_v20.96.md`。
+> 詳見 `VALIDATION_v20.97.md`（累積式，含 v20.96 的段落）。
 >
 > 以下 GPT v20.95 與 Claude v20.95 兩段都是**歷史紀錄**，不是本輪重新驗證。
 
@@ -114,17 +138,17 @@ PNG 不帶歸類警告文字，是使用者刻意要求的乾淨圖版，不可�
 | 英文／套件識別 | DailyTraffic；`traffic-volume-vehicle-composition` |
 | 用途 | 匯入路段或路口全日交通調查 Excel，進行全日交通量、PCU、尖峰小時、方向／路口流向、車種組成、歷季與跨計畫比較、品質檢查及可編輯 Excel 報表等分析 |
 | 本機資料夾 | `DailyTraffic` |
-| 本機完整路徑（2026-10-04 實際核對） | `D:\Users\95108\Documents\Codex\DailyTraffic` |
+| 本機完整路徑（2026-10-05 實際核對） | `D:\Users\95108\Documents\Codex\DailyTraffic` |
 | GitHub Repository | `BaoToast/DailyTraffic` |
 | Repository URL／origin | `https://github.com/BaoToast/DailyTraffic.git` |
 | GitHub Pages | `https://baotoast.github.io/DailyTraffic/` |
 | 正式部署方式 | GitHub Pages，由 Repository 根目錄發布；GitHub Actions 只測試、不部署 |
 | branch | `main`（本機已追蹤 `origin/main`） |
-| 本輪複查基準 | `955ef6b5c75460439f81868bcd3168f340dbec83`，v20.95 最後交接 HEAD；本機／origin/main／GitHub main 相同且乾淨；該 HEAD 的 CI `37164816427`／Pages `37164816143` 已成功 |
-| 本輪複查 | 使用者指定 20261004b 的 v20.96；中風險依賴／建置鏈修改；GPT gates 已通過並發布，不以 Claude 原包封關代替實測 |
+| 本輪複查基準 | `f977e23e6e559a5b346ed6d7d0a801ed96a74ee1`，v20.96 最後交接 HEAD；本機／origin/main／GitHub main 相同且乾淨；該 HEAD 的 CI `37192646396`／Pages `37192646147` 已成功 |
+| 本輪複查 | 使用者指定 20261005 的 v20.97；低風險註解／測試增量；GPT獨立實測及發布狀態見本檔最上方與VALIDATION_v20.97.md，不以Claude原包封關代替實測 |
 | v20.81 複查起始基準 | `d34dc9ea8a72654e4ece12db80cb73d2b9030b3f`；此前正式程式版為 `da4d6505cff50d14c46572673dd78eb0bd8a9d00`（v20.80） |
 | 正式版本 | `v20.96`，程式 release commit `90743ae705df3e4f521ed6b6341ece2497050dfb`，台北時間 2026-10-04 17:28:11；CI `37192254007`／Pages `37192253728` 均 success，線上已實測。前一正式版 `v20.95`，release commit `1b21e1a8352b1221313de549c1325972d24578a0`；本輪起始 HEAD `955ef6b5c75460439f81868bcd3168f340dbec83`。版本來源 `app/system-release.ts`，畫面／原包／手冊更新日 2026-10-04。本輪證據在 `VALIDATION_v20.96.md`，最後文件 HEAD 以 Git main 及交付收據核對 |
-| 本版來源 | 使用者指定 20261004b 的 Claude v20.96 包，SHA-256 `e86e8f265d3e5c5c2d4b1a5be3215b60370a2a2177ae6e22b49feefd53190c74`；說明 ZIP `9bc78c7794b99827e515515755698c1c4c4ddb0e868dbe06c84940897d34dfd7`。GPT 補回兩個 WASM 依賴鎖定節點、新增實跑反證守門、修正文書；交通計算、保存及匯出原始碼未變。完整本輪證據在 `VALIDATION_v20.96.md`；更早候選由 Git 與累積報告保存 |
+| 本版來源 | 使用者指定20261005的Claude v20.97完整包，SHA-256 `7a4e5bbc385134f6f7f9067ae6e32046f992c10b3f391e35e87b79178c0a9e4c`；說明ZIP `49074dfb261d8d5e324ea1575b0fed179f5e2ae3b0ed65199bcce8ae6bfa7bf1`。GPT精確化註解、修正手冊內部Title及既有測試條數誤計，新增實跑紅綠守門；未改交通計算、保存及匯出。完整證據在 `VALIDATION_v20.97.md`；更早候選由Git與累積報告保存 |
 | 本文件 commit | 以包含本檔的最新 `git log -1` 為準；Git commit 無法在同一個 commit 內容中自我記錄自己的雜湊 |
 
 ### 三套交通程式的界線

@@ -745,6 +745,15 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    *   **而 .94 是真的發布了**，守門逼著文件去寫一句假話。
    *   這一條是 Claude 2026-10-03 第二次複查時抓到並移正的。
    *
+   * ⚠️ 2026-10-05：**又動了一次，95 → 96。** GPT 已把 **v20.96** 正式發布上線
+   *   （commit `90743ae705df3e4f521ed6b6341ece2497050dfb`，CI 37192254007／
+   *   Pages 37192253728 皆 success，線上九檔 SHA 相符、五個舊版 URL 為 404）。
+   *   所以本版（v20.97）的前一正式版是 **.96**，未發布候選區間是空的，
+   *   這一支會走「前一版就是正式發布版」那條分支，要求現況文件寫明
+   *   「前一正式版：v20.96」。
+   *   ⚠️ 上一輪（v20.96 那一包）這個常數必須留在 95，不是寫錯——
+   *   它記的是「**本版的前一個正式發布版**」，本版自己發布之後才能往前移。
+   *
    * ⚠️ 2026-10-04：**又動了一次，89 → 94 → 95。** GPT 已把 v20.95 正式發布上線
    *   （commit `1b21e1a8352b1221313de549c1325972d24578a0`，CI 37164410013／
    *   Pages 37164409563 皆 success），所以本版（v20.96）的前一正式版是 .95。
@@ -753,7 +762,7 @@ test("未發布候選版的區間與數量，三份現況文件都要寫到本�
    *   「基準線不可以超過本版的前一版」的斷言擋下來（這是本輪新加的）。
    *   每一個新候選都要重新核對當時真正已經發布的版本。
    */
-  const LAST_RELEASED = 95;
+  const LAST_RELEASED = 96;
   const CJK = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const pkg = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -1016,10 +1025,9 @@ test("文件寫的測試條數必須等於那支檔案裡 test() 的數量", asy
       const full = join(ROOT, "tests", file);
       if (!existsSync(full)) continue; /* 檔案不在包裡由另一支守門管 */
       seen += 1;
-      const body = (await rf(full, "utf8"))
-        .replace(/\/\*[\s\S]*?\*\//g, " ")
-        .replace(/^[ \t]*\/\/[^\n]*$/gm, " ");
-      const real = (body.match(/^\s*test\(/gm) || []).length;
+      // 字串／正規式也可能含註解符號，不能先用regex刪註解再數。
+      const { countTestCalls } = await import("../scripts/test-call-count.mjs");
+      const real = countTestCalls(await rf(full, "utf8"), full);
       const claimed = CJK[raw] ?? Number(raw);
       if (claimed !== real)
         bad.push(`${doc}：${file} 寫 ${raw}，實際 ${real}`);

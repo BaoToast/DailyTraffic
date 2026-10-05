@@ -1,0 +1,16 @@
+
+> traffic-volume-vehicle-composition@20.97.0 test
+> npm run lint && npm run typecheck && npm run glyph-guard && npm run build && node --test tests/*.test.mjs
+
+
+> traffic-volume-vehicle-composition@20.97.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern "github-pages/dist" --ignore-pattern "github-pages/.tryout" --max-warnings=0
+
+[BABEL] Note: The code generator has deoptimised the styling of D:\Users\95108\AppData\Local\Temp\dailytraffic-v2097-review-20261005\app\DashboardClient.tsx as it exceeds the max of 500KB.
+
+D:\Users\95108\AppData\Local\Temp\dailytraffic-v2097-review-20261005\tests\test-call-count.test.mjs
+  11:36  error  Unnecessary escape character: \"  no-useless-escape
+  11:48  error  Unnecessary escape character: \"  no-useless-escape
+
+✖ 2 problems (2 errors, 0 warnings)
+
